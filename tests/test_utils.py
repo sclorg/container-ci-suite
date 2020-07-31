@@ -24,21 +24,41 @@
 
 import pytest
 
-from flexmock import flexmock
-
-from container_ci_suite.utils import get_public_image_name
+from container_ci_suite.utils import (
+    get_public_image_name,
+    get_npm_variables,
+    get_mount_ca_file,
+)
+from tests.conftest import create_ca_file, delete_ca_file
 
 
 class TestContainerCISuiteUtils(object):
-
     @pytest.mark.parametrize(
         "os,base_image_name,version,expected_str",
         [
             ("rhel7", "nodejs", "12", "registry.redhat.io/rhscl/nodejs-12-rhel7"),
             ("rhel8", "nodejs", "14", "registry.redhat.io/rhel8/nodejs-14"),
-            ("centos7", "nodejs", "10", "docker.io/centos/nodejs-10-centos7")
-        ]
+            ("centos7", "nodejs", "10", "docker.io/centos/nodejs-10-centos7"),
+        ],
     )
     def test_get_public_image_name(self, os, base_image_name, version, expected_str):
-        name = get_public_image_name(os=os, base_image_name=base_image_name, version=version)
+        name = get_public_image_name(
+            os=os, base_image_name=base_image_name, version=version
+        )
         assert name == expected_str
+
+    def test_get_npm_variables_no_ca_file(self):
+        assert get_npm_variables() == ""
+
+    def test_get_mount_ca_file_no_ca_file(self):
+        assert get_mount_ca_file() == ""
+
+    def test_get_npm_variables(self):
+        create_ca_file()
+        assert get_npm_variables() == f"-e NPM_MIRROR=foobar {get_mount_ca_file()}"
+        delete_ca_file()
+
+    def test_get_mount_ca_file(self):
+        create_ca_file()
+        assert get_mount_ca_file() == f"{get_mount_ca_file()}"
+        delete_ca_file()
