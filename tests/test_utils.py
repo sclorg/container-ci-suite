@@ -21,3 +21,24 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+import pytest
+
+from flexmock import flexmock
+
+from container_ci_suite.utils import get_public_image_name
+
+
+class TestContainerCISuiteUtils(object):
+
+    @pytest.mark.parametrize(
+        "os,base_image_name,version,expected_str",
+        [
+            ("rhel7", "nodejs", "12", "registry.redhat.io/rhscl/nodejs-12-rhel7"),
+            ("rhel8", "nodejs", "14", "registry.redhat.io/rhel8/nodejs-14"),
+            ("centos7", "nodejs", "10", "docker.io/centos/nodejs-10-centos7")
+        ]
+    )
+    def test_get_public_image_name(self, os, base_image_name, version, expected_str):
+        name = get_public_image_name(os=os, base_image_name=base_image_name, version=version)
+        assert name == expected_str
