@@ -1,0 +1,34 @@
+FROM registry.fedoraproject.org/fedora:32
+
+ENV LANG=en_US.UTF-8
+ENV NAME=betka \
+    RELEASE=1 \
+    ARCH=x86_64 \
+    SUMMARY="Container CI suite testing container" \
+    DESCRIPTION="Container for testing Container CI suite" \
+    HOME="/tmp/container-ci-suite"
+
+LABEL summary="$SUMMARY" \
+      description="$DESCRIPTION" \
+      io.k8s.description="$SUMMARY" \
+      io.k8s.display-name="$NAME" \
+      com.redhat.component="$NAME" \
+      name="$FGC/$NAME" \
+      release="$RELEASE.$DISTTAG" \
+      architecture="$ARCH" \
+      maintainer="Petr Hracek <phracek@redhat.com>"
+
+RUN mkdir -p ${HOME}
+# Install requirements
+COPY requirements.sh requirements.txt ${HOME}/
+RUN cd ${HOME} && \
+   bash requirements.sh && \
+   pip3 install -r requirements.txt
+
+WORKDIR ${HOME}
+
+# Install betka
+COPY ./ ${HOME}
+RUN pip3 install .
+
+CMD LOGS_DIR=/tmp python3 -m pytest --color=yes --verbose --showlocals ${HOME}/tests/

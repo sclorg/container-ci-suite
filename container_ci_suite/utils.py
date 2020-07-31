@@ -31,12 +31,17 @@ from container_ci_suite.constants import CA_FILE_PATH
 logger = logging.getLogger()
 
 
+def get_file_content(filename: Path) -> str:
+    with open(str(filename)) as f:
+        return f.read()
+
+
 def get_full_ca_file_path() -> Path:
     return Path(CA_FILE_PATH)
 
 
 def get_os_environment(variable: str) -> str:
-    return os.environ(variable)
+    return os.getenv(variable)
 
 
 def get_mount_ca_file() -> str:
@@ -64,6 +69,15 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
         return f"{registry}/rhel8/{base_image_name}-{version}"
     else:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
+
+
+def run_docker_command(cmd, return_output: bool = True, ignore_error: bool = False,
+                       shell: bool = True, **kwargs):
+    """
+    Run docker command:
+    """
+    run_command(f"docker {cmd}", return_output=return_output, ignore_error=ignore_error,
+                shell=shell, kwargs=kwargs)
 
 
 def run_command(cmd, return_output: bool = True, ignore_error: bool = False,
