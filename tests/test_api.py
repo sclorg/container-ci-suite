@@ -23,6 +23,13 @@
 # SOFTWARE.
 
 import pytest
+import flexmock
+
+from tempfile import mkdtemp
+from pathlib import Path
+
+from container_ci_suite.api import ContainerCISuite
+from container_ci_suite.container import DockerCLIWrapper
 
 from tests.conftest import s2i_build_as_df_fedora_test_app
 from tests.spellbook import DATA_DIR
@@ -41,29 +48,19 @@ class TestContainerCISuiteAPI(object):
             )
         ],
     )
-    def test_get_public_image_name(self, app_path, s2i_args, src_image, dest_image, df):
-        pass
-        # ccs = ContainerCISuite(image_name=src_image)
-        # flexmock(DockerCLIWrapper)\
-        #     .should_receive("docker_image_exists")\
-        #     .with_args(src_image)\
-        #     .and_return(True)
-        # flexmock(DockerCLIWrapper)\
-        #     .should_receive("docker_image_exists")\
-        #     .with_args(src_image)\
-        #     .and_return(True)
-        # flexmock(DockerCLIWrapper)\
-        #     .should_receive("docker_inspect")\
-        #     .and_return("")
-        # flexmock(DockerCLIWrapper)\
-        #     .should_receive("docker_run_command")\
-        #     .and_return(1001)
-        # generated_df = ccs.s2i_create_df(
-        #     app_path=app_path,
-        #     s2i_args=s2i_args,
-        #     src_image=src_image,
-        #     dst_image=dest_image
-        # )
-        # with open(generated_df) as f:
-        #     output = f.readlines()
-        # assert output == df
+    def test_s2i_build_from_df(self, app_path, s2i_args, src_image, dest_image, df):
+        ccs = ContainerCISuite(image_name=src_image)
+        flexmock(DockerCLIWrapper).should_receive("docker_image_exists").with_args(
+            src_image
+        ).and_return(True)
+        flexmock(DockerCLIWrapper).should_receive("docker_inspect").and_return(1001)
+        flexmock(DockerCLIWrapper).should_receive("docker_get_user_id").and_return(1001)
+        tmp_dir = Path(mkdtemp())
+        generated_df = ccs.s2i_create_df(
+            tmp_dir=tmp_dir,
+            app_path=app_path,
+            s2i_args=s2i_args,
+            src_image=src_image,
+            dst_image=dest_image,
+        )
+        assert generated_df == df

@@ -59,3 +59,9 @@ class DockerCLIWrapper(object):
     @staticmethod
     def docker_run_command(cmd):
         return DockerCLIWrapper.run_docker_command(f"run {cmd}")
+
+    @staticmethod
+    def docker_get_user_id(src_image, user):
+        return DockerCLIWrapper.docker_run_command(
+            f"--rm {src_image} bash -c 'id -u {user} 2>/dev/null"
+        )

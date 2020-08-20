@@ -6,7 +6,7 @@ build-test:
 	docker build --tag ${TEST_IMAGE_NAME} -f Dockerfile.tests .
 
 test:
-	cd tests && PYTHONPATH=$(CURDIR) pytest --color=yes --verbose --showlocals
+	cd tests && PYTHONPATH=$(CURDIR) pytest --color=yes -v --showlocals
 
 test-in-container: build-test
 	docker run --rm --net=host -e DEPLOYMENT=test ${TEST_IMAGE_NAME}
