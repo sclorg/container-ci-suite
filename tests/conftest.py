@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 
 from container_ci_suite.constants import CA_FILE_PATH
+from tests.spellbook import DATA_DIR
 
 
 def create_ca_file():
@@ -37,3 +38,18 @@ def delete_ca_file():
     p = Path(CA_FILE_PATH)
     p.unlink()
     os.unsetenv("NPM_REGISTRY")
+
+
+def s2i_build_as_df_fedora_test_app():
+    return [
+        "FROM f32/nodejs:12",
+        f"LABEL io.openshift.s2i.build.image=f32/nodejs:12 \
+        io.openshift.s2i.build.source-location=file://{DATA_DIR}/test-app"
+        "USER root",
+        "COPY upload /src/ /tmp/src",
+        "RUN chown -R 1001:0 /tmp/src",
+        "ENV NODE_ENV=development",
+        "USER 1001",
+        "RUN /usr/libexec/s2i/assemble",
+        "CMD /usr/libexec/s2i/run",
+    ]

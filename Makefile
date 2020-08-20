@@ -1,4 +1,4 @@
-.PHONY: prepare build build-generator build-test run run-generator test test-in-container clean send-master-sync send-pr-sync image-push deploy
+.PHONY: build-test test test-in-container clean
 
 TEST_IMAGE_NAME = container-ci-suite-test
 
@@ -13,4 +13,3 @@ test-in-container: build-test
 
 clean:
 	find . -name '*.pyc' -delete
-

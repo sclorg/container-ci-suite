@@ -1,6 +1,39 @@
 # container-ci-suite
 This repos is used for testing SCL containers
 
+##  How to use Container CI Suite for testing containers
+
+Install this suite by command:
+
+```bash
+pip3 install git+https://github.com/phracek/container-ci-suite
+```
+
+### Run a test with Container-CI-Suite
+
+```python
+import os
+
+import pytest
+
+from container_ci_suite.api import ContainerCISuite
+
+image_name = os.environ.get("IMAGE_NAME", "nginx-container")
+test_dir = os.path.abspath(os.path.dirname(__file__))
+puma_app_path = os.path.join(test_dir, "puma-test-app")
+rack_app_path = os.path.join(test_dir, "rack-test-app")
+app_paths = [
+    puma_app_path,
+    rack_app_path
+]
+
+class TestDummyImage(object):
+    def test_s2i_usage(self):
+        ccs = ContainerCISuite(image_name=image_name)
+        ccs.s2i_usage()
+
+```
+
 ## container-common-scripts functions and arguments
 
 ct_cleanup ... DONE

@@ -28,6 +28,8 @@ from container_ci_suite.utils import (
     get_public_image_name,
     get_npm_variables,
     get_mount_ca_file,
+    get_mount_options_from_s2i_args,
+    get_env_commands_from_s2i_args,
 )
 from tests.conftest import create_ca_file, delete_ca_file
 
@@ -62,3 +64,34 @@ class TestContainerCISuiteUtils(object):
         create_ca_file()
         assert get_mount_ca_file() == f"{get_mount_ca_file()}"
         delete_ca_file()
+
+    @pytest.mark.parametrize(
+        "s2i_args,expected_output",
+        [
+            ("--pull-never", ""),
+            (
+                f"--pull-never -v /some/foo/bar/file:/some/foo/bar/file:Z",
+                f"-v /some/foo/bar/file:/some/foo/bar/file:Z",
+            ),
+        ],
+    )
+    def test_mount_point(self, s2i_args, expected_output):
+        create_ca_file()
+        ret_value = get_mount_options_from_s2i_args(s2i_args=s2i_args)
+        assert ret_value == expected_output
+        delete_ca_file()
+
+    @pytest.mark.parametrize(
+        "s2i_args,expected_output",
+        [
+            ("--pull-never", []),
+            (f"--pull-never -e NODE=development", ["ENV NODE=development"]),
+            (
+                "-v mount_point:mount_point:Z -e FOO=bar --env TEST=deployment",
+                ["ENV FOO=bar", "ENV TEST=deployment"],
+            ),
+            ("-v mount_point:mount_point:Z -e FOO=bar --env TEST", ["ENV FOO=bar"]),
+        ],
+    )
+    def test_get_env_from_s2i_args(self, s2i_args, expected_output):
+        assert get_env_commands_from_s2i_args(s2i_args=s2i_args) == expected_output

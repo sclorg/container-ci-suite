@@ -23,12 +23,14 @@
 import os
 import logging
 import subprocess
+import re
 
+from typing import List
 from pathlib import Path
 
 from container_ci_suite.constants import CA_FILE_PATH
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def get_file_content(filename: Path) -> str:
@@ -57,8 +59,33 @@ def get_npm_variables():
     return ""
 
 
-def get_registry_name(os: str):
+def get_registry_name(os: str) -> str:
     return "registry.redhat.io" if os.startswith("rhel") else "docker.io"
+
+
+def get_mount_options_from_s2i_args(s2i_args: str) -> str:
+    # Check if -v parameter is present in s2i_args and add it into docker build command
+    searchObj = re.search(r"(-v \.*\S*)", s2i_args)
+    logger.debug(searchObj)
+    if not searchObj:
+        return ""
+
+    logger.debug(searchObj.group(1))
+    mount_options = searchObj.group()
+
+    logger.info(f"Mount options: {mount_options}")
+    return searchObj.group()
+
+
+def get_env_commands_from_s2i_args(s2i_args: str) -> List:
+    matchObj = re.findall(r"(-e|--env)\s*(\S*)=(\S*)", s2i_args)
+    logger.debug(matchObj)
+    env_content: List = []
+    if matchObj:
+        env_content.extend([f"ENV {x[1]}={x[2]}" for x in matchObj])
+        logger.debug(env_content)
+        return env_content
+    return env_content
 
 
 def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
@@ -71,17 +98,13 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
 
 
-def run_docker_command(cmd, return_output: bool = True, ignore_error: bool = False,
-                       shell: bool = True, **kwargs):
-    """
-    Run docker command:
-    """
-    run_command(f"docker {cmd}", return_output=return_output, ignore_error=ignore_error,
-                shell=shell, kwargs=kwargs)
-
-
-def run_command(cmd, return_output: bool = True, ignore_error: bool = False,
-                shell: bool = True, **kwargs):
+def run_command(
+    cmd,
+    return_output: bool = True,
+    ignore_error: bool = False,
+    shell: bool = True,
+    **kwargs,
+):
     """
     Run provided command on host system using the same user as invoked this code.
     Raises subprocess.CalledProcessError if it fails.
