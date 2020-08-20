@@ -20,12 +20,7 @@ from container_ci_suite.api import ContainerCISuite
 
 image_name = os.environ.get("IMAGE_NAME", "nginx-container")
 test_dir = os.path.abspath(os.path.dirname(__file__))
-puma_app_path = os.path.join(test_dir, "puma-test-app")
-rack_app_path = os.path.join(test_dir, "rack-test-app")
-app_paths = [
-    puma_app_path,
-    rack_app_path
-]
+
 
 class TestDummyImage(object):
     def test_s2i_usage(self):
