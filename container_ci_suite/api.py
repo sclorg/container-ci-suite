@@ -65,53 +65,49 @@ class ContainerCISuite(object):
         return DockerCLIWrapper.run_docker_command(f"inspect {self.image_name}")
 
     def s2i_build_as_df(self, app_path: str, s2i_args: str, src_image, dst_image: str):
-        df = self.s2i_create_df(
+        named_tmp_dir = mkdtemp()
+        tmp_dir = Path(named_tmp_dir)
+        if tmp_dir.exists():
+            logger.debug("Temporary Directory exists.")
+        else:
+            logger.debug("Temporary directory not exists.")
+        ntf = mktemp(dir=str(tmp_dir), prefix="Dockerfile.")
+        df_name = Path(ntf)
+        df_content = self.s2i_create_df(
+            tmp_dir=tmp_dir,
             app_path=app_path,
             s2i_args=s2i_args,
             src_image=src_image,
             dst_image=dst_image,
         )
-
+        with open(df_name, mode="w") as f:
+            f.writelines(df_content)
         mount_options = get_mount_options_from_s2i_args(s2i_args=s2i_args)
         # Run the build and tag the result
         DockerCLIWrapper.run_docker_command(
-            f"build {mount_options} -f {df} --no-cache=true -t {dst_image}"
+            f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
         )
 
     def s2i_create_df(
-        self, app_path: str, s2i_args: str, src_image, dst_image: str
-    ) -> Path:
-        app_path = app_path.replace("file://", "")
-        named_tmp_dir = mkdtemp()
-        tmp_dir = Path(named_tmp_dir)
-        if tmp_dir.exists():
-            print("Temporary Directory exists.")
-        else:
-            print("Temporary directory not exists.")
-        ntf = mktemp(dir=str(tmp_dir), prefix="Dockerfile.")
-        df_name = Path(ntf)
+        self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
+    ) -> List[str]:
+        real_app_path = app_path.replace("file://", "")
         df_content: List = []
-        local_scripts: Path = tmp_dir / "upload" / "scripts"
-        local_app: Path = tmp_dir / "upload" / "src"
+        local_scripts: str = "upload/scripts"
+        local_app: str = "upload/src"
         os.chdir(tmp_dir)
         if not DockerCLIWrapper.docker_image_exists(src_image):
             if "pull-policy=never" not in s2i_args:
                 DockerCLIWrapper.run_docker_command(f"pull {src_image}")
 
-        user = int(
-            DockerCLIWrapper.docker_inspect(
-                field="{{.Config.User}}", src_image=src_image
-            )
+        user = DockerCLIWrapper.docker_inspect(
+            field="{{.Config.User}}", src_image=src_image
         )
         if not user:
-            user = 0
+            user = "0"
 
-        assert type(user) == int
-        user_id = int(
-            DockerCLIWrapper.docker_run_command(
-                f"--rm {src_image} bash -c 'id -u {user} 2>/dev/null"
-            )
-        )
+        assert int(user)
+        user_id = DockerCLIWrapper.docker_get_user_id(src_image=src_image, user=user)
         if not user_id:
             logger.error(f"id of user {user} not found inside image {src_image}.")
             logger.error("Terminating s2i build.")
@@ -137,27 +133,29 @@ class ContainerCISuite(object):
             )
             # Move the created content into the $tmpdir for the build to pick it up
             shutil.move(f"{inc_tmp}/artifacts.tar", tmp_dir.name)
-        os.makedirs(local_app.parent)
-        shutil.copytree(app_path, local_app)
-        bin_dir = Path(local_app / ".s2i" / "bin")
+        real_local_app = tmp_dir / local_app
+        real_local_scripts = tmp_dir / local_scripts
+        os.makedirs(real_local_app.parent)
+        shutil.copytree(real_app_path, real_local_app)
+        bin_dir = real_local_app / ".s2i" / "bin"
         if bin_dir.exists():
-            shutil.move(bin_dir, local_scripts)
-        df_content.append(
+            shutil.move(bin_dir, real_local_scripts)
+        df_content.extend(
             [
                 f"FROM {src_image}",
-                f"LABEL 'io.openshift.s2i.build.image'='{src_image}",
-                f"      'io.openshift.s2i.build.source-location'='{app_path}'",
+                f"LABEL io.openshift.s2i.build.image={src_image} "
+                f"io.openshift.s2i.build.source-location={app_path}",
                 "USER root",
-                f"COPY {local_app} /tmp/src",
+                f"COPY {local_app}/ /tmp/src",
             ]
         )
-        if local_scripts.exists():
+        if real_local_scripts.exists():
             df_content.append(f"COPY {local_scripts} /tmp/scripts")
             df_content.append(f"RUN chown -R {user_id}:0 /tmp/scripts")
-            df_content.append(f"RUN chown -R {user_id}:0 /tmp/src")
+        df_content.append(f"RUN chown -R {user_id}:0 /tmp/src")
 
         # Check for custom environment variables inside .s2i/ folder
-        env_file = Path(local_app / ".s2i" / "environment")
+        env_file = Path(real_local_app / ".s2i" / "environment")
         if env_file.exists():
             with open(env_file) as fd:
                 env_content = fd.readlines()
@@ -186,20 +184,18 @@ class ContainerCISuite(object):
             )
         df_content.append(f"USER {user_id}")
         # If exists, run the custom assemble script, else default to /usr/libexec/s2i/assemble
-        if Path(local_scripts / "assemble").exists():
+        if (real_local_scripts / "assemble").exists():
             df_content.append("RUN /tmp/scripts/assemble")
         else:
             df_content.append("RUN /usr/libexec/s2i/assemble")
         # If exists, set the custom run script as CMD, else default to /usr/libexec/s2i/run
-        if Path(local_scripts / "run").exists():
+        if Path(real_local_scripts / "run").exists():
             df_content.append("CMD /tmp/scripts/run")
         else:
             df_content.append("CMD /usr/libexec/s2i/run")
 
-        with open(df_name, mode="w") as df:
-            df.writelines(df_content)
-
-        return df_name
+        logger.error(df_content)
+        return df_content
 
     def scl_usage_old(self):
         pass

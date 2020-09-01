@@ -43,10 +43,10 @@ def delete_ca_file():
 def s2i_build_as_df_fedora_test_app():
     return [
         "FROM f32/nodejs:12",
-        f"LABEL io.openshift.s2i.build.image=f32/nodejs:12 \
-        io.openshift.s2i.build.source-location=file://{DATA_DIR}/test-app"
+        f"LABEL io.openshift.s2i.build.image=f32/nodejs:12 "
+        f"io.openshift.s2i.build.source-location=file://{DATA_DIR}/test-app",
         "USER root",
-        "COPY upload /src/ /tmp/src",
+        "COPY upload/src/ /tmp/src",
         "RUN chown -R 1001:0 /tmp/src",
         "ENV NODE_ENV=development",
         "USER 1001",
