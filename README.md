@@ -127,5 +127,3 @@ class TestDummyImage(object):
 * [ ] ct_os_test_image_stream_s2i
 * [ ] ct_os_test_image_stream_quickstart
 * [ ] ct_os_service_image_info
-* [ ] 
-* [ ] 
