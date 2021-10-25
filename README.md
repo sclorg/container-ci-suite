@@ -69,7 +69,7 @@ class TestDummyImage(object):
 * [ ] ct_clone_git_repository
 * [ ] ct_show_resources
 * [ ] ct_s2i_multistage_build
-* [ ] 
+* [ ]
 
 
 ## OpenShift tests
