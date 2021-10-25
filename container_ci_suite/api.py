@@ -201,7 +201,7 @@ class ContainerCISuite(object):
         pass
 
     def create_container(self, cid_file: str, container_args: str = "", *args):
-        self.cid_file_dir = Path(mkdtemp(suffix=f".test_cid_files"))
+        self.cid_file_dir = Path(mkdtemp(suffix=".test_cid_files"))
         p = Path(self.cid_file_dir)
         self.cid_file = p / cid_file
         DockerCLIWrapper.run_docker_command(

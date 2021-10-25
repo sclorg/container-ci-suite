@@ -70,8 +70,8 @@ class TestContainerCISuiteUtils(object):
         [
             ("--pull-never", ""),
             (
-                f"--pull-never -v /some/foo/bar/file:/some/foo/bar/file:Z",
-                f"-v /some/foo/bar/file:/some/foo/bar/file:Z",
+                "--pull-never -v /some/foo/bar/file:/some/foo/bar/file:Z",
+                "-v /some/foo/bar/file:/some/foo/bar/file:Z",
             ),
         ],
     )
@@ -85,7 +85,7 @@ class TestContainerCISuiteUtils(object):
         "s2i_args,expected_output",
         [
             ("--pull-never", []),
-            (f"--pull-never -e NODE=development", ["ENV NODE=development"]),
+            ("--pull-never -e NODE=development", ["ENV NODE=development"]),
             (
                 "-v mount_point:mount_point:Z -e FOO=bar --env TEST=deployment",
                 ["ENV FOO=bar", "ENV TEST=deployment"],
