@@ -24,6 +24,7 @@
 
 import os
 import logging
+import re
 import time
 import subprocess
 import shutil
@@ -416,3 +417,34 @@ RUN which {binary} | grep {binary_path}
 
     def test_response(self):
         pass
+
+    def test_check_exec_env_vars(self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root"):
+        check_envs = DockerCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c env')
+        logger.debug(f"Run envs {check_envs}")
+        self.create_container(cid_file="exec_env_vars", container_args="bash -c 'sleep 1000'")
+        loop_envs = DockerCLIWrapper.run_docker_command(f"exec {self.get_cid_file(self.cid_file)} env")
+        self.test_check_envs_set(env_filter=env_filter, check_envs=check_envs, loop_envs=loop_envs)
+
+    def test_check_envs_set(self, env_filter: str, check_envs: str, loop_envs: str, env_format="VALUE"):
+        fields_to_check: List = [
+            x for x in loop_envs.split('\n') if re.findall(env_filter, x) and not x.startswith("PWD=")
+        ]
+        for field in fields_to_check:
+            var_name, stripped = field.split('=', 2)
+            filtered_envs = [x for x in check_envs.split('\n') if x.startswith(f"{var_name}=")]
+            if not filtered_envs:
+                logger.error(f"{var_name} not found during 'docker exec'")
+                return False
+            filter_envs = ''.join(filtered_envs)
+            for value in stripped.split(':'):
+                # If the value checked does not go through env_filter we do not care about it
+                ret = re.findall(env_filter, value)
+                if not ret:
+                    continue
+                new_env = env_format.replace('VALUE', value)
+                find_env = re.findall(rf"{new_env}", filter_envs)
+                if not find_env:
+                    logger.error(f"Value {value} is missing from variable {var_name}")
+                    logger.error(filtered_envs)
+                    return False
+        return True

@@ -34,7 +34,7 @@ class TestDummyImage(object):
 
 * [x] ct_cleanup
 * [ ] ct_enable_cleanup
-* [ ] ct_check_envs_set
+* [x] ct_check_envs_set
 * [x] ct_get_cip
 * [x] ct_get_cid
 * [x] ct_wait_for_cid
@@ -69,7 +69,6 @@ class TestDummyImage(object):
 * [ ] ct_clone_git_repository
 * [ ] ct_show_resources
 * [ ] ct_s2i_multistage_build
-* [ ]
 
 
 ## OpenShift tests

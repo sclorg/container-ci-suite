@@ -14,7 +14,7 @@ build-test:
 test:
 	cd tests && PYTHONPATH=$(CURDIR) pytest --color=yes -v --showlocals
 
-test-in-container:
+test-in-container: build-test
 	$(PODMAN) run --rm --net=host -e DEPLOYMENT=test ${TEST_IMAGE_NAME}
 
 clean:
