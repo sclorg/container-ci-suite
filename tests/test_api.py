@@ -64,3 +64,107 @@ class TestContainerCISuiteAPI(object):
             dst_image=dest_image,
         )
         assert generated_df == df
+
+    def test_check_envs_set(self):
+        run_envs = """MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+APP_ROOT=/opt/app-root
+NODEJS_SCL=rh-nodejs14
+X_SCLS=rh-nodejs14 rh-ruby26
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-ruby26/root/usr/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+PWD=/opt/app-root/src
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+IMAGE_NAME=rhscl/ruby-26-rhel7
+HOME=/opt/app-root/src
+RUBY_SCL=rh-ruby26
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+RUBY_VERSION=2.6"""
+        exec_envs = """PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-ruby26/root/usr/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SUMMARY=Platform for building and running Ruby 2.6 applications
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+APP_ROOT=/opt/app-root
+HOME=/opt/app-root/src
+BASH_ENV=/opt/app-root/etc/scl_enable
+ENV=/opt/app-root/etc/scl_enable
+PROMPT_COMMAND=. /opt/app-root/etc/scl_enable
+NODEJS_SCL=rh-nodejs14
+RUBY_SCL=rh-ruby26
+IMAGE_NAME=rhscl/ruby-26-rhel7
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+X_SCLS=rh-nodejs14 rh-ruby26
+MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+"""
+        ccs = ContainerCISuite(image_name="f32/nodejs:12")
+        ccs.test_check_envs_set(env_filter="^X_SCLS=|/opt/rh|/opt/app-root", check_envs=exec_envs, loop_envs=run_envs)
+
+    def test_check_envs_set_home_not_in_docker_exec(self):
+        run_envs = """MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+APP_ROOT=/opt/app-root
+X_SCLS=rh-nodejs14 rh-ruby26
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-ruby26/root/usr/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+HOME=/opt/app-root/src
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+RUBY_VERSION=2.6"""
+        exec_envs = """PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-ruby26/root/usr/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+APP_ROOT=/opt/app-root
+BASH_ENV=/opt/app-root/etc/scl_enable
+ENV=/opt/app-root/etc/scl_enable
+PROMPT_COMMAND=. /opt/app-root/etc/scl_enable
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+X_SCLS=rh-nodejs14 rh-ruby26
+MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+"""
+        ccs = ContainerCISuite(image_name="f32/nodejs:12")
+        ret = ccs.test_check_envs_set(
+            env_filter="^X_SCLS=|/opt/rh|/opt/app-root",
+            check_envs=exec_envs,
+            loop_envs=run_envs
+        )
+        assert not ret
+
+    def test_check_envs_set_not_in_run_envs_not_path(self):
+        run_envs = """MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+APP_ROOT=/opt/app-root
+X_SCLS=rh-nodejs14 rh-ruby26
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-ruby26/root/usr/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+HOME=/opt/app-root/src
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+RUBY_VERSION=2.6"""
+        exec_envs = """PATH=/opt/rh/rh-ruby26/root/usr/local/bin:/opt/rh/rh-nodejs14/root/usr/bin:/opt/app-root/src/bin:/opt/app-root/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+STI_SCRIPTS_URL=image:///usr/libexec/s2i
+STI_SCRIPTS_PATH=/usr/libexec/s2i
+APP_ROOT=/opt/app-root
+BASH_ENV=/opt/app-root/etc/scl_enable
+ENV=/opt/app-root/etc/scl_enable
+PROMPT_COMMAND=. /opt/app-root/etc/scl_enable
+LD_LIBRARY_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64:/opt/rh/rh-ruby26/root/usr/lib64:/opt/rh/rh-nodejs14/root/usr/lib64
+X_SCLS=rh-nodejs14 rh-ruby26
+HOME=/opt/app-root/src
+MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/share/man:/opt/rh/rh-nodejs14/root/usr/share/man:
+XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
+PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
+"""
+        ccs = ContainerCISuite(image_name="f32/nodejs:12")
+        ret = ccs.test_check_envs_set(
+            env_filter="^X_SCLS=|/opt/rh|/opt/app-root",
+            check_envs=exec_envs,
+            loop_envs=run_envs
+        )
+        assert not ret
