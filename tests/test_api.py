@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 import pytest
-import flexmock
+from flexmock import flexmock
 
 from tempfile import mkdtemp
 from pathlib import Path
