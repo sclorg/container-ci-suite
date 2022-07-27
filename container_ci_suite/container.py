@@ -53,7 +53,7 @@ class DockerCLIWrapper(object):
     @staticmethod
     def docker_inspect(field: str, src_image: str) -> str:
         return DockerCLIWrapper.run_docker_command(
-            f"docker inpect -f '{field}' {src_image}"
+            f"docker inspect -f '{field}' {src_image}"
         )
 
     @staticmethod
