@@ -1,4 +1,4 @@
-FROM fedora:32
+FROM fedora:36
 
 ENV LANG=en_US.UTF-8
 ENV NAME=betka \
