@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Authors: Petr Hracek <pkubat@redhat.com>
+# Authors: Petr Hracek <phracek@redhat.com>
 
 from setuptools import setup, find_packages
 
