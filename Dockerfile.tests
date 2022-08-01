@@ -31,4 +31,4 @@ WORKDIR ${HOME}
 COPY ./ ${HOME}
 RUN pip3 install .
 
-CMD LOGS_DIR=/tmp python3 -m pytest --color=yes -v --showlocals ${HOME}/tests/
+CMD LOGS_DIR=/tmp python3 -m pytest --color=yes -vvv --showlocals ${HOME}/tests/

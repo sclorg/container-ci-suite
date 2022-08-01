@@ -1,5 +1,9 @@
 # container-ci-suite
-This repos is used for testing SCL containers. For container execution `docker` or `podman` commands are used.
+
+[![Run Tox tests on container-ci-suite](https://github.com/sclorg/container-ci-suite/actions/workflows/python-tests.yml/badge.svg)](https://github.com/sclorg/container-ci-suite/actions/workflows/python-tests.yml)
+
+
+This repo is used for testing SCL containers. For container execution `docker` or `podman` commands are used.
 No Python bidings. The same for OpenShift tests. `oc` command is used.
 
 ##  How to use Container CI Suite for testing containers
