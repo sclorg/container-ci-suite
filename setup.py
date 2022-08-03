@@ -37,7 +37,7 @@ def get_requirements():
 setup(
     name="container-ci-suite",
     description='A python3 container CI tool for testing images.',
-    version="0.0.2",
+    version="0.0.3",
     keywords='tool,containers,images,tests',
     packages=find_packages(exclude=["tests"]),
     url="https://github.com/phracek/container-ci-suite",
