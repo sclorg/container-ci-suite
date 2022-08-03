@@ -19,7 +19,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-import pytest
+
+
 import os
 
 from pathlib import Path
@@ -27,8 +28,6 @@ import tempfile
 
 
 from container_ci_suite.git import Git
-
-from tests.spellbook import TESTS_DIR
 
 
 class TestContainerCISuiteGit(object):
