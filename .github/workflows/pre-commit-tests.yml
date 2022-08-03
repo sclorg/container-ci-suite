@@ -29,5 +29,5 @@ jobs:
         id: pre_commit_tests
         run: |
           set +e
-          make pre-commit-check
+          pre-commit run --all
           echo ::set-output name=exit_status::$?
