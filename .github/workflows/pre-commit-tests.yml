@@ -9,20 +9,16 @@ jobs:
     name: Sanity tests
     runs-on: ubuntu-20.04
     steps:
-      - name: Get pull request number
-        id: pr_nr
-        run: |
-          PR_URL="${{ github.event.comment.issue_url }}"
-          echo "::set-output name=PR_NR::${PR_URL##*/}"
       - name: Checkout repo
         uses: actions/checkout@v2
         with:
-          ref: "refs/pull/${{ steps.pr_nr.outputs.PR_NR }}/head"
+          ref: "refs/pull/${{ github.event.issue.number }}/head"
 
       - name: Get sha
         id: sha
         run: |
           echo "::set-output name=SHA::$(git rev-parse HEAD)"
+
       - name: Install needed dependences for sanity checks
         id: sched_test
         run: |
