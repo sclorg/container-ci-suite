@@ -26,6 +26,10 @@
 # Authors: Petr Hracek <phracek@redhat.com>
 
 from setuptools import setup, find_packages
+from pathlib import Path
+
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 
 def get_requirements():
@@ -37,6 +41,8 @@ def get_requirements():
 setup(
     name="container-ci-suite",
     description='A python3 container CI tool for testing images.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     version="0.0.3",
     keywords='tool,containers,images,tests',
     packages=find_packages(exclude=["tests"]),
