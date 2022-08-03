@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
         with:
-          ref: "refs/pull/${{ github.event.issue.number }}/head"
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Get sha
         id: sha
