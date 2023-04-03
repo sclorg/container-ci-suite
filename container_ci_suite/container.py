@@ -32,7 +32,7 @@ class DockerCLIWrapper(object):
         Run docker command:
         """
         return run_command(
-            f"docker {cmd}",
+            f"podman {cmd}",
             return_output=return_output,
             ignore_error=ignore_error,
             shell=shell,

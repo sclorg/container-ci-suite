@@ -1,0 +1,1 @@
+Successfully packaged chart and saved it to: /Users/phracek/work/scl-utils/helm-charts/charts/redhat/postgresql-imagestreams/postgresql-imagestreams-0.0.1.tgz

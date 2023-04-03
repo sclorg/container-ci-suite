@@ -21,8 +21,10 @@
 # SOFTWARE.
 
 import os
-
+import json
 from pathlib import Path
+
+import pytest
 
 from container_ci_suite.constants import CA_FILE_PATH
 from tests.spellbook import DATA_DIR
@@ -42,8 +44,8 @@ def delete_ca_file():
 
 def s2i_build_as_df_fedora_test_app():
     return [
-        "FROM quay.io/fedora/nodejs:16",
-        f"LABEL io.openshift.s2i.build.image=quay.io/fedora/nodejs:16 "
+        "FROM quay.io/fedora/nodejs-16",
+        f"LABEL io.openshift.s2i.build.image=quay.io/fedora/nodejs-16 "
         f"io.openshift.s2i.build.source-location=file://{DATA_DIR}/test-app",
         "USER root",
         "COPY upload/src/ /tmp/src",
@@ -53,3 +55,27 @@ def s2i_build_as_df_fedora_test_app():
         "RUN /usr/libexec/s2i/assemble",
         "CMD /usr/libexec/s2i/run",
     ]
+
+
+@pytest.fixture
+def postgresql_json():
+    return json.loads((DATA_DIR / "postgresql_imagestreams.json").read_text())
+
+
+@pytest.fixture
+def package_installation_json():
+    return json.loads((DATA_DIR / "postgresql_package_installation.json").read_text())
+
+
+@pytest.fixture
+def helm_package_success():
+    with open(DATA_DIR / "helm_package_successful.txt") as fd:
+        lines = fd.readline()
+    return lines
+
+
+@pytest.fixture
+def helm_package_failed():
+    with open(DATA_DIR / "helm_package_failed.txt") as fd:
+        lines = fd.readline()
+    return lines

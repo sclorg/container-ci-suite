@@ -35,6 +35,7 @@ from pathlib import Path
 from tempfile import mkdtemp, mktemp
 
 from container_ci_suite.container import DockerCLIWrapper
+from container_ci_suite.helm import HelmChartsAPI
 from container_ci_suite.utils import (
     run_command,
     get_file_content,
@@ -309,7 +310,7 @@ class ContainerCISuite(object):
             return False
 
         # TODO
-        # Add {self.iamge_name}-testapp as soon as function `s2i_create_df` is ready.
+        # Add {self.image_name}-testapp as soon as function `s2i_create_df` is ready.
         DockerCLIWrapper.run_docker_command(
             f"run -d {get_mount_ca_file()} --rm --cidfile={self.cid_file} {self.image_name}"
         )
@@ -369,8 +370,20 @@ RUN which {binary} | grep {binary_path}
     #     python3 "${test_lib_dir}/check_imagestreams.py" "$latest_version"
     #
 
-    def doc_content_old(self):
-        pass
+    def doc_content_old(self, strings: List) -> bool:
+        logger.info("Testing documentation in the container image")
+        files_to_check = ["help.1"]
+        for f in files_to_check:
+            doc_content = DockerCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c cat {f}')
+            for term in strings:
+                # test = re.search(f"{term}", doc_content)
+                logger.info(f"ERROR: File /{f} does not contain '{term}'.")
+                return False
+            for term in ["TH", "PP", "SH"]:
+                if term not in doc_content:
+                    logger.info(f"ERROR: help.1 is probably not in troff or groff format, since {term} is missing")
+                    return False
+        return True
 
     #         # ct_doc_content_old [strings]
     #         # --------------------
@@ -447,4 +460,19 @@ RUN which {binary} | grep {binary_path}
                     logger.error(f"Value {value} is missing from variable {var_name}")
                     logger.error(filtered_envs)
                     return False
+        return True
+
+    def test_helm_chart(self, path: str,  package_name: str, version: str, test_check_string: str):
+        hc = HelmChartsAPI(path=path, package_name=package_name, version=version)
+        if not hc.helm_package():
+            return False
+        hc.helm_installation()
+        hc.test_helm_chart(test_check_string)
+
+    def test_helm_chart_imagestreams(self, path: str, package_name: str, version: str, registry: str) -> bool:
+        hc = HelmChartsAPI(path=path, package_name=package_name, version=version)
+        if not hc.helm_package():
+            return False
+        hc.helm_installation()
+        hc.check_imagestreams(version, registry)
         return True
