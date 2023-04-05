@@ -42,8 +42,8 @@ class TestContainerCISuiteAPI(object):
             (
                 f"file://{DATA_DIR}/test-app",
                 "--pull-policy=never -e NODE_ENV=development",
-                "quay.io/fedora/nodejs:16",
-                "quay.io/fedora/nodejs:16-testapp",
+                "quay.io/fedora/nodejs-16",
+                "quay.io/fedora/nodejs-16-testapp",
                 s2i_build_as_df_fedora_test_app(),
             )
         ],
@@ -99,7 +99,7 @@ MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/sh
 XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
 PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
 """
-        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs:16")
+        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs-16")
         ccs.test_check_envs_set(env_filter="^X_SCLS=|/opt/rh|/opt/app-root", check_envs=exec_envs, loop_envs=run_envs)
 
     def test_check_envs_set_home_not_in_docker_exec(self):
@@ -127,7 +127,7 @@ MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/sh
 XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
 PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
 """
-        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs:16")
+        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs-16")
         ret = ccs.test_check_envs_set(
             env_filter="^X_SCLS=|/opt/rh|/opt/app-root",
             check_envs=exec_envs,
@@ -161,10 +161,16 @@ MANPATH=/opt/rh/rh-ruby26/root/usr/local/share/man:/opt/rh/rh-ruby26/root/usr/sh
 XDG_DATA_DIRS=/opt/rh/rh-ruby26/root/usr/local/share:/opt/rh/rh-ruby26/root/usr/share:/usr/local/share:/usr/share
 PKG_CONFIG_PATH=/opt/rh/rh-ruby26/root/usr/local/lib64/pkgconfig:/opt/rh/rh-ruby26/root/usr/lib64/pkgconfig
 """
-        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs:16")
+        ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs-16")
         ret = ccs.test_check_envs_set(
             env_filter="^X_SCLS=|/opt/rh|/opt/app-root",
             check_envs=exec_envs,
             loop_envs=run_envs
         )
         assert not ret
+
+    # def test_doc_content_old(self):
+    #     #flexmock(DockerCLIWrapper).should_receive("docker_run_command").and_return("")
+    #     ccs = ContainerCISuite(image_name="quay.io/fedora/nodejs-16")
+    #     ret = ccs.doc_content_old(['POSTGRESQL\\?_ADMIN\\?_PASSWORD'])
+    #     assert ret

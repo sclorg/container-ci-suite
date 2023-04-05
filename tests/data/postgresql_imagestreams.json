@@ -1,0 +1,372 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "image.openshift.io/v1",
+            "kind": "ImageStream",
+            "metadata": {
+                "annotations": {
+                    "meta.helm.sh/release-name": "postgresql-imagestreams",
+                    "meta.helm.sh/release-namespace": "pgsql-13",
+                    "openshift.io/display-name": "PostgreSQL",
+                    "openshift.io/image.dockerRepositoryCheck": "2023-03-28T10:48:44Z"
+                },
+                "creationTimestamp": "2023-03-28T10:48:33Z",
+                "generation": 2,
+                "labels": {
+                    "app.kubernetes.io/managed-by": "Helm"
+                },
+                "name": "postgresql",
+                "namespace": "pgsql-13",
+                "resourceVersion": "21585718",
+                "uid": "8aabf1b7-65c3-435f-a49a-1eb50a95efbb"
+            },
+            "spec": {
+                "lookupPolicy": {
+                    "local": false
+                },
+                "tags": [
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 10 database on RHEL 7. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL (Ephemeral) 10",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql,hidden",
+                            "version": "10"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhscl/postgresql-10-rhel7:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "10",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 10 database on RHEL 7. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 10 (RHEL 7)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "10"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhscl/postgresql-10-rhel7:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "10-el7",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 10 database on RHEL 8. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 10 (RHEL 8)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "10"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhel8/postgresql-10:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "10-el8",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 12 database on RHEL 7. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL (Ephemeral) 12",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql,hidden",
+                            "version": "12"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhscl/postgresql-12-rhel7:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "12",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 12 database on RHEL 7. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 12 (RHEL 7)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "12"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhscl/postgresql-12-rhel7:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "12-el7",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 12 database on RHEL 8. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 12 (RHEL 8)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "12"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhel8/postgresql-12:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "12-el8",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 13 database on RHEL 7. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 13 (RHEL 7)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "13"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhscl/postgresql-13-rhel7:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "13-el7",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 13 database on RHEL 8. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 13 (RHEL 8)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "13"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhel8/postgresql-13:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "13-el8",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL 13 database on RHEL 9. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL 13 (RHEL 9)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql",
+                            "version": "13"
+                        },
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "registry.redhat.io/rhel9/postgresql-13:latest"
+                        },
+                        "generation": 2,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "13-el9",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    },
+                    {
+                        "annotations": {
+                            "description": "Provides a PostgreSQL database on RHEL. For more information about using this database image, including OpenShift considerations, see https://github.com/sclorg/postgresql-container/blob/master/README.md.\n\nWARNING: By selecting this tag, your application will automatically update to use the latest version of PostgreSQL available on OpenShift, including major version updates.",
+                            "iconClass": "icon-postgresql",
+                            "openshift.io/display-name": "PostgreSQL (Latest)",
+                            "openshift.io/provider-display-name": "Red Hat, Inc.",
+                            "tags": "database,postgresql"
+                        },
+                        "from": {
+                            "kind": "ImageStreamTag",
+                            "name": "13-el8"
+                        },
+                        "generation": 1,
+                        "importPolicy": {
+                            "importMode": "Legacy"
+                        },
+                        "name": "latest",
+                        "referencePolicy": {
+                            "type": "Local"
+                        }
+                    }
+                ]
+            },
+            "status": {
+                "dockerImageRepository": "image-registry.openshift-image-registry.svc:5000/pgsql-13/postgresql",
+                "publicDockerImageRepository": "default-route-openshift-image-registry.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com/pgsql-13/postgresql",
+                "tags": [
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhscl/postgresql-10-rhel7@sha256:8a6ca07e5fb3fc41fdd7fc6857965e5b9c32a162c3f81aa2f11700209d894954",
+                                "generation": 2,
+                                "image": "sha256:8a6ca07e5fb3fc41fdd7fc6857965e5b9c32a162c3f81aa2f11700209d894954"
+                            }
+                        ],
+                        "tag": "10"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhscl/postgresql-10-rhel7@sha256:8a6ca07e5fb3fc41fdd7fc6857965e5b9c32a162c3f81aa2f11700209d894954",
+                                "generation": 2,
+                                "image": "sha256:8a6ca07e5fb3fc41fdd7fc6857965e5b9c32a162c3f81aa2f11700209d894954"
+                            }
+                        ],
+                        "tag": "10-el7"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhel8/postgresql-10@sha256:8715c697750be7ce1c1ff833d87b23b94680232ed5a4f99e738ddb6a47ecb7a2",
+                                "generation": 2,
+                                "image": "sha256:8715c697750be7ce1c1ff833d87b23b94680232ed5a4f99e738ddb6a47ecb7a2"
+                            }
+                        ],
+                        "tag": "10-el8"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhscl/postgresql-12-rhel7@sha256:8aa33ef95d093c3eed8ec88274574e09e7654a10cd5827387189694ef3e0c5ad",
+                                "generation": 2,
+                                "image": "sha256:8aa33ef95d093c3eed8ec88274574e09e7654a10cd5827387189694ef3e0c5ad"
+                            }
+                        ],
+                        "tag": "12"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhscl/postgresql-12-rhel7@sha256:8aa33ef95d093c3eed8ec88274574e09e7654a10cd5827387189694ef3e0c5ad",
+                                "generation": 2,
+                                "image": "sha256:8aa33ef95d093c3eed8ec88274574e09e7654a10cd5827387189694ef3e0c5ad"
+                            }
+                        ],
+                        "tag": "12-el7"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhel8/postgresql-12@sha256:8062e8f1a0be8f5419a4f585c22e90c2e3c129f93d54d727f28fcb727a94c8f6",
+                                "generation": 2,
+                                "image": "sha256:8062e8f1a0be8f5419a4f585c22e90c2e3c129f93d54d727f28fcb727a94c8f6"
+                            }
+                        ],
+                        "tag": "12-el8"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhscl/postgresql-13-rhel7@sha256:ab7972ab03fb067042c19f11e84e5c0d5de5a4372d83ea49e5c094c63ac9a796",
+                                "generation": 2,
+                                "image": "sha256:ab7972ab03fb067042c19f11e84e5c0d5de5a4372d83ea49e5c094c63ac9a796"
+                            }
+                        ],
+                        "tag": "13-el7"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhel8/postgresql-13@sha256:bea50c72f7926f8099c2d2a0c28a2e81acc710c969a26b2ac94f2b4add3468c8",
+                                "generation": 2,
+                                "image": "sha256:bea50c72f7926f8099c2d2a0c28a2e81acc710c969a26b2ac94f2b4add3468c8"
+                            }
+                        ],
+                        "tag": "13-el8"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhel9/postgresql-13@sha256:b378b2021296ab78eded703b849cade24714b899f954ab1f65d741266d40e73f",
+                                "generation": 2,
+                                "image": "sha256:b378b2021296ab78eded703b849cade24714b899f954ab1f65d741266d40e73f"
+                            }
+                        ],
+                        "tag": "13-el9"
+                    },
+                    {
+                        "items": [
+                            {
+                                "created": "2023-03-28T10:48:44Z",
+                                "dockerImageReference": "registry.redhat.io/rhel8/postgresql-13@sha256:bea50c72f7926f8099c2d2a0c28a2e81acc710c969a26b2ac94f2b4add3468c8",
+                                "generation": 2,
+                                "image": "sha256:bea50c72f7926f8099c2d2a0c28a2e81acc710c969a26b2ac94f2b4add3468c8"
+                            }
+                        ],
+                        "tag": "latest"
+                    }
+                ]
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}
