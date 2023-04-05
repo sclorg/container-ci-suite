@@ -30,7 +30,7 @@ from container_ci_suite.helm import HelmChartsAPI
 class TestContainerCISuiteHelmCharts:
 
     def setup_method(self):
-        self.helm_chart = HelmChartsAPI("foo_path", "postgresql-imagestreams", "0.0.1", namespace="pgsgl-13")
+        self.helm_chart = HelmChartsAPI("foo_path", "postgresql-imagestreams", "0.0.1", namespace="pgsql-13")
 
     def test_helm_api(self):
         assert self.helm_chart.path == "foo_path"
@@ -60,6 +60,16 @@ class TestContainerCISuiteHelmCharts:
         flexmock(HelmChartsAPI).should_receive("run_helm_command").and_return(helm_package_failed)
         assert not self.helm_chart.helm_package()
 
-    def test_package_installation_successfull(self, package_installation_json):
-        flexmock(HelmChartsAPI).should_receive("get_install_package_json").and_return(package_installation_json)
-        assert self.helm_chart.helm_installation()
+    @pytest.mark.parametrize(
+        "list_output,expected_output",
+        [
+            (True, True),
+            (False, False),
+        ]
+    )
+    def test_package_installation_success(
+            self, package_installation_json, helm_list_json, list_output, expected_output
+    ):
+        flexmock(HelmChartsAPI).should_receive("get_helm_json_output").and_return(package_installation_json)
+        flexmock(HelmChartsAPI).should_receive("check_helm_installation").and_return(list_output)
+        assert self.helm_chart.helm_installation() == expected_output

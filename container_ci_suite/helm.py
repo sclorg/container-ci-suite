@@ -54,9 +54,7 @@ class HelmChartsAPI:
         Package source to Helm Chart package
         """
         output = HelmChartsAPI.run_helm_command(f"package {self.path}", json_output=False)
-        print(output)
         if "Successfully packaged chart" in output:
-            print(self.get_tarball_name)
             if self.get_tarball_name in output:
                 return True
         return False
@@ -65,25 +63,24 @@ class HelmChartsAPI:
     def get_tarball_name(self):
         return f"{self.package_name}-{self.version}.tgz"
 
-    def check_installation(self):
-        output = HelmChartsAPI.run_helm_command("list")
-        json_output = json.loads(output)
+    def get_helm_json_output(self, command: str) -> Dict:
+        output = HelmChartsAPI.run_helm_command(cmd=command)
+        return json.loads(output)
+
+    def check_helm_installation(self):
+        json_output = self.get_helm_json_output(command="list")
         assert json_output["name"] == self.package_name
         assert json_output["chart"] == f"{self.package_name}-{self.version}"
         assert json_output["info"]["status"] == "deployed"
         assert json_output["namespace"] == self.namespace
 
-    def get_install_package_json(self) -> Dict:
-        output = HelmChartsAPI.run_helm_command(f"install {self.package_name} {self.get_tarball_name}")
-        return json.loads(output)
-
     def helm_installation(self):
-        json_output = self.get_install_package_json()
+        json_output = self.get_helm_json_output(f"install {self.package_name} {self.get_tarball_name}")
         assert json_output["name"] == self.package_name
         assert json_output["chart"]["metadata"]["version"] == self.version
         assert json_output["info"]["status"] == "deployed"
         assert json_output["namespace"] == self.namespace
-        if not self.check_installation():
+        if not self.check_helm_installation():
             return False
         return True
 

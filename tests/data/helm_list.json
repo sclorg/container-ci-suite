@@ -1,0 +1,11 @@
+[
+  {
+    "name": "psql-imagestreams",
+    "namespace": "helm-test",
+    "revision": "1",
+    "updated": "2023-04-05 11:53:59.674477 +0200 CEST",
+    "status": "deployed",
+    "chart": "postgresql-imagestreams-0.0.1",
+    "app_version": "0.0.1"
+  }
+]

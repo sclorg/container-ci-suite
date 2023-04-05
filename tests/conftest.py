@@ -79,3 +79,8 @@ def helm_package_failed():
     with open(DATA_DIR / "helm_package_failed.txt") as fd:
         lines = fd.readline()
     return lines
+
+
+@pytest.fixture
+def helm_list_json():
+    return json.loads((DATA_DIR / "helm_list.json").read_text())
