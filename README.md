@@ -34,6 +34,28 @@ class TestDummyImage(object):
 
 ```
 
+### Run a test with Container-CI-Suite for Helm charts
+
+```python
+import os
+
+import pytest
+
+from container_ci_suite.helm import HelmChartsAPI
+
+test_dir = os.path.abspath(os.path.dirname(__file__))
+
+
+class TestHelmPostgresqlImageStreams:
+    def setup_method(self):
+        package_name = "postgresql-imagestreams"
+        path = os.path.join(test_dir, "../charts/redhat", package_name)
+        self.hc_api = HelmChartsAPI(path=path, package_name=package_name, version="0.0.1")
+    def test_package_imagestream(self):
+        self.hc_api.helm_package()
+
+```
+
 ## container-common-scripts functions and arguments
 
 * [x] ct_cleanup

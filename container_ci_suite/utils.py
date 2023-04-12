@@ -114,7 +114,7 @@ def run_command(
     :param shell: bool, run command in shell
     :return: None or str
     """
-    logger.debug("command: %r", cmd)
+    logger.debug(f"command: {cmd}")
     try:
         if return_output:
             return subprocess.check_output(
