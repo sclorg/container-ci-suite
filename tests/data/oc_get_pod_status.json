@@ -1,0 +1,742 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "annotations": {
+                    "k8s.ovn.org/pod-networks": "{\"default\":{\"ip_addresses\":[\"10.131.0.213/23\"],\"mac_address\":\"0a:58:0a:83:00:d5\",\"gateway_ips\":[\"10.131.0.1\"],\"ip_address\":\"10.131.0.213/23\",\"gateway_ip\":\"10.131.0.1\"}}",
+                    "k8s.v1.cni.cncf.io/network-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.213\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d5\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "k8s.v1.cni.cncf.io/networks-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.213\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d5\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "openshift.io/deployment-config.name": "helm-sclorg-4312",
+                    "openshift.io/deployment.name": "helm-sclorg-4312-1",
+                    "openshift.io/scc": "restricted-v2",
+                    "seccomp.security.alpha.kubernetes.io/pod": "runtime/default"
+                },
+                "creationTimestamp": "2023-04-12T07:39:34Z",
+                "labels": {
+                    "openshift.io/deployer-pod-for.name": "helm-sclorg-4312-1"
+                },
+                "name": "helm-sclorg-4312-1-deploy",
+                "namespace": "helm-sclorg-4312",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "kind": "ReplicationController",
+                        "name": "helm-sclorg-4312-1",
+                        "uid": "6c52e9e0-2d58-44e7-a3b2-8805f10b8f65"
+                    }
+                ],
+                "resourceVersion": "29982793",
+                "uid": "54d463c0-63d4-493f-87de-1c6661459318"
+            },
+            "spec": {
+                "activeDeadlineSeconds": 21600,
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "OPENSHIFT_DEPLOYMENT_NAME",
+                                "value": "helm-sclorg-4312-1"
+                            },
+                            {
+                                "name": "OPENSHIFT_DEPLOYMENT_NAMESPACE",
+                                "value": "helm-sclorg-4312"
+                            }
+                        ],
+                        "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b6ffff6054e1709dd9282e911793861ef4a47badafe93acb1f0a4899290ce153",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "deployment",
+                        "resources": {},
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "runAsNonRoot": true,
+                            "runAsUser": 1002970000
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                                "name": "kube-api-access-c4vfj",
+                                "readOnly": true
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "enableServiceLinks": true,
+                "imagePullSecrets": [
+                    {
+                        "name": "deployer-dockercfg-tqd62"
+                    }
+                ],
+                "nodeName": "core-serv-ocp-4xsg9-worker-0-7gkvs",
+                "preemptionPolicy": "PreemptLowerPriority",
+                "priority": 0,
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "fsGroup": 1002970000,
+                    "seLinuxOptions": {
+                        "level": "s0:c55,c0"
+                    },
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "deployer",
+                "serviceAccountName": "deployer",
+                "shareProcessNamespace": false,
+                "terminationGracePeriodSeconds": 10,
+                "tolerations": [
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/not-ready",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    },
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/unreachable",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "kube-api-access-c4vfj",
+                        "projected": {
+                            "defaultMode": 420,
+                            "sources": [
+                                {
+                                    "serviceAccountToken": {
+                                        "expirationSeconds": 3607,
+                                        "path": "token"
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "ca.crt",
+                                                "path": "ca.crt"
+                                            }
+                                        ],
+                                        "name": "kube-root-ca.crt"
+                                    }
+                                },
+                                {
+                                    "downwardAPI": {
+                                        "items": [
+                                            {
+                                                "fieldRef": {
+                                                    "apiVersion": "v1",
+                                                    "fieldPath": "metadata.namespace"
+                                                },
+                                                "path": "namespace"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "service-ca.crt",
+                                                "path": "service-ca.crt"
+                                            }
+                                        ],
+                                        "name": "openshift-service-ca.crt"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:36Z",
+                        "reason": "PodCompleted",
+                        "status": "True",
+                        "type": "Initialized"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:58Z",
+                        "reason": "PodCompleted",
+                        "status": "False",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:58Z",
+                        "reason": "PodCompleted",
+                        "status": "False",
+                        "type": "ContainersReady"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:40:10Z",
+                        "status": "True",
+                        "type": "PodScheduled"
+                    }
+                ],
+                "containerStatuses": [
+                    {
+                        "containerID": "cri-o://6bd31c298f769ab0144c7b95b17cc56456df77e061508bf1b526fb0ac083cdcc",
+                        "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b6ffff6054e1709dd9282e911793861ef4a47badafe93acb1f0a4899290ce153",
+                        "imageID": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b6ffff6054e1709dd9282e911793861ef4a47badafe93acb1f0a4899290ce153",
+                        "lastState": {},
+                        "name": "deployment",
+                        "ready": false,
+                        "restartCount": 0,
+                        "started": false,
+                        "state": {
+                            "terminated": {
+                                "containerID": "cri-o://6bd31c298f769ab0144c7b95b17cc56456df77e061508bf1b526fb0ac083cdcc",
+                                "exitCode": 0,
+                                "finishedAt": "2023-04-12T07:38:57Z",
+                                "reason": "Completed",
+                                "startedAt": "2023-04-12T07:38:36Z"
+                            }
+                        }
+                    }
+                ],
+                "hostIP": "192.168.2.239",
+                "phase": "Succeeded",
+                "podIP": "10.131.0.213",
+                "podIPs": [
+                    {
+                        "ip": "10.131.0.213"
+                    }
+                ],
+                "qosClass": "BestEffort",
+                "startTime": "2023-04-12T07:38:36Z"
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "annotations": {
+                    "k8s.ovn.org/pod-networks": "{\"default\":{\"ip_addresses\":[\"10.131.0.215/23\"],\"mac_address\":\"0a:58:0a:83:00:d7\",\"gateway_ips\":[\"10.131.0.1\"],\"ip_address\":\"10.131.0.215/23\",\"gateway_ip\":\"10.131.0.1\"}}",
+                    "k8s.v1.cni.cncf.io/network-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.215\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d7\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "k8s.v1.cni.cncf.io/networks-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.215\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d7\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "openshift.io/deployment-config.latest-version": "1",
+                    "openshift.io/deployment-config.name": "helm-sclorg-4312",
+                    "openshift.io/deployment.name": "helm-sclorg-4312-1",
+                    "openshift.io/scc": "restricted-v2",
+                    "seccomp.security.alpha.kubernetes.io/pod": "runtime/default"
+                },
+                "creationTimestamp": "2023-04-12T07:40:11Z",
+                "generateName": "helm-sclorg-4312-1-",
+                "labels": {
+                    "deployment": "helm-sclorg-4312-1",
+                    "deploymentconfig": "helm-sclorg-4312",
+                    "name": "postgresql-testing"
+                },
+                "name": "helm-sclorg-4312-1-tx7fm",
+                "namespace": "helm-sclorg-4312",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "ReplicationController",
+                        "name": "helm-sclorg-4312-1",
+                        "uid": "6c52e9e0-2d58-44e7-a3b2-8805f10b8f65"
+                    }
+                ],
+                "resourceVersion": "29982767",
+                "uid": "fa1b6575-030d-422e-a948-819a7659327c"
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "POSTGRESQL_USER",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "database-user",
+                                        "name": "postgresql-testing"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "POSTGRESQL_PASSWORD",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "database-password",
+                                        "name": "postgresql-testing"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "POSTGRESQL_DATABASE",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "database-name",
+                                        "name": "postgresql-testing"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "image-registry.openshift-image-registry.svc:5000/helm-sclorg-4312/postgresql@sha256:61cad13d11e0505625006b49c009513eef0fe1d5aef64e7a4b838a54b7a4b72d",
+                        "imagePullPolicy": "IfNotPresent",
+                        "livenessProbe": {
+                            "exec": {
+                                "command": [
+                                    "/usr/libexec/check-container",
+                                    "--live"
+                                ]
+                            },
+                            "failureThreshold": 3,
+                            "initialDelaySeconds": 120,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 10
+                        },
+                        "name": "postgresql-testing",
+                        "ports": [
+                            {
+                                "containerPort": 5432,
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "exec": {
+                                "command": [
+                                    "/usr/libexec/check-container"
+                                ]
+                            },
+                            "failureThreshold": 3,
+                            "initialDelaySeconds": 5,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "resources": {
+                            "limits": {
+                                "memory": "512Mi"
+                            },
+                            "requests": {
+                                "memory": "512Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "privileged": false,
+                            "runAsNonRoot": true,
+                            "runAsUser": 1002970000
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/var/lib/pgsql/data",
+                                "name": "postgresql-testing-data"
+                            },
+                            {
+                                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                                "name": "kube-api-access-mr9hc",
+                                "readOnly": true
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "enableServiceLinks": true,
+                "imagePullSecrets": [
+                    {
+                        "name": "default-dockercfg-t7r29"
+                    }
+                ],
+                "nodeName": "core-serv-ocp-4xsg9-worker-0-7gkvs",
+                "preemptionPolicy": "PreemptLowerPriority",
+                "priority": 0,
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "fsGroup": 1002970000,
+                    "seLinuxOptions": {
+                        "level": "s0:c55,c0"
+                    },
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "serviceAccount": "default",
+                "serviceAccountName": "default",
+                "terminationGracePeriodSeconds": 30,
+                "tolerations": [
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/not-ready",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    },
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/unreachable",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    },
+                    {
+                        "effect": "NoSchedule",
+                        "key": "node.kubernetes.io/memory-pressure",
+                        "operator": "Exists"
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "postgresql-testing-data",
+                        "persistentVolumeClaim": {
+                            "claimName": "postgresql-testing"
+                        }
+                    },
+                    {
+                        "name": "kube-api-access-mr9hc",
+                        "projected": {
+                            "defaultMode": 420,
+                            "sources": [
+                                {
+                                    "serviceAccountToken": {
+                                        "expirationSeconds": 3607,
+                                        "path": "token"
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "ca.crt",
+                                                "path": "ca.crt"
+                                            }
+                                        ],
+                                        "name": "kube-root-ca.crt"
+                                    }
+                                },
+                                {
+                                    "downwardAPI": {
+                                        "items": [
+                                            {
+                                                "fieldRef": {
+                                                    "apiVersion": "v1",
+                                                    "fieldPath": "metadata.namespace"
+                                                },
+                                                "path": "namespace"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "service-ca.crt",
+                                                "path": "service-ca.crt"
+                                            }
+                                        ],
+                                        "name": "openshift-service-ca.crt"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:38Z",
+                        "status": "True",
+                        "type": "Initialized"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:57Z",
+                        "status": "True",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:57Z",
+                        "status": "True",
+                        "type": "ContainersReady"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:40:12Z",
+                        "status": "True",
+                        "type": "PodScheduled"
+                    }
+                ],
+                "containerStatuses": [
+                    {
+                        "containerID": "cri-o://a39e8c05d5d279d511861f65bce8241a8c2270bd6c91ee5b767560aae26b76d6",
+                        "image": "registry.redhat.io/rhel8/postgresql-13:latest",
+                        "imageID": "image-registry.openshift-image-registry.svc:5000/helm-sclorg-1234/postgresql@sha256:48873cd9b4199ee96bb4f9bbe6b2caace940a6ec7263dbe513397e7b86a16447",
+                        "lastState": {},
+                        "name": "postgresql-testing",
+                        "ready": true,
+                        "restartCount": 0,
+                        "started": true,
+                        "state": {
+                            "running": {
+                                "startedAt": "2023-04-12T07:38:48Z"
+                            }
+                        }
+                    }
+                ],
+                "hostIP": "192.168.2.239",
+                "phase": "Running",
+                "podIP": "10.131.0.215",
+                "podIPs": [
+                    {
+                        "ip": "10.131.0.215"
+                    }
+                ],
+                "qosClass": "Burstable",
+                "startTime": "2023-04-12T07:38:38Z"
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "annotations": {
+                    "helm.sh/hook": "test",
+                    "k8s.ovn.org/pod-networks": "{\"default\":{\"ip_addresses\":[\"10.131.0.214/23\"],\"mac_address\":\"0a:58:0a:83:00:d6\",\"gateway_ips\":[\"10.131.0.1\"],\"ip_address\":\"10.131.0.214/23\",\"gateway_ip\":\"10.131.0.1\"}}",
+                    "k8s.v1.cni.cncf.io/network-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.214\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d6\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "k8s.v1.cni.cncf.io/networks-status": "[{\n    \"name\": \"ovn-kubernetes\",\n    \"interface\": \"eth0\",\n    \"ips\": [\n        \"10.131.0.214\"\n    ],\n    \"mac\": \"0a:58:0a:83:00:d6\",\n    \"default\": true,\n    \"dns\": {}\n}]",
+                    "openshift.io/scc": "privileged"
+                },
+                "creationTimestamp": "2023-04-12T07:39:00Z",
+                "labels": {
+                    "name": "postgresql-testing"
+                },
+                "name": "postgresql-persistent-connection-test",
+                "namespace": "helm-sclorg-4312",
+                "resourceVersion": "29982632",
+                "uid": "5b05294b-3809-40fb-b20e-9947296162cf"
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "command": [
+                            "/bin/bash",
+                            "-ec",
+                            "PGPASSWORD=$PGPASSWORD /usr/bin/pg_isready -d $POSTGRESQL_DATABASE -h postgresql-testing -p $POSTGRESQL_PORT -U $POSTGRESQL_USER"
+                        ],
+                        "env": [
+                            {
+                                "name": "POSTGRESQL_USER",
+                                "value": "testu"
+                            },
+                            {
+                                "name": "PGPASSWORD",
+                                "value": "testp"
+                            },
+                            {
+                                "name": "POSTGRESQL_DATABASE",
+                                "value": "testdb"
+                            },
+                            {
+                                "name": "POSTGRESQL_PORT",
+                                "value": "5432"
+                            }
+                        ],
+                        "image": "registry.redhat.io/rhel8/postgresql-13:latest",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "postgresql-connection-test",
+                        "resources": {},
+                        "securityContext": {
+                            "capabilities": {
+                                "drop": [
+                                    "MKNOD"
+                                ]
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File",
+                        "volumeMounts": [
+                            {
+                                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                                "name": "kube-api-access-xmw87",
+                                "readOnly": true
+                            }
+                        ]
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "enableServiceLinks": true,
+                "imagePullSecrets": [
+                    {
+                        "name": "default-dockercfg-t7r29"
+                    }
+                ],
+                "nodeName": "core-serv-ocp-4xsg9-worker-0-7gkvs",
+                "preemptionPolicy": "PreemptLowerPriority",
+                "priority": 0,
+                "restartPolicy": "Never",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "seLinuxOptions": {
+                        "level": "s0:c55,c0"
+                    }
+                },
+                "serviceAccount": "default",
+                "serviceAccountName": "default",
+                "terminationGracePeriodSeconds": 30,
+                "tolerations": [
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/not-ready",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    },
+                    {
+                        "effect": "NoExecute",
+                        "key": "node.kubernetes.io/unreachable",
+                        "operator": "Exists",
+                        "tolerationSeconds": 300
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "kube-api-access-xmw87",
+                        "projected": {
+                            "defaultMode": 420,
+                            "sources": [
+                                {
+                                    "serviceAccountToken": {
+                                        "expirationSeconds": 3607,
+                                        "path": "token"
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "ca.crt",
+                                                "path": "ca.crt"
+                                            }
+                                        ],
+                                        "name": "kube-root-ca.crt"
+                                    }
+                                },
+                                {
+                                    "downwardAPI": {
+                                        "items": [
+                                            {
+                                                "fieldRef": {
+                                                    "apiVersion": "v1",
+                                                    "fieldPath": "metadata.namespace"
+                                                },
+                                                "path": "namespace"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "configMap": {
+                                        "items": [
+                                            {
+                                                "key": "service-ca.crt",
+                                                "path": "service-ca.crt"
+                                            }
+                                        ],
+                                        "name": "openshift-service-ca.crt"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:36Z",
+                        "status": "True",
+                        "type": "Initialized"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:36Z",
+                        "reason": "PodFailed",
+                        "status": "False",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:38:36Z",
+                        "reason": "PodFailed",
+                        "status": "False",
+                        "type": "ContainersReady"
+                    },
+                    {
+                        "lastProbeTime": null,
+                        "lastTransitionTime": "2023-04-12T07:40:11Z",
+                        "status": "True",
+                        "type": "PodScheduled"
+                    }
+                ],
+                "containerStatuses": [
+                    {
+                        "containerID": "cri-o://5b17d1937c688c5fa7d2676bc15f9102b5896ce98acace3f3dab5670796efc5f",
+                        "image": "registry.redhat.io/rhel8/postgresql-13:latest",
+                        "imageID": "image-registry.openshift-image-registry.svc:5000/helm-sclorg-1234/postgresql@sha256:48873cd9b4199ee96bb4f9bbe6b2caace940a6ec7263dbe513397e7b86a16447",
+                        "lastState": {},
+                        "name": "postgresql-connection-test",
+                        "ready": false,
+                        "restartCount": 0,
+                        "started": false,
+                        "state": {
+                            "terminated": {
+                                "containerID": "cri-o://5b17d1937c688c5fa7d2676bc15f9102b5896ce98acace3f3dab5670796efc5f",
+                                "exitCode": 2,
+                                "finishedAt": "2023-04-12T07:38:37Z",
+                                "reason": "Error",
+                                "startedAt": "2023-04-12T07:38:37Z"
+                            }
+                        }
+                    }
+                ],
+                "hostIP": "192.168.2.239",
+                "phase": "Failed",
+                "podIP": "10.131.0.214",
+                "podIPs": [
+                    {
+                        "ip": "10.131.0.214"
+                    }
+                ],
+                "qosClass": "BestEffort",
+                "startTime": "2023-04-12T07:38:36Z"
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": "",
+        "selfLink": ""
+    }
+}
