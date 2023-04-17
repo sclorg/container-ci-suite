@@ -41,7 +41,7 @@ class HelmChartsAPI:
         self.package_name: str = package_name
         self.tarball_dir = tarball_dir
         if namespace == "default":
-            self.namespace = f"helm-sclorg-{random.randrange(1000, 10000, 6)}"
+            self.namespace = f"helm-sclorg-{random.randrange(10000, 100000)}"
         else:
             self.namespace = namespace
         self.create_project()
