@@ -22,18 +22,27 @@
 
 
 import pytest
+import os
 from flexmock import flexmock
+from pathlib import Path
+
 
 from container_ci_suite.helm import HelmChartsAPI
+
+test_dir = Path(os.path.abspath(os.path.dirname(__file__)))
 
 
 class TestContainerCISuiteHelmCharts:
 
     def setup_method(self):
-        self.helm_chart = HelmChartsAPI("foo_path", "postgresql-imagestreams", "0.0.1", namespace="pgsql-13")
+        flexmock(HelmChartsAPI).should_receive("create_project").and_return(True)
+        self.helm_chart = HelmChartsAPI(
+            Path("foo_path"), package_name="postgresql-imagestreams", tarball_dir=test_dir, namespace="pgsql-13"
+        )
+        self.helm_chart.set_version("0.0.1")
 
     def test_helm_api(self):
-        assert self.helm_chart.path == "foo_path"
+        assert self.helm_chart.path == Path("foo_path")
         assert self.helm_chart.package_name == "postgresql-imagestreams"
         assert self.helm_chart.version == "0.0.1"
         assert self.helm_chart.namespace == "pgsql-13"
@@ -53,6 +62,7 @@ class TestContainerCISuiteHelmCharts:
         assert self.helm_chart.check_imagestreams(tag, registry=registry) == expected_value
 
     def test_package_helm_chart_success(self, helm_package_success):
+        flexmock(HelmChartsAPI).should_receive("is_chart_yaml_present").and_return(True)
         flexmock(HelmChartsAPI).should_receive("run_helm_command").and_return(helm_package_success)
         assert self.helm_chart.helm_package()
 
