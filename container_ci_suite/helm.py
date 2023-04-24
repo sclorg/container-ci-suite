@@ -138,8 +138,6 @@ class HelmChartsAPI:
                 print(f"Pod Name: {pod_name} and status: {status}.")
                 if "deploy" in pod_name and status != "Succeeded":
                     continue
-                if not pod_name.startswith(self.namespace):
-                    continue
                 # Deployment is finished
                 if item["status"]["phase"] == "Running":
                     print(f"Pod with name {pod_name} is running {status}.")
