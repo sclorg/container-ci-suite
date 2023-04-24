@@ -54,6 +54,8 @@ class HelmChartsAPI:
         Run docker command:
         """
         json_cmd = "-o json" if json_output else ""
+        print(f"run_helm_command: helm {cmd} {json_cmd}")
+
         return utils.run_command(
             f"helm {cmd} {json_cmd}",
             return_output=return_output,
@@ -97,10 +99,11 @@ class HelmChartsAPI:
 
     def oc_get_pod_status(self) -> Dict:
         output = utils.run_command("oc project")
-        print(output)
+        # print(f"oc project: {output}")
         output = utils.run_command("oc get all")
-        print(output)
+        # print(f"oc get all: {output}")
         output = utils.run_command(f"oc get pods -n {self.namespace} -o json")
+        # print(f" oc get pods: {output}")
         return json.loads(output)
 
     def helm_package(self) -> bool:
@@ -121,9 +124,11 @@ class HelmChartsAPI:
         return json.loads(output)
 
     def is_pod_running(self):
-        for count in range(20):
-            print(f"Cycle for checking pod status: {count}")
+        for count in range(10):
+            print(f"Cycle for checking pod status: {count}.")
             json_data = self.oc_get_pod_status()
+            output = utils.run_command("oc status --suggest")
+            print(output)
             if len(json_data["items"]) == 0:
                 time.sleep(3)
                 continue
@@ -131,7 +136,7 @@ class HelmChartsAPI:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
                 print(f"Pod Name: {pod_name} and status: {status}.")
-                if "deploy" in pod_name:
+                if "deploy" in pod_name and status != "Succeeded":
                     continue
                 if not pod_name.startswith(self.namespace):
                     continue
@@ -150,9 +155,9 @@ class HelmChartsAPI:
     def check_helm_installation(self):
         # Let's check that pod is really running
         output = utils.run_command("oc status")
-        print(output)
+        # print(output)
         output = utils.run_command("oc status --suggest")
-        print(output)
+        # print(output)
         output = utils.run_command("oc get all")
         print(output)
         json_output = self.get_helm_json_output(command="list")
@@ -219,6 +224,7 @@ class HelmChartsAPI:
         output = HelmChartsAPI.run_helm_command(
             f"test {self.package_name} -n {self.namespace} --logs", json_output=False
         )
+        print(f"Helm test output: {output}")
         if self.check_test_output(output, expected_str=expected_str):
             return True
         output = utils.run_command("oc status")
