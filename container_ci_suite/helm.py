@@ -131,7 +131,7 @@ class HelmChartsAPI:
         return json.loads(output)
 
     def is_pod_running(self):
-        for count in range(20):
+        for count in range(30):
             print(f"Cycle for checking pod status: {count}.")
             json_data = self.oc_get_pod_status()
             output = utils.run_command("oc status --suggest")
@@ -153,7 +153,7 @@ class HelmChartsAPI:
                     # Wait couple seconds for sure
                     time.sleep(10)
                     return True
-            time.sleep(5)
+            time.sleep(3)
 
         return False
 
