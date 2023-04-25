@@ -24,7 +24,7 @@ import logging
 import random
 import time
 
-from typing import Dict
+from typing import Dict, List
 from pathlib import Path
 
 import container_ci_suite.utils as utils
@@ -35,15 +35,20 @@ logger = logging.getLogger(__name__)
 
 class HelmChartsAPI:
 
-    def __init__(self, path: Path, package_name: str, tarball_dir: Path,  namespace: str = "default"):
+    def __init__(
+            self, path: Path, package_name: str, tarball_dir: Path, namespace: str = "default", delete_prj: bool = True
+    ):
         self.path: Path = path
         self.version: str = ""
         self.package_name: str = package_name
         self.tarball_dir = tarball_dir
+        self.delete_prj: bool = delete_prj
+        self.create_prj: bool = True
         if namespace == "default":
             self.namespace = f"helm-sclorg-{random.randrange(10000, 100000)}"
         else:
             self.namespace = namespace
+            self.create_prj = False
         self.create_project()
 
     @staticmethod
@@ -85,12 +90,14 @@ class HelmChartsAPI:
         return False
 
     def create_project(self):
-        utils.run_command(f"oc new-project {self.namespace}")
+        if self.create_prj:
+            utils.run_command(f"oc new-project {self.namespace}")
         return self.oc_project_exists()
 
     def delete_project(self):
-        utils.run_command("oc project default")
-        utils.run_command(f"oc delete project {self.namespace}")
+        if self.delete_prj:
+            utils.run_command("oc project default")
+            utils.run_command(f"oc delete project {self.namespace}")
 
     def is_chart_yaml_present(self):
         if (self.full_package_dir / "Chart.yaml") .exists():
@@ -124,7 +131,7 @@ class HelmChartsAPI:
         return json.loads(output)
 
     def is_pod_running(self):
-        for count in range(10):
+        for count in range(20):
             print(f"Cycle for checking pod status: {count}.")
             json_data = self.oc_get_pod_status()
             output = utils.run_command("oc status --suggest")
@@ -146,7 +153,7 @@ class HelmChartsAPI:
                     # Wait couple seconds for sure
                     time.sleep(10)
                     return True
-            time.sleep(3)
+            time.sleep(5)
 
         return False
 
@@ -189,7 +196,7 @@ class HelmChartsAPI:
             return False
         return True
 
-    def check_test_output(self, output, expected_str: str):
+    def check_test_output(self, output, expected_str: List[str]):
         """
         Expected output from helm test is e.g.:
         NAME: postgresql-persistent
@@ -209,16 +216,18 @@ class HelmChartsAPI:
             f"NAME: {self.package_name}",
             "STATUS: deployed",
             f"NAMESPACE: {self.namespace}",
-            "Succeeded",
-            expected_str,
-
+            "Succeeded"
         ]
+        if isinstance(expected_str, str):
+            print("Function expects list of strings to check.")
+            return False
+        check_list.extend(expected_str)
         result_list = [x in ''.join(output) for x in check_list]
         if False in result_list:
             return False
         return True
 
-    def test_helm_chart(self, expected_str: str):
+    def test_helm_chart(self, expected_str: List[str]):
         output = HelmChartsAPI.run_helm_command(
             f"test {self.package_name} -n {self.namespace} --logs", json_output=False
         )
