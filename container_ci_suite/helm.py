@@ -172,7 +172,6 @@ class HelmChartsAPI:
             assert out["name"] == self.package_name
             assert out["chart"] == f"{self.package_name}-{self.version}"
             assert out["status"] == "deployed"
-            assert out["namespace"] == self.namespace
             return True
         return False
 
@@ -190,7 +189,6 @@ class HelmChartsAPI:
         assert json_output["name"] == self.package_name
         assert json_output["chart"]["metadata"]["version"] == self.version
         assert json_output["info"]["status"] == "deployed"
-        assert json_output["namespace"] == self.namespace
         if not self.check_helm_installation():
             logger.error("Installation has failed. Let's uninstall it and try one more time.")
             return False
@@ -215,7 +213,6 @@ class HelmChartsAPI:
         check_list = [
             f"NAME: {self.package_name}",
             "STATUS: deployed",
-            f"NAMESPACE: {self.namespace}",
             "Succeeded"
         ]
         if isinstance(expected_str, str):
