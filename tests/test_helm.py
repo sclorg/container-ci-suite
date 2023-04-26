@@ -80,6 +80,7 @@ class TestContainerCISuiteHelmCharts:
     def test_package_installation_success(
             self, package_installation_json, helm_list_json, list_output, expected_output
     ):
+        flexmock(HelmChartsAPI).should_receive("is_helm_package_installed").and_return(False)
         flexmock(HelmChartsAPI).should_receive("get_helm_json_output").and_return(package_installation_json)
         flexmock(HelmChartsAPI).should_receive("check_helm_installation").and_return(list_output)
         assert self.helm_chart.helm_installation() == expected_output
