@@ -130,6 +130,18 @@ class HelmChartsAPI:
         output = HelmChartsAPI.run_helm_command(cmd=command)
         return json.loads(output)
 
+    def is_deployment_finished(self, json_data: Dict) -> bool:
+        for item in json_data["items"]:
+            pod_name = item["metadata"]["name"]
+            status = item["status"]["phase"]
+            print(f"is_deployment_finished: {pod_name} and status: {status}.")
+            if "deploy" in pod_name and status != "Succeeded":
+                continue
+            if "deploy" in pod_name and status == "Succeeded":
+                print("Deployment is finished")
+                return True
+        return False
+
     def is_pod_running(self):
         for count in range(30):
             print(f"Cycle for checking pod status: {count}.")
@@ -139,13 +151,15 @@ class HelmChartsAPI:
             if len(json_data["items"]) == 0:
                 time.sleep(3)
                 continue
+            if not self.is_deployment_finished(json_data=json_data):
+                time.sleep(3)
+                continue
             for item in json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
                 print(f"Pod Name: {pod_name} and status: {status}.")
-                if "deploy" in pod_name and status != "Succeeded":
+                if "deploy" in pod_name:
                     continue
-                # Deployment is finished
                 if item["status"]["phase"] == "Running":
                     print(f"Pod with name {pod_name} is running {status}.")
                     output = utils.run_command(f"oc logs {pod_name} -n {self.namespace}")
