@@ -175,11 +175,20 @@ class HelmChartsAPI:
             return True
         return False
 
+    def is_helm_package_installed(self):
+        json_output = self.get_helm_json_output(command="list")
+        for out in json_output:
+            if out["name"] == self.package_name:
+                return True
+        return False
+
     def helm_uninstallation(self):
         output = HelmChartsAPI.run_helm_command(f"uninstall {self.package_name} -n {self.namespace}", json_output=False)
         print(output)
 
     def helm_installation(self, values: Dict = None):
+        if self.is_helm_package_installed():
+            self.helm_uninstallation()
         command_values = ""
         if values:
             command_values = ' '.join([f"--set {key}={value}" for key, value in values.items()])
