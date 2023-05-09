@@ -23,6 +23,7 @@ import json
 import logging
 import random
 import time
+import requests
 
 from typing import Dict, List
 from pathlib import Path
@@ -130,20 +131,28 @@ class HelmChartsAPI:
         output = HelmChartsAPI.run_helm_command(cmd=command)
         return json.loads(output)
 
-    def is_deployment_finished(self, json_data: Dict) -> bool:
+    def is_pod_finished(self, json_data: Dict, pod_suffix_name: str = "deploy") -> bool:
         for item in json_data["items"]:
             pod_name = item["metadata"]["name"]
             status = item["status"]["phase"]
-            print(f"is_deployment_finished: {pod_name} and status: {status}.")
-            if "deploy" in pod_name and status != "Succeeded":
+            print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
+            if pod_suffix_name in pod_name and status != "Succeeded":
                 continue
-            if "deploy" in pod_name and status == "Succeeded":
-                print("Deployment is finished")
+            if pod_suffix_name in pod_name and status == "Succeeded":
+                print(f"Pod with suffix {pod_suffix_name} is finished")
+                return True
+        return False
+
+    def is_build_pod_present(self, json_data) -> bool:
+        for item in json_data["items"]:
+            pod_name = item["metadata"]["name"]
+            print(f"is_build_pod_present: {pod_name}.")
+            if "build" in pod_name:
                 return True
         return False
 
     def is_pod_running(self):
-        for count in range(30):
+        for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
             json_data = self.oc_get_pod_status()
             output = utils.run_command("oc status --suggest")
@@ -151,7 +160,11 @@ class HelmChartsAPI:
             if len(json_data["items"]) == 0:
                 time.sleep(3)
                 continue
-            if not self.is_deployment_finished(json_data=json_data):
+            if self.is_build_pod_present(json_data) and \
+                    not self.is_pod_finished(json_data=json_data, pod_suffix_name="build"):
+                time.sleep(3)
+                continue
+            if not self.is_pod_finished(json_data=json_data):
                 time.sleep(3)
                 continue
             for item in json_data["items"]:
@@ -247,7 +260,7 @@ class HelmChartsAPI:
             return False
         return True
 
-    def test_helm_chart(self, expected_str: List[str]):
+    def test_helm_chart(self, expected_str: List[str]) -> bool:
         output = HelmChartsAPI.run_helm_command(
             f"test {self.package_name} -n {self.namespace} --logs", json_output=False
         )
@@ -264,6 +277,24 @@ class HelmChartsAPI:
         output = utils.run_command("oc get is -o json", return_output=True, ignore_error=True, shell=True)
         return json.loads(output)
 
+    def get_routes(self):
+        output = utils.run_command("oc get route -o json", return_output=True, ignore_error=True, shell=True)
+        return json.loads(output)
+
+    def get_route_name(self, route_name: str):
+        json_data = self.get_routes()
+        if len(json_data["items"]) == 0:
+            return None
+        for item in json_data["items"]:
+            if item["metadata"]["namespace"] != self.namespace:
+                continue
+            if item["metadata"]["name"] != route_name:
+                continue
+            if item["spec"]["to"]["name"] != route_name:
+                continue
+            return item["spec"]["host"]
+        return None
+
     def check_imagestreams(self, version: str, registry: str) -> bool:
         """
         Returns JSON output
@@ -276,3 +307,13 @@ class HelmChartsAPI:
                 tag_found = True
                 break
         return tag_found
+
+    def test_helm_curl_output(self, route_name: str, expected_str=str, schema: str = "http://") -> bool:
+        host_name = self.get_route_name(route_name=route_name)
+        print(f"Route name is: {host_name}")
+        if not host_name:
+            return False
+        resp = requests.get(f"{schema}{host_name}")
+        if expected_str not in resp.text:
+            return False
+        return True
