@@ -28,6 +28,7 @@ from pathlib import Path
 
 
 from container_ci_suite.helm import HelmChartsAPI
+from container_ci_suite.openshift import OpenShiftAPI
 
 test_dir = Path(os.path.abspath(os.path.dirname(__file__)))
 
@@ -35,7 +36,7 @@ test_dir = Path(os.path.abspath(os.path.dirname(__file__)))
 class TestContainerCISuiteHelmCharts:
 
     def setup_method(self):
-        flexmock(HelmChartsAPI).should_receive("create_project").and_return(True)
+        flexmock(OpenShiftAPI).should_receive("create_project").and_return(True)
         self.helm_chart = HelmChartsAPI(
             Path("foo_path"), package_name="postgresql-imagestreams", tarball_dir=test_dir, namespace="pgsql-13"
         )

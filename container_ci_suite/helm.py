@@ -29,6 +29,7 @@ from typing import Dict, List
 from pathlib import Path
 
 import container_ci_suite.utils as utils
+from container_ci_suite.openshift import OpenShiftAPI
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ class HelmChartsAPI:
         else:
             self.namespace = namespace
             self.create_prj = False
-        self.create_project()
+        self.oc_api = OpenShiftAPI(namespace=self.namespace, create_prj=self.create_prj, delete_prj=self.delete_prj)
+        self.oc_api.create_project()
 
     @staticmethod
     def run_helm_command(
@@ -69,6 +71,9 @@ class HelmChartsAPI:
             shell=shell,
         )
 
+    def delete_project(self):
+        self.oc_api.delete_project()
+
     @property
     def full_package_dir(self):
         return self.path / self.package_name / "src"
@@ -84,35 +89,10 @@ class HelmChartsAPI:
     def set_version(self, version: str):
         self.version = version
 
-    def oc_project_exists(self):
-        output = utils.run_command("oc projects")
-        if self.namespace in output:
-            return True
-        return False
-
-    def create_project(self):
-        if self.create_prj:
-            utils.run_command(f"oc new-project {self.namespace}")
-        return self.oc_project_exists()
-
-    def delete_project(self):
-        if self.delete_prj:
-            utils.run_command("oc project default")
-            utils.run_command(f"oc delete project {self.namespace}")
-
     def is_chart_yaml_present(self):
         if (self.full_package_dir / "Chart.yaml") .exists():
             return True
         return False
-
-    def oc_get_pod_status(self) -> Dict:
-        output = utils.run_command("oc project")
-        # print(f"oc project: {output}")
-        output = utils.run_command("oc get all")
-        # print(f"oc get all: {output}")
-        output = utils.run_command(f"oc get pods -n {self.namespace} -o json")
-        # print(f" oc get pods: {output}")
-        return json.loads(output)
 
     def helm_package(self) -> bool:
         """
@@ -154,8 +134,8 @@ class HelmChartsAPI:
     def is_pod_running(self):
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
-            json_data = self.oc_get_pod_status()
-            output = utils.run_command("oc status --suggest")
+            json_data = self.oc_api.oc_get_pod_status()
+            output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
             print(output)
             if len(json_data["items"]) == 0:
                 time.sleep(3)
@@ -175,7 +155,9 @@ class HelmChartsAPI:
                     continue
                 if item["status"]["phase"] == "Running":
                     print(f"Pod with name {pod_name} is running {status}.")
-                    output = utils.run_command(f"oc logs {pod_name} -n {self.namespace}")
+                    output = OpenShiftAPI.run_oc_command(
+                        f"logs {pod_name}", namespace=self.namespace, json_output=False
+                    )
                     print(output)
                     # Wait couple seconds for sure
                     time.sleep(10)
@@ -186,11 +168,11 @@ class HelmChartsAPI:
 
     def check_helm_installation(self):
         # Let's check that pod is really running
-        output = utils.run_command("oc status")
+        output = OpenShiftAPI.run_oc_command("status", json_output=False)
         # print(output)
-        output = utils.run_command("oc status --suggest")
+        output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
         # print(output)
-        output = utils.run_command("oc get all")
+        output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         print(output)
         json_output = self.get_helm_json_output(command="list")
         for out in json_output:
@@ -267,18 +249,23 @@ class HelmChartsAPI:
         print(f"Helm test output: {output}")
         if self.check_test_output(output, expected_str=expected_str):
             return True
-        output = utils.run_command("oc status")
+        output = OpenShiftAPI.run_oc_command("status", json_output=False)
         print(output)
-        output = utils.run_command("oc get all")
+        output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         print(output)
         return False
 
     def get_is_json(self):
-        output = utils.run_command("oc get is -o json", return_output=True, ignore_error=True, shell=True)
+        output = OpenShiftAPI.run_oc_command(
+            "get is", namespace=self.namespace, return_output=True, ignore_error=True, shell=True
+        )
         return json.loads(output)
 
     def get_routes(self):
-        output = utils.run_command("oc get route -o json", return_output=True, ignore_error=True, shell=True)
+        output = OpenShiftAPI.run_oc_command(
+            "get route",
+            namespace=self.namespace, return_output=True, ignore_error=True, shell=True
+        )
         return json.loads(output)
 
     def get_route_name(self, route_name: str):
