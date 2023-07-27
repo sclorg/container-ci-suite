@@ -48,7 +48,7 @@ class HelmChartsAPI:
         self.delete_prj: bool = delete_prj
         self.create_prj: bool = True
         if namespace == "helm-default":
-            self.namespace = f"helm-sclorg-{random.randrange(10000, 100000)}"
+            self.namespace = f"helm-sclorg-{self.package_name}-{random.randrange(10000, 100000)}"
         else:
             self.namespace = namespace
             self.create_prj = False
