@@ -59,7 +59,8 @@ class OpenShiftAPI:
         )
 
     def create_project(self):
-        OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False)
+        if self.create_prj:
+            OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False)
         return self.is_project_exits()
 
     def delete_project(self):

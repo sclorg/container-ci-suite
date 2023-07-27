@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 class HelmChartsAPI:
 
     def __init__(
-            self, path: Path, package_name: str, tarball_dir: Path, namespace: str = "default", delete_prj: bool = True
+            self, path: Path, package_name: str, tarball_dir: Path,
+            namespace: str = "helm-default", delete_prj: bool = True
     ):
         self.path: Path = path
         self.version: str = ""
@@ -46,7 +47,7 @@ class HelmChartsAPI:
         self.tarball_dir = tarball_dir
         self.delete_prj: bool = delete_prj
         self.create_prj: bool = True
-        if namespace == "default":
+        if namespace == "helm-default":
             self.namespace = f"helm-sclorg-{random.randrange(10000, 100000)}"
         else:
             self.namespace = namespace
