@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from container_ci_suite.constants import CA_FILE_PATH
+
 from tests.spellbook import DATA_DIR
 
 
@@ -84,3 +85,8 @@ def helm_package_failed():
 @pytest.fixture
 def helm_list_json():
     return json.loads((DATA_DIR / "helm_list.json").read_text())
+
+
+@pytest.fixture()
+def oc_get_is_ruby_json():
+    return json.loads((DATA_DIR / "oc_get_is_ruby.json").read_text())

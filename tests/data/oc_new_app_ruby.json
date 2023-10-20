@@ -1,0 +1,249 @@
+{
+    "kind": "List",
+    "apiVersion": "v1",
+    "metadata": {},
+    "items": [
+        {
+            "kind": "Deployment",
+            "apiVersion": "apps/v1",
+            "metadata": {
+                "name": "ruby",
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "ruby",
+                    "app.kubernetes.io/component": "ruby",
+                    "app.kubernetes.io/instance": "ruby",
+                    "app.kubernetes.io/name": "ruby"
+                },
+                "annotations": {
+                    "image.openshift.io/triggers": "[{\"from\":{\"kind\":\"ImageStreamTag\",\"name\":\"ruby:2.5-ubi8\",\"namespace\":\"ruby-ex-tests\"},\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"ruby\\\")].image\"}]",
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                }
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": {
+                        "deployment": "ruby"
+                    }
+                },
+                "template": {
+                    "metadata": {
+                        "creationTimestamp": null,
+                        "labels": {
+                            "deployment": "ruby"
+                        },
+                        "annotations": {
+                            "openshift.io/generated-by": "OpenShiftNewApp"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "ruby",
+                                "image": " ",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {}
+                            }
+                        ]
+                    }
+                },
+                "strategy": {}
+            },
+            "status": {}
+        },
+        {
+            "kind": "BuildConfig",
+            "apiVersion": "build.openshift.io/v1",
+            "metadata": {
+                "name": "ruby-ex",
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "ruby",
+                    "app.kubernetes.io/component": "ruby",
+                    "app.kubernetes.io/instance": "ruby",
+                    "app.kubernetes.io/name": "ruby"
+                },
+                "annotations": {
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                }
+            },
+            "spec": {
+                "triggers": [
+                    {
+                        "type": "GitHub",
+                        "github": {
+                            "secret": "EVhzSy3nAbESZtJj9rU3"
+                        }
+                    },
+                    {
+                        "type": "Generic",
+                        "generic": {
+                            "secret": "46V7Bi9IOxYv6vO9SZzb"
+                        }
+                    },
+                    {
+                        "type": "ConfigChange"
+                    },
+                    {
+                        "type": "ImageChange",
+                        "imageChange": {}
+                    }
+                ],
+                "source": {
+                    "type": "Git",
+                    "git": {
+                        "uri": "https://github.com/sclorg/ruby-ex"
+                    }
+                },
+                "strategy": {
+                    "type": "Source",
+                    "sourceStrategy": {
+                        "from": {
+                            "kind": "ImageStreamTag",
+                            "namespace": "ruby-ex-tests",
+                            "name": "ruby:2.5-ubi8"
+                        }
+                    }
+                },
+                "output": {
+                    "to": {
+                        "kind": "ImageStreamTag",
+                        "name": "ruby-ex:latest"
+                    }
+                },
+                "resources": {},
+                "postCommit": {},
+                "nodeSelector": null
+            },
+            "status": {
+                "lastVersion": 0
+            }
+        },
+        {
+            "kind": "Deployment",
+            "apiVersion": "apps/v1",
+            "metadata": {
+                "name": "ruby-ex",
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "ruby",
+                    "app.kubernetes.io/component": "ruby",
+                    "app.kubernetes.io/instance": "ruby",
+                    "app.kubernetes.io/name": "ruby"
+                },
+                "annotations": {
+                    "image.openshift.io/triggers": "[{\"from\":{\"kind\":\"ImageStreamTag\",\"name\":\"ruby-ex:latest\"},\"fieldPath\":\"spec.template.spec.containers[?(@.name==\\\"ruby-ex\\\")].image\"}]",
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                }
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": {
+                        "deployment": "ruby-ex"
+                    }
+                },
+                "template": {
+                    "metadata": {
+                        "creationTimestamp": null,
+                        "labels": {
+                            "deployment": "ruby-ex"
+                        },
+                        "annotations": {
+                            "openshift.io/generated-by": "OpenShiftNewApp"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "ruby-ex",
+                                "image": " ",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "resources": {}
+                            }
+                        ]
+                    }
+                },
+                "strategy": {}
+            },
+            "status": {}
+        },
+        {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "ruby",
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "ruby",
+                    "app.kubernetes.io/component": "ruby",
+                    "app.kubernetes.io/instance": "ruby",
+                    "app.kubernetes.io/name": "ruby"
+                },
+                "annotations": {
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                }
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name": "8080-tcp",
+                        "protocol": "TCP",
+                        "port": 8080,
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "deployment": "ruby"
+                }
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        },
+        {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "ruby-ex",
+                "creationTimestamp": null,
+                "labels": {
+                    "app": "ruby",
+                    "app.kubernetes.io/component": "ruby",
+                    "app.kubernetes.io/instance": "ruby",
+                    "app.kubernetes.io/name": "ruby"
+                },
+                "annotations": {
+                    "openshift.io/generated-by": "OpenShiftNewApp"
+                }
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name": "8080-tcp",
+                        "protocol": "TCP",
+                        "port": 8080,
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "deployment": "ruby-ex"
+                }
+            },
+            "status": {
+                "loadBalancer": {}
+            }
+        }
+    ]
+}

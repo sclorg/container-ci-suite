@@ -34,7 +34,40 @@ class TestDummyImage(object):
 
 ```
 
-### Run a test with Container-CI-Suite for Helm charts
+### Run a test with Container-CI-Suite for Example repositories
+
+```python
+import os
+
+import pytest
+
+from container_ci_suite.openshift import OpenShiftAPI
+
+test_dir = os.path.abspath(os.path.dirname(__file__))
+
+RAW_URL = "https://raw.githubusercontent.com/sclorg/{container}/master/{dir}/{filename}.json"
+
+class TestRubyEx:
+    def setup_method(self):
+        self.oc_api = OpenShiftAPI(namespace="test-ruby-ex")
+
+    def test_ruby_is(self):
+        self.oc_api.create(RAW_URL.format(container="s2i-ruby-container", dir="imagestreams", filename="ruby-rhel.json"))
+        self.oc_api.check_is_version("ruby:2.5-ubi8")
+
+    def test_postgresql_is(self):
+        self.oc_api.create(RAW_URL.format(container="postgresql-container", dir="imagestreams", filename="postgresql-rhel.json"))
+        self.oc_api.check_is_version("postgresql:10-el8")
+
+    def test_deployment(self):
+        self.oc_api.create(RAW_URL.format(container="s2i-ruby-container", dir="imagestreams", filename="ruby-rhel.json"))
+        self.oc_api.create(RAW_URL.format(container="postgresql-container", dir="imagestreams", filename="postgresql-rhel.json"))
+        self.oc_api.process_file(RAW_URL.format(container="s2i-ruby-container", dir="examples", filename="rails-postgresql-persistent.json"))
+        self.oc_api.new_app("ruby-ex-tests/ruby:2.5-ubi8~https://github.com/sclorg/ruby-ex")
+        #oc process -f rails-postgresql.json -p NAMESPACE=$(oc project -q) | oc create -f -
+```
+
+## Run a test with Container-CI-Suite for Helm charts
 
 ```python
 import os
@@ -55,47 +88,6 @@ class TestHelmPostgresqlImageStreams:
         self.hc_api.helm_package()
 
 ```
-
-## container-common-scripts functions and arguments
-
-* [x] ct_cleanup
-* [ ] ct_enable_cleanup
-* [x] ct_check_envs_set
-* [x] ct_get_cip
-* [x] ct_get_cid
-* [x] ct_wait_for_cid
-* [x] ct_assert_container_creation_fails
-* [x] ct_create_container
-* [x] ct_scl_usage_old
-* [ ] ct_doc_content_old
-* [x] full_ca_file_path
-* [x] ct_mount_ca_file
-* [x] ct_build_s2i_npm_variables
-* [x] ct_npm_works
-* [x] ct_binary_found_from_df
-* [ ] ct_check_exec_env_vars
-* [ ] ct_check_scl_enable_vars
-* [ ] ct_path_append
-* [ ] ct_path_foreach
-* [ ] ct_run_test_list
-* [ ] ct_gen_self_signed_cert_pem
-* [ ] ct_obtain_input
-* [ ] ct_test_response
-* [x] ct_registry_from_os
-* [x] ct_get_public_image_name
-* [ ] ct_assert_cmd_success
-* [ ] ct_assert_cmd_failure
-* [ ] ct_random_string
-* [x] ct_s2i_usage
-* [ ] ct_s2i_build_as_df
-* [x] ct_check_image_availability
-* [ ] ct_check_latest_imagestreams
-* [ ] ct_test_app_dockerfile
-* [ ] ct_get_uid_from_image
-* [ ] ct_clone_git_repository
-* [ ] ct_show_resources
-* [ ] ct_s2i_multistage_build
-
 
 ## OpenShift tests
 

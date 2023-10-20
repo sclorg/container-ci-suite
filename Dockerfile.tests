@@ -1,4 +1,4 @@
-FROM fedora:36
+FROM quay.io/fedora/fedora:38
 
 ENV LANG=en_US.UTF-8
 ENV NAME=betka \
