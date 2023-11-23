@@ -1,0 +1,493 @@
+{
+    "kind": "List",
+    "apiVersion": "v1",
+    "metadata": {},
+    "items": [
+        {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {
+                "annotations": {
+                    "template.openshift.io/expose-password": "{.data['application-password']}",
+                    "template.openshift.io/expose-username": "{.data['application-user']}"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            },
+            "stringData": {
+                "application-password": "secret",
+                "application-user": "openshift",
+                "database-password": "pcqKujVC",
+                "database-user": "userGAN",
+                "keybase": "btdvmnb052ku858d6eoqw5r142cqw41bt4vxfhpwt8sq2idlnte2l1k01ycabkk4wb8c6tgsp78pr6xa1jlh27uqrbkphp10in27siitss4dmsj5l3gcpujlindlugl"
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "description": "Exposes and load balances the application pods",
+                    "service.alpha.openshift.io/dependencies": "[{\"name\": \"postgresql\", \"kind\": \"Service\"}]"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name": "web",
+                        "port": 8080,
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "name": "rails-pgsql-persistent"
+                }
+            }
+        },
+        {
+            "apiVersion": "route.openshift.io/v1",
+            "kind": "Route",
+            "metadata": {
+                "annotations": {
+                    "template.openshift.io/expose-uri": "http://{.spec.host}{.spec.path}"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            },
+            "spec": {
+                "host": "",
+                "to": {
+                    "kind": "Service",
+                    "name": "rails-pgsql-persistent"
+                }
+            }
+        },
+        {
+            "apiVersion": "image.openshift.io/v1",
+            "kind": "ImageStream",
+            "metadata": {
+                "annotations": {
+                    "description": "Keeps track of changes in the application image"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            }
+        },
+        {
+            "apiVersion": "build.openshift.io/v1",
+            "kind": "BuildConfig",
+            "metadata": {
+                "annotations": {
+                    "description": "Defines how to build the application",
+                    "template.alpha.openshift.io/wait-for-ready": "true"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            },
+            "spec": {
+                "output": {
+                    "to": {
+                        "kind": "ImageStreamTag",
+                        "name": "rails-pgsql-persistent:latest"
+                    }
+                },
+                "postCommit": {
+                    "script": "bundle exec rake test"
+                },
+                "source": {
+                    "contextDir": "",
+                    "git": {
+                        "ref": "",
+                        "uri": "https://github.com/sclorg/rails-ex.git"
+                    },
+                    "type": "Git"
+                },
+                "strategy": {
+                    "sourceStrategy": {
+                        "env": [
+                            {
+                                "name": "RUBYGEM_MIRROR",
+                                "value": ""
+                            }
+                        ],
+                        "from": {
+                            "kind": "ImageStreamTag",
+                            "name": "ruby:2.5",
+                            "namespace": "openshift"
+                        }
+                    },
+                    "type": "Source"
+                },
+                "triggers": [
+                    {
+                        "type": "ImageChange"
+                    },
+                    {
+                        "type": "ConfigChange"
+                    },
+                    {
+                        "github": {
+                            "secret": "Aqd23y6gGOqgyNLxCW8nWruhEFPHehflj2NjnEQe"
+                        },
+                        "type": "GitHub"
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "apps.openshift.io/v1",
+            "kind": "DeploymentConfig",
+            "metadata": {
+                "annotations": {
+                    "description": "Defines how to deploy the application server",
+                    "template.alpha.openshift.io/wait-for-ready": "true"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "rails-pgsql-persistent"
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "name": "rails-pgsql-persistent"
+                },
+                "strategy": {
+                    "recreateParams": {
+                        "pre": {
+                            "execNewPod": {
+                                "command": [
+                                    "./migrate-database.sh"
+                                ],
+                                "containerName": "rails-pgsql-persistent"
+                            },
+                            "failurePolicy": "Abort"
+                        }
+                    },
+                    "type": "Recreate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "name": "rails-pgsql-persistent"
+                        },
+                        "name": "rails-pgsql-persistent"
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "env": [
+                                    {
+                                        "name": "DATABASE_SERVICE_NAME",
+                                        "value": "postgresql"
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_USER",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "database-user",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_PASSWORD",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "database-password",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "SECRET_KEY_BASE",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "keybase",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_DATABASE",
+                                        "value": "root"
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_MAX_CONNECTIONS",
+                                        "value": "100"
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_SHARED_BUFFERS",
+                                        "value": "12MB"
+                                    },
+                                    {
+                                        "name": "APPLICATION_DOMAIN",
+                                        "value": ""
+                                    },
+                                    {
+                                        "name": "APPLICATION_USER",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "application-user",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "APPLICATION_PASSWORD",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "application-password",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "RAILS_ENV",
+                                        "value": "production"
+                                    }
+                                ],
+                                "image": " ",
+                                "livenessProbe": {
+                                    "httpGet": {
+                                        "path": "/articles",
+                                        "port": 8080
+                                    },
+                                    "initialDelaySeconds": 10,
+                                    "timeoutSeconds": 3
+                                },
+                                "name": "rails-pgsql-persistent",
+                                "ports": [
+                                    {
+                                        "containerPort": 8080
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "httpGet": {
+                                        "path": "/articles",
+                                        "port": 8080
+                                    },
+                                    "initialDelaySeconds": 5,
+                                    "timeoutSeconds": 3
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "memory": "512Mi"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "triggers": [
+                    {
+                        "imageChangeParams": {
+                            "automatic": true,
+                            "containerNames": [
+                                "rails-pgsql-persistent"
+                            ],
+                            "from": {
+                                "kind": "ImageStreamTag",
+                                "name": "rails-pgsql-persistent:latest"
+                            }
+                        },
+                        "type": "ImageChange"
+                    },
+                    {
+                        "type": "ConfigChange"
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "postgresql"
+            },
+            "spec": {
+                "accessModes": [
+                    "ReadWriteOnce"
+                ],
+                "resources": {
+                    "requests": {
+                        "storage": "1Gi"
+                    }
+                }
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "annotations": {
+                    "description": "Exposes the database server"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "postgresql"
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name": "postgresql",
+                        "port": 5432,
+                        "targetPort": 5432
+                    }
+                ],
+                "selector": {
+                    "name": "postgresql"
+                }
+            }
+        },
+        {
+            "apiVersion": "apps.openshift.io/v1",
+            "kind": "DeploymentConfig",
+            "metadata": {
+                "annotations": {
+                    "description": "Defines how to deploy the database",
+                    "template.alpha.openshift.io/wait-for-ready": "true"
+                },
+                "labels": {
+                    "template": "rails-pgsql-persistent"
+                },
+                "name": "postgresql"
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {
+                    "name": "postgresql"
+                },
+                "strategy": {
+                    "type": "Recreate"
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "name": "postgresql"
+                        },
+                        "name": "postgresql"
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "env": [
+                                    {
+                                        "name": "POSTGRESQL_USER",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "database-user",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_PASSWORD",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "database-password",
+                                                "name": "rails-pgsql-persistent"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_DATABASE",
+                                        "value": "root"
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_MAX_CONNECTIONS",
+                                        "value": "100"
+                                    },
+                                    {
+                                        "name": "POSTGRESQL_SHARED_BUFFERS",
+                                        "value": "12MB"
+                                    }
+                                ],
+                                "image": " ",
+                                "livenessProbe": {
+                                    "initialDelaySeconds": 30,
+                                    "tcpSocket": {
+                                        "port": 5432
+                                    },
+                                    "timeoutSeconds": 1
+                                },
+                                "name": "postgresql",
+                                "ports": [
+                                    {
+                                        "containerPort": 5432
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "exec": {
+                                        "command": [
+                                            "/bin/sh",
+                                            "-i",
+                                            "-c",
+                                            "psql -h 127.0.0.1 -U ${POSTGRESQL_USER} -q -d ${POSTGRESQL_DATABASE} -c 'SELECT 1'"
+                                        ]
+                                    },
+                                    "initialDelaySeconds": 5,
+                                    "timeoutSeconds": 1
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "memory": "512Mi"
+                                    }
+                                },
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/var/lib/pgsql/data",
+                                        "name": "postgresql-data"
+                                    }
+                                ]
+                            }
+                        ],
+                        "volumes": [
+                            {
+                                "name": "postgresql-data",
+                                "persistentVolumeClaim": {
+                                    "claimName": "postgresql"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "triggers": [
+                    {
+                        "imageChangeParams": {
+                            "automatic": true,
+                            "containerNames": [
+                                "postgresql"
+                            ],
+                            "from": {
+                                "kind": "ImageStreamTag",
+                                "name": "postgresql:10",
+                                "namespace": "openshift"
+                            }
+                        },
+                        "type": "ImageChange"
+                    },
+                    {
+                        "type": "ConfigChange"
+                    }
+                ]
+            }
+        }
+    ]
+}

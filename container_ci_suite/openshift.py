@@ -82,3 +82,38 @@ class OpenShiftAPI:
         output = OpenShiftAPI.run_oc_command("get pods", json_output=True, namespace=self.namespace)
         # print(f" oc get pods: {output}")
         return json.loads(output)
+
+    def create(self, path):
+        output = OpenShiftAPI.run_oc_command(f"create -f {path}", namespace=self.namespace)
+        return json.loads(output)
+
+    def process_file(self, path):
+        output = OpenShiftAPI.run_oc_command(f"process -f {path}", namespace=self.namespace)
+        return json.loads(output)
+
+    def oc_get_is(self, name: str):
+        output = OpenShiftAPI.run_oc_command(f"get is/{name}", namespace=self.namespace)
+        return json.loads(output)
+
+    def check_is_exists(self, is_name, version_to_check: str) -> bool:
+        """
+        Function checks if it exists in OpenShift 4 environment
+        Exact version has to be the same
+        :return:    True if tag was found
+                    False if tag does not exist
+        """
+        json_output = self.oc_get_is(name=is_name)
+        if "tags" not in json_output["spec"]:
+            return False
+        tag_found: bool = False
+        for tag in json_output["spec"]["tags"]:
+            print(tag)
+            if "name" not in tag:
+                continue
+            if version_to_check not in tag["name"]:
+                continue
+            tag_found = True
+        return tag_found
+
+    def new_app(self):
+        pass
