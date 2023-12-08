@@ -45,26 +45,55 @@ from container_ci_suite.openshift import OpenShiftAPI
 
 test_dir = os.path.abspath(os.path.dirname(__file__))
 
-RAW_URL = "https://raw.githubusercontent.com/sclorg/{container}/master/{dir}/{filename}.json"
+IS_RUBY = OpenShiftAPI.get_raw_url_for_json(container="s2i-ruby-container", dir="imagestreams", filename="ruby-rhel.json")
+IS_POSTGRESQL = OpenShiftAPI.get_raw_url_for_json(container="postgresql-container", dir="imagestreams", filename="postgresql-rhel.json")
+TEMPLATE_RAILS_POSTGRESQL = OpenShiftAPI.get_raw_url_for_json(container="s2i-ruby-container", dir="examples", filename="rails-postgresql-persistent.json")
 
 class TestRubyEx:
     def setup_method(self):
         self.oc_api = OpenShiftAPI(namespace="test-ruby-ex")
 
-    def test_ruby_is(self):
-        self.oc_api.create(RAW_URL.format(container="s2i-ruby-container", dir="imagestreams", filename="ruby-rhel.json"))
-        self.oc_api.check_is_version("ruby:2.5-ubi8")
-
-    def test_postgresql_is(self):
-        self.oc_api.create(RAW_URL.format(container="postgresql-container", dir="imagestreams", filename="postgresql-rhel.json"))
-        self.oc_api.check_is_version("postgresql:10-el8")
-
-    def test_deployment(self):
-        self.oc_api.create(RAW_URL.format(container="s2i-ruby-container", dir="imagestreams", filename="ruby-rhel.json"))
-        self.oc_api.create(RAW_URL.format(container="postgresql-container", dir="imagestreams", filename="postgresql-rhel.json"))
-        self.oc_api.process_file(RAW_URL.format(container="s2i-ruby-container", dir="examples", filename="rails-postgresql-persistent.json"))
-        self.oc_api.new_app("ruby-ex-tests/ruby:2.5-ubi8~https://github.com/sclorg/ruby-ex")
+    # Reference https://github.com/sclorg/s2i-nodejs-container/blob/master/test/test-lib-nodejs.sh#L561 (ct_os_test_template_app_func)
+    def test_deployment_template(self):
+        self.oc_api.create(IS_RUBY)
+        self.oc_api.create(IS_POSTGRESQL)
+        assert self.oc_api.check_is_exists(is_name="ruby", version_to_check="2.5-ubi8")
+        assert self.oc_api.check_is_exists(is_name="postgresql", version_to_check="10-el8")
+        self.oc_api.process_file(TEMPLATE_RAILS_POSTGRESQL)
+        self.oc_api.new_app(image_name="ruby:2.5-ubi8", github_repo="https://github.com/sclorg/ruby-ex")
+        self.oc_api.is_pod_ready(pod_name="")
+        self.oc_api.ct_os_check_service_image_info()
         #oc process -f rails-postgresql.json -p NAMESPACE=$(oc project -q) | oc create -f -
+
+    # Reference https://github.com/sclorg/s2i-nodejs-container/blob/master/test/test-lib-nodejs.sh#L554 (ct_os_test_s2i_app_func)
+    # ct_os_deploy_s2i_image
+    def test_s2i_app_func(self):
+        self.oc_api.create(IS_RUBY)
+        self.oc_api.create(IS_POSTGRESQL)
+        assert self.oc_api.check_is_exists(is_name="ruby", version_to_check="2.5-ubi8")
+        assert self.oc_api.check_is_exists(is_name="postgresql", version_to_check="10-el8")
+        self.oc_api.process_file(TEMPLATE_RAILS_POSTGRESQL)
+        self.oc_api.new_app("ruby-ex-tests/ruby:2.5-ubi8~https://github.com/sclorg/ruby-ex")
+        self.oc_api.start-build() # service-name, --from-dir
+        self.oc_api.is_pod_ready()
+        self.oc_api.ct_os_check_service_image_info()
+        #oc process -f rails-postgresql.json -p NAMESPACE=$(oc project -q) | oc create -f -
+
+    # Reference https://github.com/sclorg/s2i-nodejs-container/blob/master/test/test-lib-nodejs.sh#L533 (ct_os_test_image_stream_quickstart)
+    # ct_os_deploy_s2i_image
+    def test_iamgestream_quicstart(self):
+        self.oc_api.create(IS_RUBY)
+        self.oc_api.create(IS_POSTGRESQL)
+        assert self.oc_api.check_is_exists(is_name="ruby", version_to_check="2.5-ubi8")
+        assert self.oc_api.check_is_exists(is_name="postgresql", version_to_check="10-el8")
+        self.oc_api.process_file(TEMPLATE_RAILS_POSTGRESQL)
+        self.oc_api.create()
+        self.oc_api.ct_os_test_template_app("ruby-ex-tests/ruby:2.5-ubi8~https://github.com/sclorg/ruby-ex")
+        self.oc_api.start-build() # service-name, --from-dir
+        self.oc_api.is_pod_ready()
+        self.oc_api.ct_os_check_service_image_info()
+        #oc process -f rails-postgresql.json -p NAMESPACE=$(oc project -q) | oc create -f -
+
 ```
 
 ## Run a test with Container-CI-Suite for Helm charts

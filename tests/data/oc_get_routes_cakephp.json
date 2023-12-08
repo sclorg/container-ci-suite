@@ -1,0 +1,45 @@
+{
+    "apiVersion": "route.openshift.io/v1",
+    "kind": "Route",
+    "metadata": {
+        "annotations": {
+            "openshift.io/generated-by": "OpenShiftNewApp",
+            "openshift.io/host.generated": "true"
+        },
+        "creationTimestamp": "2023-11-06T16:15:09Z",
+        "labels": {
+            "app": "cakephp-example",
+            "template": "cakephp-example"
+        },
+        "name": "cakephp-example",
+        "namespace": "cake-php-ex-tests",
+        "resourceVersion": "4074673",
+        "uid": "c84f663b-90ef-46fc-b667-fcab3868f6d2"
+    },
+    "spec": {
+        "host": "cakephp-example-cake-php-ex-tests.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+        "to": {
+            "kind": "Service",
+            "name": "cakephp-example",
+            "weight": 100
+        },
+        "wildcardPolicy": "None"
+    },
+    "status": {
+        "ingress": [
+            {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2023-11-06T16:15:29Z",
+                        "status": "True",
+                        "type": "Admitted"
+                    }
+                ],
+                "host": "cakephp-example-cake-php-ex-tests.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+                "routerCanonicalHostname": "router-default.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+                "routerName": "default",
+                "wildcardPolicy": "None"
+            }
+        ]
+    }
+}
