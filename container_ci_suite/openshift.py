@@ -21,8 +21,9 @@
 # SOFTWARE.
 import json
 import logging
+import time
 
-
+from subprocess import CalledProcessError
 from typing import Dict
 
 
@@ -76,6 +77,11 @@ class OpenShiftAPI:
             return True
         return False
 
+    @staticmethod
+    def get_raw_url_for_json(container: str, dir: str, filename: str) -> str:
+        RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/master/{dir}/{filename}"
+        return RAW_SCL_JSON_URL.format(container=container, dir=dir, filename=filename)
+
     def oc_get_pod_status(self) -> Dict:
         output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
@@ -83,17 +89,43 @@ class OpenShiftAPI:
         # print(f" oc get pods: {output}")
         return json.loads(output)
 
-    def create(self, path):
+    def import_is(self, path: str, name: str):
+        try:
+            json_output = self.oc_get_is(name=name)
+            if json_output["kind"] == "ImageStream" and json_output["metadata"]["name"] == name:
+                return json_output
+        except CalledProcessError:
+            pass
         output = OpenShiftAPI.run_oc_command(f"create -f {path}", namespace=self.namespace)
+        # Let's wait 3 seconds till imagestreams are not uploaded
+        time.sleep(3)
         return json.loads(output)
 
-    def process_file(self, path):
+    def process_file(self, path: str):
         output = OpenShiftAPI.run_oc_command(f"process -f {path}", namespace=self.namespace)
-        return json.loads(output)
+        json_output = json.loads(output)
+        print(json_output)
+        return json_output
 
     def oc_get_is(self, name: str):
         output = OpenShiftAPI.run_oc_command(f"get is/{name}", namespace=self.namespace)
         return json.loads(output)
+
+    def start_build(self, name: str):
+        output = OpenShiftAPI.run_oc_command(f"start-build {name}", json_output=False)
+        return output
+
+    def is_pod_finished(self, json_data: Dict, pod_suffix_name: str = "deploy") -> bool:
+        for item in json_data["items"]:
+            pod_name = item["metadata"]["name"]
+            status = item["status"]["phase"]
+            print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
+            if pod_suffix_name in pod_name and status != "Succeeded":
+                continue
+            if pod_suffix_name in pod_name and status == "Succeeded":
+                print(f"Pod with suffix {pod_suffix_name} is finished")
+                return True
+        return False
 
     def check_is_exists(self, is_name, version_to_check: str) -> bool:
         """
@@ -107,13 +139,79 @@ class OpenShiftAPI:
             return False
         tag_found: bool = False
         for tag in json_output["spec"]["tags"]:
-            print(tag)
             if "name" not in tag:
                 continue
             if version_to_check not in tag["name"]:
                 continue
             tag_found = True
         return tag_found
+
+    def create_new_app_with_template(self, name: str, template_json: str, template_args: Dict = None):
+        """
+        Function creates a new application in OpenShift 4 environment
+        :param name: str - Template name
+        :param template_json: str - Template path to file
+        :param template_args: Dict - Arguments that will be passed to oc new-app
+        :return json toutput
+        """
+
+        # Let's wait couple seconds till is fully loaded
+        time.sleep(3)
+        args = [""]
+        if template_args:
+            args = [f"-p {key}={val}" for key, val in template_args]
+        print(args)
+        output = OpenShiftAPI.run_oc_command(
+            f"new-app {template_json} --name {name} -p NAMESPACE={self.namespace} {args}",
+            json_output=False
+        )
+        print(output)
+        return output
+
+    def get_service_ip(self, service_name: str) -> dict:
+        output = OpenShiftAPI.run_oc_command(f"get svc/{service_name}")
+        return output
+
+    def get_route_url(self, routes_name: str) -> str:
+        output = OpenShiftAPI.run_oc_command(f"get routes/{routes_name}")
+        json_output = json.loads(output)
+        if not json_output["spec"]["host"]:
+            return None
+        if routes_name != json_output["specs"]["to"]["name"]:
+            return None
+        return json_output["spec"]["host"]
+
+    def is_pod_ready(self) -> bool:
+        """
+        Function checks if pod with specific name is really ready
+        """
+
+        for count in range(60):
+            print(f"Cycle for checking pod status: {count}.")
+            json_data = self.oc_get_pod_status()
+            if len(json_data["items"]) == 0:
+                time.sleep(3)
+                continue
+            if not self.is_pod_finished(json_data=json_data):
+                time.sleep(3)
+                continue
+            for item in json_data["items"]:
+                pod_name = item["metadata"]["name"]
+                status = item["status"]["phase"]
+                print(f"Pod Name: {pod_name} and status: {status}.")
+                if "deploy" in pod_name:
+                    continue
+                if item["status"]["phase"] == "Running":
+                    print(f"Pod with name {pod_name} is running {status}.")
+                    output = OpenShiftAPI.run_oc_command(
+                        f"logs {pod_name}", namespace=self.namespace, json_output=False
+                    )
+                    print(output)
+                    # Wait couple seconds for sure
+                    time.sleep(10)
+                    return True
+                time.sleep(3)
+        return False
 
     def new_app(self):
         pass

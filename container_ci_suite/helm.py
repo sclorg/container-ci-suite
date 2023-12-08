@@ -54,6 +54,7 @@ class HelmChartsAPI:
             self.create_prj = False
         self.oc_api = OpenShiftAPI(namespace=self.namespace, create_prj=self.create_prj, delete_prj=self.delete_prj)
         self.oc_api.create_project()
+        self.pod_json_data: dict = {}
 
     @staticmethod
     def run_helm_command(
@@ -110,10 +111,20 @@ class HelmChartsAPI:
 
     def get_helm_json_output(self, command: str) -> Dict:
         output = HelmChartsAPI.run_helm_command(cmd=command)
-        return json.loads(output)
+        print(output)
+        # Remove debug wrong output
+        new_output = []
+        for line in output.split('\n'):
+            print(line)
+            if line.startswith("W"):
+                continue
+            new_output.append(line)
+        # output = [x for x in output.split('\n') if not x.startswith("W")]
+        # print(output)
+        return json.loads(''.join(new_output))
 
-    def is_pod_finished(self, json_data: Dict, pod_suffix_name: str = "deploy") -> bool:
-        for item in json_data["items"]:
+    def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
+        for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             status = item["status"]["phase"]
             print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
@@ -124,31 +135,45 @@ class HelmChartsAPI:
                 return True
         return False
 
-    def is_build_pod_present(self, json_data) -> bool:
-        for item in json_data["items"]:
+    def is_build_pod_present(self) -> bool:
+        for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             print(f"is_build_pod_present: {pod_name}.")
             if "build" in pod_name:
                 return True
         return False
 
+    def is_s2i_pod_running(self) -> bool:
+        build_pod_finished = False
+        for count in range(60):
+            print(f"Cycle for checking s2i build pod status: {count}.")
+            self.pod_json_data = self.oc_api.oc_get_pod_status()
+            if len(self.pod_json_data["items"]) == 0:
+                time.sleep(3)
+                continue
+            if not self.is_build_pod_present():
+                print("Build pod is not present.")
+                time.sleep(3)
+                continue
+            if not self.is_pod_finished(pod_suffix_name="build"):
+                print("Build pod is not yet finished")
+                time.sleep(3)
+                continue
+            if not self.is_pod_running():
+                print("Running pod is not yet finished")
+                time.sleep(3)
+                continue
+            build_pod_finished = True
+        return build_pod_finished
+
     def is_pod_running(self):
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
-            json_data = self.oc_api.oc_get_pod_status()
             output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
-            print(output)
-            if len(json_data["items"]) == 0:
-                time.sleep(3)
-                continue
-            if self.is_build_pod_present(json_data) and \
-                    not self.is_pod_finished(json_data=json_data, pod_suffix_name="build"):
-                time.sleep(3)
-                continue
-            if not self.is_pod_finished(json_data=json_data):
-                time.sleep(3)
-                continue
-            for item in json_data["items"]:
+            # if not self.is_pod_finished(json_data=json_data):
+            #     time.sleep(3
+            #     continue
+            for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
                 print(f"Pod Name: {pod_name} and status: {status}.")
@@ -161,7 +186,7 @@ class HelmChartsAPI:
                     )
                     print(output)
                     # Wait couple seconds for sure
-                    time.sleep(10)
+                    time.sleep(3)
                     return True
             time.sleep(3)
 
@@ -296,12 +321,22 @@ class HelmChartsAPI:
                 break
         return tag_found
 
-    def test_helm_curl_output(self, route_name: str, expected_str=str, schema: str = "http://") -> bool:
+    def test_helm_curl_output(
+            self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"
+    ) -> bool:
         host_name = self.get_route_name(route_name=route_name)
-        print(f"Route name is: {host_name}")
+        print(f"test_helm_curl_output: : Route name is: {host_name}")
         if not host_name:
             return False
-        resp = requests.get(f"{schema}{host_name}")
+        url_address = f"{schema}{host_name}"
+        if port:
+            url_address = f"{url_address}:{port}"
+        resp = requests.get(url_address, verify=False)
+        resp.raise_for_status()
+        if resp.status_code != 200:
+            print(f"test_helm_curl_output: {resp.text}, {resp.status_code}")
+            return False
+        print(f"test_helm_curl_output: {resp.text}")
         if expected_str not in resp.text:
             return False
         return True
