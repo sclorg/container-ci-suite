@@ -43,7 +43,7 @@ setup(
     description='A python3 container CI tool for testing images.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version="0.0.4",
+    version="0.0.5",
     keywords='tool,containers,images,tests',
     packages=find_packages(exclude=["tests"]),
     url="https://github.com/phracek/container-ci-suite",
