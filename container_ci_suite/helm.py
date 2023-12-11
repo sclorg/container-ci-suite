@@ -288,8 +288,9 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
+        time.sleep(10)
         output = HelmChartsAPI.run_helm_command(
-            f"test {self.package_name} -n {self.namespace} --logs", json_output=False
+            f"test {self.package_name} --logs", json_output=False
         )
         print(f"Helm test output: {output}")
         if self.check_test_output(output, expected_str=expected_str):
