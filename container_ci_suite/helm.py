@@ -181,14 +181,13 @@ class HelmChartsAPI:
         return build_pod_finished
 
     def is_pod_running(self):
-        if not self.pod_json_data:
-            self.pod_json_data = self.oc_api.oc_get_pod_status()
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
             output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
             # if not self.is_pod_finished(json_data=json_data):
             #     time.sleep(3
             #     continue
+            self.pod_json_data = self.oc_api.oc_get_pod_status()
             for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
