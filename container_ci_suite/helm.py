@@ -20,12 +20,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import json
+import yaml
 import logging
 import random
 import time
 import requests
 
-from typing import Dict, List
+from typing import Dict, List, Any
 from pathlib import Path
 
 import container_ci_suite.utils as utils
@@ -88,6 +89,17 @@ class HelmChartsAPI:
     def get_full_tarball_path(self):
         return self.tarball_dir / self.get_tarball_name
 
+    def get_version_from_chart_yaml(self) -> Any:
+        chart_yaml = self.full_package_dir / "Chart.yaml"
+        if not chart_yaml.exists():
+            return False
+        with open(chart_yaml) as fd_chart:
+            lines = fd_chart.read()
+        chart_dict = yaml.safe_load(lines)
+        if "appVersion" in chart_dict:
+            return chart_dict["appVersion"]
+        return None
+
     def set_version(self, version: str):
         self.version = version
 
@@ -124,6 +136,8 @@ class HelmChartsAPI:
         return json.loads(''.join(new_output))
 
     def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
+        if not self.pod_json_data:
+            self.pod_json_data = self.oc_api.oc_get_pod_status()
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             status = item["status"]["phase"]
@@ -167,6 +181,8 @@ class HelmChartsAPI:
         return build_pod_finished
 
     def is_pod_running(self):
+        if not self.pod_json_data:
+            self.pod_json_data = self.oc_api.oc_get_pod_status()
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
             output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
@@ -222,6 +238,10 @@ class HelmChartsAPI:
         print(output)
 
     def helm_installation(self, values: Dict = None):
+        self.version = self.get_version_from_chart_yaml()
+        logger.info(f"Helm package version to install is {self.version}")
+        if not self.version:
+            return False
         if self.is_helm_package_installed():
             self.helm_uninstallation()
         command_values = ""
