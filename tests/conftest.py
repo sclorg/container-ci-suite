@@ -22,6 +22,7 @@
 
 import os
 import json
+import yaml
 from pathlib import Path
 
 import pytest
@@ -90,3 +91,8 @@ def helm_list_json():
 @pytest.fixture()
 def oc_get_is_ruby_json():
     return json.loads((DATA_DIR / "oc_get_is_ruby.json").read_text())
+
+
+@pytest.fixture()
+def get_chart_yaml():
+    return yaml.safe_load((DATA_DIR / "Chart.yaml").read_text())
