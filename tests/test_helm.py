@@ -62,9 +62,11 @@ class TestContainerCISuiteHelmCharts:
         self.helm_chart.tag = tag
         assert self.helm_chart.check_imagestreams(tag, registry=registry) == expected_value
 
-    def test_package_helm_chart_success(self, helm_package_success):
+    def test_package_helm_chart_success(self, helm_package_success, get_chart_yaml):
         flexmock(HelmChartsAPI).should_receive("is_chart_yaml_present").and_return(True)
         flexmock(HelmChartsAPI).should_receive("run_helm_command").and_return(helm_package_success)
+        flexmock(HelmChartsAPI).should_receive("get_version_from_chart_yaml").and_return("0.0.1")
+        assert self.helm_chart.package_name == "postgresql-imagestreams"
         assert self.helm_chart.helm_package()
 
     def test_package_helm_chart_failed(self, helm_package_failed):

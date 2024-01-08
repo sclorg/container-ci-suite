@@ -25,6 +25,7 @@ import logging
 import random
 import time
 import requests
+import subprocess
 
 from typing import Dict, List, Any
 from pathlib import Path
@@ -115,8 +116,12 @@ class HelmChartsAPI:
         if not self.is_chart_yaml_present():
             print(f"Chart.yaml file is not present in directory {self.full_package_dir}")
             return False
+        self.version = self.get_version_from_chart_yaml()
+        print(f"Helm package command is: helm package {self.full_package_dir}")
         output = HelmChartsAPI.run_helm_command(f"package {self.full_package_dir}", json_output=False)
+        print(output)
         if "Successfully packaged chart" in output:
+            print(self.get_tarball_name)
             if self.get_tarball_name in output:
                 return True
         return False
@@ -288,13 +293,18 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        time.sleep(10)
-        output = HelmChartsAPI.run_helm_command(
-            f"test {self.package_name} --logs", json_output=False
-        )
-        print(f"Helm test output: {output}")
-        if self.check_test_output(output, expected_str=expected_str):
-            return True
+        for count in range(6):
+            time.sleep(10)
+            try:
+                output = HelmChartsAPI.run_helm_command(
+                    f"test {self.package_name} --logs", json_output=False
+                )
+                print(f"Helm test output: {output}")
+            except subprocess.CalledProcessError:
+                print("Helm test command `test {self.package_name} --logs`failed. Let's try  more time.")
+                continue
+            if self.check_test_output(output, expected_str=expected_str):
+                return True
         output = OpenShiftAPI.run_oc_command("status", json_output=False)
         print(output)
         output = OpenShiftAPI.run_oc_command("get all", json_output=False)
