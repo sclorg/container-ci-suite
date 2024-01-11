@@ -163,7 +163,6 @@ class HelmChartsAPI:
         return False
 
     def is_s2i_pod_running(self) -> bool:
-        build_pod_finished = False
         for count in range(60):
             print(f"Cycle for checking s2i build pod status: {count}.")
             self.pod_json_data = self.oc_api.oc_get_pod_status()
@@ -174,25 +173,23 @@ class HelmChartsAPI:
                 print("Build pod is not present.")
                 time.sleep(3)
                 continue
+            print("Build pod is present.")
             if not self.is_pod_finished(pod_suffix_name="build"):
                 print("Build pod is not yet finished")
                 time.sleep(3)
                 continue
+            print("Build pod is finished")
             if not self.is_pod_running():
                 print("Running pod is not yet finished")
                 time.sleep(3)
                 continue
-            build_pod_finished = True
-            break
-        return build_pod_finished
+            print("Pod is running")
+            return True
+        return False
 
     def is_pod_running(self):
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
-            output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
-            # if not self.is_pod_finished(json_data=json_data):
-            #     time.sleep(3
-            #     continue
             self.pod_json_data = self.oc_api.oc_get_pod_status()
             for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
@@ -244,7 +241,6 @@ class HelmChartsAPI:
 
     def helm_installation(self, values: Dict = None):
         self.version = self.get_version_from_chart_yaml()
-        logger.info(f"Helm package version to install is {self.version}")
         if not self.version:
             return False
         if self.is_helm_package_installed():
@@ -259,7 +255,7 @@ class HelmChartsAPI:
         assert json_output["chart"]["metadata"]["version"] == self.version
         assert json_output["info"]["status"] == "deployed"
         if not self.check_helm_installation():
-            logger.error("Installation has failed. Let's uninstall it and try one more time.")
+            print("Installation has failed. Let's uninstall it and try one more time.")
             return False
         return True
 
@@ -294,7 +290,7 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        for count in range(60):
+        for count in range(10):
             time.sleep(3)
             try:
                 output = HelmChartsAPI.run_helm_command(
@@ -302,7 +298,7 @@ class HelmChartsAPI:
                 )
                 print(f"Helm test output: {output}")
             except subprocess.CalledProcessError:
-                print("Helm test command `test {self.package_name} --logs`failed. Let's try  more time.")
+                print(f"Helm test command `test {self.package_name} --logs` failed. Let's try more time.")
                 continue
             if self.check_test_output(output, expected_str=expected_str):
                 return True
