@@ -183,6 +183,7 @@ class HelmChartsAPI:
                 time.sleep(3)
                 continue
             build_pod_finished = True
+            break
         return build_pod_finished
 
     def is_pod_running(self):
@@ -293,8 +294,8 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        for count in range(6):
-            time.sleep(10)
+        for count in range(60):
+            time.sleep(3)
             try:
                 output = HelmChartsAPI.run_helm_command(
                     f"test {self.package_name} --logs", json_output=False
