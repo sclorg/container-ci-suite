@@ -351,6 +351,8 @@ class HelmChartsAPI:
     def test_helm_curl_output(
             self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"
     ) -> bool:
+        # Let's get some time to start application
+        time.sleep(10)
         host_name = self.get_route_name(route_name=route_name)
         print(f"test_helm_curl_output: : Route name is: {host_name}")
         if not host_name:
@@ -358,12 +360,25 @@ class HelmChartsAPI:
         url_address = f"{schema}{host_name}"
         if port:
             url_address = f"{url_address}:{port}"
-        resp = requests.get(url_address, verify=False)
-        resp.raise_for_status()
-        if resp.status_code != 200:
-            print(f"test_helm_curl_output: {resp.text}, {resp.status_code}")
+        print(f"test_helm_curl_output: to {url_address}")
+        valid_request: bool = False
+        for count in range(3):
+            try:
+                resp = requests.get(url_address, verify=False)
+                resp.raise_for_status()
+                valid_request = True
+                if resp.status_code != 200:
+                    print(f"test_helm_curl_output: {resp.text}, {resp.status_code}")
+                    return False
+                print(f"test_helm_curl_output: {resp.text}")
+                if expected_str not in resp.text:
+                    return False
+                return True
+            except requests.exceptions.HTTPError:
+                print("test_helm_curl_output: Service is not yet available. Let's wait some time")
+                time.sleep(3)
+                pass
+        if not valid_request:
+            print("test_helm_curl_output: Service was not available")
             return False
-        print(f"test_helm_curl_output: {resp.text}")
-        if expected_str not in resp.text:
-            return False
-        return True
+        return False
