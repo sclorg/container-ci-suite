@@ -83,7 +83,7 @@ class OpenShiftAPI:
         return RAW_SCL_JSON_URL.format(container=container, dir=dir, filename=filename)
 
     def oc_get_pod_status(self) -> Dict:
-        output = OpenShiftAPI.run_oc_command("get all", json_output=False)
+        # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
         output = OpenShiftAPI.run_oc_command("get pods", json_output=True, namespace=self.namespace)
         # print(f" oc get pods: {output}")
