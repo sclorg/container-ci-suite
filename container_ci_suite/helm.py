@@ -187,10 +187,25 @@ class HelmChartsAPI:
             return True
         return False
 
+    def get_pod_count(self) -> int:
+        count: int = 0
+        for item in self.pod_json_data["items"]:
+            pod_name = item["metadata"]["name"]
+            if "deploy" in pod_name:
+                continue
+            if "build" in pod_name:
+                continue
+            count += 1
+        return count
+
     def is_pod_running(self):
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
             self.pod_json_data = self.oc_api.oc_get_pod_status()
+            # Only one running pod is allowed
+            if self.get_pod_count() != 1:
+                time.sleep(3)
+                continue
             for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
