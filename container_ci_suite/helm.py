@@ -305,7 +305,7 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        for count in range(10):
+        for count in range(20):
             time.sleep(3)
             try:
                 output = HelmChartsAPI.run_helm_command(
@@ -369,7 +369,7 @@ class HelmChartsAPI:
         # Let's get some time to start application
         time.sleep(10)
         host_name = self.get_route_name(route_name=route_name)
-        print(f"test_helm_curl_output: : Route name is: {host_name}")
+        print(f"test_helm_curl_output: Route name is: {host_name}")
         if not host_name:
             return False
         url_address = f"{schema}{host_name}"
@@ -377,7 +377,7 @@ class HelmChartsAPI:
             url_address = f"{url_address}:{port}"
         print(f"test_helm_curl_output: to {url_address}")
         valid_request: bool = False
-        for count in range(3):
+        for count in range(20):
             try:
                 resp = requests.get(url_address, verify=False)
                 resp.raise_for_status()
