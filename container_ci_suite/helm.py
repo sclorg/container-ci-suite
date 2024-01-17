@@ -50,13 +50,14 @@ class HelmChartsAPI:
         self.delete_prj: bool = delete_prj
         self.create_prj: bool = True
         if namespace == "helm-default":
-            self.namespace = f"helm-sclorg-{self.package_name}-{random.randrange(10000, 100000)}"
+            self.namespace = f"helm-sclorg-{random.randrange(10000, 100000)}"
         else:
             self.namespace = namespace
             self.create_prj = False
         self.oc_api = OpenShiftAPI(namespace=self.namespace, create_prj=self.create_prj, delete_prj=self.delete_prj)
         self.oc_api.create_project()
         self.pod_json_data: dict = {}
+        self.pod_name_prefix: str = ""
 
     @staticmethod
     def run_helm_command(
@@ -145,6 +146,8 @@ class HelmChartsAPI:
             self.pod_json_data = self.oc_api.oc_get_pod_status()
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
+            if self.pod_name_prefix not in pod_name:
+                continue
             status = item["status"]["phase"]
             print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
             if pod_suffix_name in pod_name and status != "Succeeded":
@@ -162,7 +165,8 @@ class HelmChartsAPI:
                 return True
         return False
 
-    def is_s2i_pod_running(self) -> bool:
+    def is_s2i_pod_running(self, pod_name_prefix: str = "") -> bool:
+        self.pod_name_prefix = pod_name_prefix
         for count in range(60):
             print(f"Cycle for checking s2i build pod status: {count}.")
             self.pod_json_data = self.oc_api.oc_get_pod_status()
@@ -191,23 +195,35 @@ class HelmChartsAPI:
         count: int = 0
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
+            print(f"get_pod_count: {pod_name} and {self.pod_name_prefix}.")
+            if self.pod_name_prefix not in pod_name:
+                continue
             if "deploy" in pod_name:
                 continue
             if "build" in pod_name:
                 continue
             count += 1
+        print(f"get_pod_count: {count}")
         return count
 
-    def is_pod_running(self):
+    def is_pod_running(self, pod_name_prefix: str = "") -> bool:
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
             self.pod_json_data = self.oc_api.oc_get_pod_status()
+            if pod_name_prefix == "" and self.pod_name_prefix == "":
+                print("Application pod name is not specified. Call: is_pod_running(pod_name_prefix=\"something\").")
+                return False
+            if pod_name_prefix != "":
+                self.pod_name_prefix = pod_name_prefix
             # Only one running pod is allowed
             if self.get_pod_count() != 1:
                 time.sleep(3)
                 continue
+
             for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
+                if self.pod_name_prefix not in pod_name:
+                    continue
                 status = item["status"]["phase"]
                 print(f"Pod Name: {pod_name} and status: {status}.")
                 if "deploy" in pod_name:
