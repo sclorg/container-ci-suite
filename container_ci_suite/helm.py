@@ -167,7 +167,8 @@ class HelmChartsAPI:
 
     def is_s2i_pod_running(self, pod_name_prefix: str = "") -> bool:
         self.pod_name_prefix = pod_name_prefix
-        for count in range(60):
+        build_pod_finished = False
+        for count in range(180):
             print(f"Cycle for checking s2i build pod status: {count}.")
             self.pod_json_data = self.oc_api.oc_get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
@@ -183,6 +184,11 @@ class HelmChartsAPI:
                 time.sleep(3)
                 continue
             print("Build pod is finished")
+            build_pod_finished = True
+        if not build_pod_finished:
+            print("Build pod was not finished.")
+            return False
+        for count in range(60):
             if not self.is_pod_running():
                 print("Running pod is not yet finished")
                 time.sleep(3)
@@ -243,10 +249,6 @@ class HelmChartsAPI:
 
     def check_helm_installation(self):
         # Let's check that pod is really running
-        output = OpenShiftAPI.run_oc_command("status", json_output=False)
-        # print(output)
-        output = OpenShiftAPI.run_oc_command("status --suggest", json_output=False)
-        # print(output)
         output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         print(output)
         json_output = self.get_helm_json_output(command="list")
@@ -321,7 +323,7 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        for count in range(20):
+        for count in range(40):
             time.sleep(3)
             try:
                 output = HelmChartsAPI.run_helm_command(
