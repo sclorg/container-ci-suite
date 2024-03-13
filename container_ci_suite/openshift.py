@@ -397,10 +397,12 @@ class OpenShiftAPI:
         else:
             openshift_args = self.get_openshift_args(openshift_args)
         print(f"========"
-              f"Creating a new-app with name ${name_in_template} in "
-              f"namespace ${self.namespace} with args ${openshift_args}."
+              f"Creating a new-app with name {name_in_template} in "
+              f"namespace {self.namespace} with args ${openshift_args}."
               f"========")
         local_template = utils.download_template(template_name=template)
+        if not local_template:
+            return False
         oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} -p {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
