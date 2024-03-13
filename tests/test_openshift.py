@@ -35,3 +35,37 @@ class TestOpenShiftCISuite(object):
         flexmock(OpenShiftAPI).should_receive("oc_get_is").and_return(oc_get_is_ruby_json)
         assert self.oc_api.check_is_exists("ruby", "2.5-ubi8")
         assert not self.oc_api.check_is_exists("ruby", "333-ubi9")
+
+    # TODO variant with outputs
+    def test_get_pod_count(self):
+        # self.oc_api.get_pod_count()
+        pass
+
+    def test_is_pod_running(self):
+        # self.oc_api.is_pod_running()
+        pass
+
+    def test_is_build_pod_finished(self):
+        # self.oc_api.is_build_pod_finished()
+        pass
+
+    def test_is_s2i_pod_running(self):
+        # self.oc_api.is_s2i_pod_running()
+        pass
+
+    # Parametrized
+    def test_get_raw_url_for_json(self):
+        # self.oc_api.get_raw_url_for_json()
+        pass
+
+    def test_get_pod_status(self):
+        # self.oc_api.get_pod_status()
+        pass
+
+    def test_is_pod_finished(self):
+        # self.oc_api.is_pod_finished()
+        pass
+
+    def test_get_service_ip(self):
+        # self.oc_api.get_service_ip()
+        pass
