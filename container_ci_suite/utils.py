@@ -22,10 +22,14 @@
 
 import os
 import logging
+import shutil
 import subprocess
 import re
+import requests
+# import tempfile
+# import yaml
 
-from typing import List
+from typing import List, Any
 from pathlib import Path
 
 from container_ci_suite.constants import CA_FILE_PATH
@@ -59,8 +63,8 @@ def get_npm_variables():
     return ""
 
 
-def get_registry_name(os: str) -> str:
-    return "registry.redhat.io" if os.startswith("rhel") else "docker.io"
+def get_registry_name(os_name: str) -> str:
+    return "registry.redhat.io" if os_name.startswith("rhel") else "docker.io"
 
 
 def get_mount_options_from_s2i_args(s2i_args: str) -> str:
@@ -96,6 +100,25 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
         return f"{registry}/rhel8/{base_image_name}-{version}"
     else:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
+
+
+def download_template(template_name: str) -> Any:
+    ext = template_name.split(".")[1]
+    print(f"extentions is: {ext}")
+    import tempfile
+    temp_file = tempfile.NamedTemporaryFile(dir="/var/tmp", prefix="test-input", suffix=ext)
+    print(f"Temporary file: download_template: {temp_file.name}")
+    if os.path.exists(template_name):
+        shutil.copy2(template_name, Path(temp_file.name))
+    if template_name.startswith("http"):
+        resp = requests.get(template_name, verify=False)
+        resp.raise_for_status()
+        if resp.status_code != 200:
+            print(f"utils.download_template: {resp.status_code} and {resp.text}")
+            return None
+        with open(temp_file.name, "wb") as fd:
+            fd.write(resp.content)
+    return temp_file.name
 
 
 def run_command(
@@ -135,3 +158,48 @@ def run_command(
         else:
             logger.error(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
             raise cpe
+
+
+def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:
+    for count in range(max_tests):
+        try:
+            resp = requests.get(url_address, timeout=10, verify=False)
+            resp.raise_for_status()
+            print(f"Response code is {resp.status_code} and expected should be {response_code}")
+            if resp.status_code == response_code and expected_str in resp.text:
+                return True
+            return False
+        except requests.exceptions.HTTPError:
+            print("get_response_request: Service is not yet available. Let's wait some time")
+            pass
+        except requests.exceptions.ConnectTimeout:
+            print("get_response_request: ConnectTimeout. Let's wait some time")
+            pass
+    return False
+
+#
+# def save_command_yaml(image_name: str) -> str:
+#     cmd_yaml = {
+#         "apiVersion": "v1",
+#         "kind": "Pod",
+#         "metadata": {
+#             "name": "command-app"
+#         },
+#         "spec": {
+#             "restartPolicy": "OnFailure",
+#             "containers": [
+#                 {
+#                     "name": "command-container",
+#                     "image": image_name,
+#                     "command": ["sleep"],
+#                     "args": ["3h"]
+#                 }
+#             ]
+#         }
+#     }
+#     cmd_file_name = ""
+#     with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
+#         fp.write(yaml.dump(cmd_yaml))
+#         fp.close()
+#         cmd_file_name = fp.name
+#     return cmd_file_name

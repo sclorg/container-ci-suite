@@ -55,6 +55,7 @@ class HelmChartsAPI:
             self.namespace = namespace
             self.create_prj = False
         self.oc_api = OpenShiftAPI(namespace=self.namespace, create_prj=self.create_prj, delete_prj=self.delete_prj)
+        self.oc_api.create_prj = self.create_prj
         self.oc_api.create_project()
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
@@ -143,7 +144,7 @@ class HelmChartsAPI:
 
     def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
         if not self.pod_json_data:
-            self.pod_json_data = self.oc_api.oc_get_pod_status()
+            self.pod_json_data = self.oc_api.get_pod_status()
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             if self.pod_name_prefix not in pod_name:
@@ -170,7 +171,7 @@ class HelmChartsAPI:
         build_pod_finished = False
         for count in range(180):
             print(f"Cycle for checking s2i build pod status: {count}.")
-            self.pod_json_data = self.oc_api.oc_get_pod_status()
+            self.pod_json_data = self.oc_api.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(3)
                 continue
@@ -215,7 +216,7 @@ class HelmChartsAPI:
     def is_pod_running(self, pod_name_prefix: str = "") -> bool:
         for count in range(60):
             print(f"Cycle for checking pod status: {count}.")
-            self.pod_json_data = self.oc_api.oc_get_pod_status()
+            self.pod_json_data = self.oc_api.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
                 print("Application pod name is not specified. Call: is_pod_running(pod_name_prefix=\"something\").")
                 return False
