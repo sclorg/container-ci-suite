@@ -102,14 +102,15 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
 
 
-def download_template(template_name: str) -> Any:
+def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
     ext = template_name.split(".")[1]
     print(f"extentions is: {ext}")
     import tempfile
-    temp_file = tempfile.NamedTemporaryFile(dir="/var/tmp", prefix="test-input", suffix=ext)
+    temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
     print(f"Temporary file: download_template: {temp_file.name}")
+    path_name: Path = Path(temp_file.name)
     if os.path.exists(template_name):
-        shutil.copy2(template_name, Path(temp_file.name))
+        shutil.copy2(template_name, path_name)
     if template_name.startswith("http"):
         resp = requests.get(template_name, verify=False)
         resp.raise_for_status()
@@ -118,7 +119,10 @@ def download_template(template_name: str) -> Any:
             return None
         with open(temp_file.name, "wb") as fd:
             fd.write(resp.content)
-    return temp_file.name
+    if not path_name.exists():
+        print(f"utils.download_template: file {path_name} does not exist.")
+        return None
+    return str(path_name)
 
 
 def run_command(
