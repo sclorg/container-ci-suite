@@ -25,9 +25,11 @@ import logging
 import shutil
 import subprocess
 import re
+import time
+
 import requests
-# import tempfile
-# import yaml
+import tempfile
+import yaml
 
 from typing import List, Any
 from pathlib import Path
@@ -104,7 +106,7 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
 
 def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
     ext = template_name.split(".")[1]
-    print(f"extentions is: {ext}")
+    print(f"extensions is: {ext}")
     import tempfile
     temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
     print(f"Temporary file: download_template: {temp_file.name}")
@@ -179,31 +181,31 @@ def get_response_request(url_address: str, expected_str: str, response_code: int
         except requests.exceptions.ConnectTimeout:
             print("get_response_request: ConnectTimeout. Let's wait some time")
             pass
+        time.sleep(3)
     return False
 
-#
-# def save_command_yaml(image_name: str) -> str:
-#     cmd_yaml = {
-#         "apiVersion": "v1",
-#         "kind": "Pod",
-#         "metadata": {
-#             "name": "command-app"
-#         },
-#         "spec": {
-#             "restartPolicy": "OnFailure",
-#             "containers": [
-#                 {
-#                     "name": "command-container",
-#                     "image": image_name,
-#                     "command": ["sleep"],
-#                     "args": ["3h"]
-#                 }
-#             ]
-#         }
-#     }
-#     cmd_file_name = ""
-#     with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
-#         fp.write(yaml.dump(cmd_yaml))
-#         fp.close()
-#         cmd_file_name = fp.name
-#     return cmd_file_name
+
+def save_command_yaml(image_name: str) -> str:
+    cmd_yaml = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": "command-app"
+        },
+        "spec": {
+            "restartPolicy": "OnFailure",
+            "containers": [
+                {
+                    "name": "command-container",
+                    "image": image_name,
+                    "command": ["sleep"],
+                    "args": ["3h"]
+                }
+            ]
+        }
+    }
+    temp_file = tempfile.NamedTemporaryFile(prefix="command-yml", delete=False)
+    with open(temp_file.name, "w") as fp:
+        yaml.dump(cmd_yaml, fp)
+    print(f"Pod command yaml file: {temp_file.name}")
+    return temp_file.name
