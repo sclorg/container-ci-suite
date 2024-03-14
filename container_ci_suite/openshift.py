@@ -374,10 +374,28 @@ class OpenShiftAPI:
             self.print_get_status()
             return False
         return True
-    #
-    # def create_deploy_cmd_image(self):
-    #     cmd_file = utils.save_command_yaml(image_name="registry.access.redhat.com/ubi7/ubi")
-    #     OpenShiftAPI.run_oc_command(f"create -f {cmd_file}")
+
+    def command_app_run(self, cmd: str, return_output: bool = True) -> str:
+        cmd = f"exec command-app -- bash -c \"{cmd}\""
+        print(f"cmd_image_run: {cmd}")
+        cmd_out = self.run_oc_command(
+            cmd=cmd, ignore_error=True, return_output=return_output, json_output=False,
+            namespace=self.namespace
+        )
+        print(f"cmd_image_run output: ${cmd_out}")
+        return cmd_out
+
+    def create_deploy_command_app(self) -> bool:
+        cmd_file = utils.save_command_yaml(image_name="registry.access.redhat.com/ubi8/ubi")
+        self.run_oc_command(f"create -f {cmd_file}")
+        if not self.is_pod_running(pod_name_prefix="command-app"):
+            print("deploy_template: command-app pod is not running after time.")
+            self.print_get_status()
+            return False
+        output_cmd = self.command_app_run("echo $((11*11))")
+        if "121" not in output_cmd:
+            return False
+        return True
 
     def deploy_template(
             self, template: str,
@@ -414,32 +432,48 @@ class OpenShiftAPI:
         time.sleep(3)
         return True
 
+    def check_response_inside_cluster(
+            self, cmd_to_run: str = None, name_in_template: str = "",
+            expected_output: str = "",
+            port: int = 8080,
+            protocol: str = "http",
+            response_code: int = 200,
+            max_tests: int = 3
+    ) -> bool:
+        ip_address = self.get_service_ip(service_name=name_in_template)
+        url = f"{protocol}://{ip_address}:{port}/"
+        print(f"URL address to get internal response is: {url}")
+        if not self.create_deploy_command_app():
+            return False
+        if cmd_to_run is None:
+            cmd_to_run = "curl --connect-timeout 10 -s -w '%{http_code}' " + f"'{url}'"
+        for count in range(max_tests):
+            output = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
+            print(f"Output from command {cmd_to_run} is {output}.")
+            if expected_output in output:
+                return True
+            print(
+                f"check_response_inside_cluster:"
+                f"expected_output {expected_output} not found in output of {cmd_to_run} command."
+            )
+            time.sleep(3)
+        return False
+
     def check_response_outside_cluster(
             self, name_in_template: str = "",
             expected_output: str = "",
             port: int = None,
             protocol: str = "http",
-            response_code: int = 200
+            response_code: int = 200,
     ) -> bool:
 
-        ip_address = self.get_service_ip(service_name=name_in_template)
         route_name = self.get_route_url(routes_name=name_in_template)
-        url = f"{protocol}://{ip_address}/"
-        if port:
-            url = f"{protocol}://{ip_address}:{port}/"
-        # "ct_os_test_response_internal '${protocol}://<IP>:${port}' '${response_code}' '${expected_output}'"
-        print(f"URL address to get response is: {url}")
         print(f"Route name is {route_name}")
+        url = f"{protocol}://{route_name}"
+        print(f"Let's try to get response from route {url}")
         response_status = utils.get_response_request(
             url_address=url, response_code=response_code, expected_str=expected_output
         )
-        print(f"Response status from {url} is {response_status}")
-        if not response_status:
-            url = f"{protocol}://{route_name}"
-            print(f"Let's try to get response from route {url}")
-            response_status = utils.get_response_request(
-                url_address=url, response_code=response_code, expected_str=expected_output
-            )
 
         # ct_os_service_image_info
         return response_status
