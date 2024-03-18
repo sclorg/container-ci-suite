@@ -217,8 +217,8 @@ class OpenShiftAPI:
 
     def print_get_status(self):
         print(OpenShiftAPI.run_oc_command("get all", namespace=self.namespace))
-        print(OpenShiftAPI.run_oc_command("get status", namespace=self.namespace))
-        print(OpenShiftAPI.run_oc_command("get status --suggest", namespace=self.namespace))
+        print(OpenShiftAPI.run_oc_command("status", namespace=self.namespace))
+        print(OpenShiftAPI.run_oc_command("status --suggest", namespace=self.namespace))
 
     def print_pod_logs(self):
         self.pod_json_data = self.get_pod_status()
