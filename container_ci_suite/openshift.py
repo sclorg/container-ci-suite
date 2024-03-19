@@ -196,9 +196,9 @@ class OpenShiftAPI:
         return False
 
     @staticmethod
-    def get_raw_url_for_json(container: str, dir: str, filename: str) -> str:
-        RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/master/{dir}/{filename}"
-        return RAW_SCL_JSON_URL.format(container=container, dir=dir, filename=filename)
+    def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = "master") -> str:
+        RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
+        return RAW_SCL_JSON_URL.format(container=container, branch=branch, dir=dir, filename=filename)
 
     def get_pod_status(self) -> Dict:
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
