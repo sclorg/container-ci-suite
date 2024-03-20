@@ -216,9 +216,9 @@ class OpenShiftAPI:
         return False
 
     def print_get_status(self):
-        print(OpenShiftAPI.run_oc_command("get all", namespace=self.namespace))
-        print(OpenShiftAPI.run_oc_command("status", namespace=self.namespace))
-        print(OpenShiftAPI.run_oc_command("status --suggest", namespace=self.namespace))
+        print(OpenShiftAPI.run_oc_command("get all", namespace=self.namespace, json_output=False))
+        print(OpenShiftAPI.run_oc_command("status", namespace=self.namespace, json_output=False))
+        print(OpenShiftAPI.run_oc_command("status --suggest", namespace=self.namespace, json_output=False))
 
     def print_pod_logs(self):
         self.pod_json_data = self.get_pod_status()
@@ -235,6 +235,10 @@ class OpenShiftAPI:
                 continue
             status = item["status"]["phase"]
             print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
+            if pod_suffix_name in pod_name and status == "Failed":
+                self.print_pod_logs()
+                self.print_get_status()
+                return False
             if pod_suffix_name in pod_name and status != "Succeeded":
                 continue
             if pod_suffix_name in pod_name and status == "Succeeded":
