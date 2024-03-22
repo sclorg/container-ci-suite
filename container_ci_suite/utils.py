@@ -181,7 +181,7 @@ def get_response_request(url_address: str, expected_str: str, response_code: int
         except requests.exceptions.ConnectTimeout:
             print("get_response_request: ConnectTimeout. Let's wait some time")
             pass
-        time.sleep(3)
+        time.sleep(10)
     return False
 
 

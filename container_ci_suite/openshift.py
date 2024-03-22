@@ -381,12 +381,11 @@ class OpenShiftAPI:
 
     def command_app_run(self, cmd: str, return_output: bool = True) -> str:
         cmd = f"exec command-app -- bash -c \"{cmd}\""
-        print(f"cmd_image_run: {cmd}")
+        print(f"command_app_run: {cmd}")
         cmd_out = self.run_oc_command(
-            cmd=cmd, ignore_error=True, return_output=return_output, json_output=False,
-            namespace=self.namespace
+            cmd=cmd, ignore_error=True, return_output=return_output, json_output=False
         )
-        print(f"cmd_image_run output: ${cmd_out}")
+        print(f"cmd_image_run output: {cmd_out}")
         return cmd_out
 
     def create_deploy_command_app(self) -> bool:
@@ -450,17 +449,26 @@ class OpenShiftAPI:
         if not self.create_deploy_command_app():
             return False
         if cmd_to_run is None:
-            cmd_to_run = "curl --connect-timeout 10 -s -w '%{http_code}' " + f"'{url}'"
+            cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
+        # Check if application returns proper HTTP_CODE
         for count in range(max_tests):
-            output = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
-            print(f"Output from command {cmd_to_run} is {output}.")
-            if expected_output in output:
+            output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
+            print(f"HTTP_CODE from command {cmd_to_run} is {output_code}.")
+            if output_code != response_code:
+                time.sleep(10)
+                continue
+        cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
+        # Check if application returns proper output
+        for count in range(max_tests):
+            output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
+            print(f"Output from command {cmd_to_run} is {output_code}.")
+            if expected_output in output_code:
                 return True
             print(
                 f"check_response_inside_cluster:"
-                f"expected_output {expected_output} not found in output of {cmd_to_run} command."
+                f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
             )
-            time.sleep(3)
+            time.sleep(10)
         return False
 
     def check_response_outside_cluster(
@@ -474,10 +482,15 @@ class OpenShiftAPI:
         route_name = self.get_route_url(routes_name=name_in_template)
         print(f"Route name is {route_name}")
         url = f"{protocol}://{route_name}"
-        print(f"Let's try to get response from route {url}")
-        response_status = utils.get_response_request(
-            url_address=url, response_code=response_code, expected_str=expected_output
-        )
+        for count in range(3):
+            print(f"Let's try to get response from route {url} one more time {count}")
+            response_status = utils.get_response_request(
+                url_address=url, response_code=response_code, expected_str=expected_output
+            )
+            if not response_status:
+                time.sleep(10)
+                continue
+            break
 
         # ct_os_service_image_info
         return response_status
