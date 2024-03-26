@@ -224,7 +224,7 @@ class OpenShiftAPI:
         self.pod_json_data = self.get_pod_status()
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            print(OpenShiftAPI.run_oc_command(f"logs {pod_name}"))
+            print(OpenShiftAPI.run_oc_command(f"logs {pod_name}", json_output=False))
 
     def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
         if not self.pod_json_data:
