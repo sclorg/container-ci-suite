@@ -105,8 +105,15 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
 
 
 def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
+    if not template_name.startswith("http://") and not template_name.startswith("https://"):
+        print(f"Local temporary file {template_name}")
+        if not Path(template_name).exists():
+            print("File to download does not exist.")
+            return None
+        new_name = Path(dir_name) / Path(template_name).name
+        shutil.copy2(template_name, new_name)
+        return new_name
     ext = template_name.split(".")[1]
-    print(f"extensions is: {ext}")
     import tempfile
     temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
     print(f"Temporary file: download_template: {temp_file.name}")
