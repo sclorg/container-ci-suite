@@ -29,7 +29,7 @@ from container_ci_suite.openshift import OpenShiftAPI
 
 class TestOpenShiftCISuite(object):
     def setup_method(self):
-        self.oc_api = OpenShiftAPI()
+        self.oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
 
     def test_check_is_version(self, oc_get_is_ruby_json):
         flexmock(OpenShiftAPI).should_receive("oc_get_is").and_return(oc_get_is_ruby_json)
