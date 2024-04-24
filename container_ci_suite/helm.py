@@ -406,6 +406,7 @@ class HelmChartsAPI:
                     return False
                 print(f"test_helm_curl_output: {resp.text}")
                 if expected_str not in resp.text:
+                    print(resp.text)
                     return False
                 return True
             except requests.exceptions.HTTPError:

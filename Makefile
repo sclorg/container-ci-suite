@@ -3,7 +3,7 @@
 TEST_IMAGE_NAME = container-ci-suite-test
 UNAME=$(shell uname)
 ifeq ($(UNAME),Darwin)
-	PODMAN := /usr/local/bin/podman #docker
+	PODMAN := /opt/podman/bin/podman #docker
 else
 	PODMAN := /usr/bin/podman
 endif

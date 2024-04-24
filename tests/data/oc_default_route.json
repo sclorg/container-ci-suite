@@ -1,0 +1,45 @@
+{
+    "apiVersion": "route.openshift.io/v1",
+    "kind": "Route",
+    "metadata": {
+        "annotations": {
+            "imageregistry.openshift.io": "true",
+            "imageregistry.operator.openshift.io/checksum": "sha256:9ad8062fa1490a315ca448ad2a9e23999fb490a65caa1e44f21ca6e663d95cf0",
+            "openshift.io/host.generated": "true"
+        },
+        "creationTimestamp": "2024-03-19T13:50:11Z",
+        "name": "default-route",
+        "namespace": "openshift-image-registry",
+        "resourceVersion": "38489",
+        "uid": "252f6aae-0312-492c-8ee6-88a1e9add5bf"
+    },
+    "spec": {
+        "host": "default-route-openshift-image-registry.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+        "tls": {
+            "termination": "reencrypt"
+        },
+        "to": {
+            "kind": "Service",
+            "name": "image-registry",
+            "weight": 100
+        },
+        "wildcardPolicy": "None"
+    },
+    "status": {
+        "ingress": [
+            {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2024-03-19T13:50:10Z",
+                        "status": "True",
+                        "type": "Admitted"
+                    }
+                ],
+                "host": "default-route-openshift-image-registry.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+                "routerCanonicalHostname": "router-default.apps.core-serv-ocp.hosted.psi.rdu2.redhat.com",
+                "routerName": "default",
+                "wildcardPolicy": "None"
+            }
+        ]
+    }
+}

@@ -22,7 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
+
 import pytest
+
 
 from container_ci_suite.utils import (
     get_public_image_name,
@@ -31,6 +34,7 @@ from container_ci_suite.utils import (
     get_mount_options_from_s2i_args,
     get_env_commands_from_s2i_args,
 )
+from container_ci_suite import utils
 from tests.conftest import create_ca_file, delete_ca_file
 
 
@@ -95,3 +99,42 @@ class TestContainerCISuiteUtils(object):
     )
     def test_get_env_from_s2i_args(self, s2i_args, expected_output):
         assert get_env_commands_from_s2i_args(s2i_args=s2i_args) == expected_output
+
+    @pytest.mark.parametrize(
+        "image_name,version,os_name,expected_output",
+        [
+            ("rhel8/ubi8", "", "", False),
+            ("", "2.4", "", False),
+            ("", "", "rhel8", False),
+            ("rhel8/httpd-24:1", "2.4", "rhel8", True),
+        ],
+    )
+    def test_check_variables(self, image_name, version, os_name, expected_output):
+        os.environ["IMAGE_NAME"] = image_name
+        os.environ["VERSION"] = version
+        os.environ["OS"] = os_name
+        assert utils.check_variables() == expected_output
+
+    @pytest.mark.parametrize(
+        "image_name,version,expected_output",
+        [
+            ("rhel8/httpd-24:1", "2.4", "httpd-24:2.4"),
+            ("/httpd-24:1", "2.4", "httpd-24:2.4"),
+            ("", "2.4", None),
+            ("rhel8/httpd", "2.4", "httpd:2.4")
+        ],
+    )
+    def test_tagged_image(self, image_name, version, expected_output):
+        assert utils.get_tagged_image(image_name=image_name, version=version) == expected_output
+
+    @pytest.mark.parametrize(
+        "image_name,expected_output",
+        [
+            ("rhel8/httpd-24:1", "httpd-24-testing"),
+            ("/httpd-24:1", "httpd-24-testing"),
+            ("", None),
+            ("rhel8/httpd", "httpd-testing")
+        ],
+    )
+    def test_get_service_image(self, image_name, expected_output):
+        assert utils.get_service_image(image_name=image_name) == expected_output

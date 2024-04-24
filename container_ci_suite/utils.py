@@ -118,8 +118,12 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
     temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
     print(f"Temporary file: download_template: {temp_file.name}")
     path_name: Path = Path(temp_file.name)
-    if os.path.exists(template_name):
+    if not Path(template_name).exists():
+        return None
+    if Path(template_name).is_file():
         shutil.copy2(template_name, path_name)
+    if Path(template_name).is_dir():
+        shutil.copytree(template_name, path_name, symlinks=True)
     if template_name.startswith("http"):
         resp = requests.get(template_name, verify=False)
         resp.raise_for_status()
@@ -216,3 +220,36 @@ def save_command_yaml(image_name: str) -> str:
         yaml.dump(cmd_yaml, fp)
     print(f"Pod command yaml file: {temp_file.name}")
     return temp_file.name
+
+
+def get_tagged_image(image_name: str, version: str) -> Any:
+    try:
+        image_no_namespace = image_name.split('/')[1]
+        image_no_tag = image_no_namespace.split(':')[0]
+    except IndexError:
+        return None
+
+    return f"{image_no_tag}:{version}"
+
+
+def get_service_image(image_name: str) -> Any:
+    try:
+        image_no_namespace = image_name.split('/')[1]
+        image_no_tag = image_no_namespace.split(':')[0]
+    except IndexError:
+        return None
+    return f"{image_no_tag}-testing"
+
+
+def check_variables() -> bool:
+    ret_value: bool = True
+    if not os.getenv("IMAGE_NAME", None):
+        print("Make sure IMAGE_NAME is defined")
+        ret_value = False
+    if not os.getenv("VERSION"):
+        print("Make sure VERSION is defined")
+        ret_value = False
+    if not os.getenv("OS"):
+        print("Make sure OS is defined")
+        ret_value = False
+    return ret_value

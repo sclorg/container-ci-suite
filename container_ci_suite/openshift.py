@@ -21,10 +21,12 @@
 # SOFTWARE.
 import json
 import logging
+import re
 import time
 import random
 import subprocess
 
+from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Dict, Any, List
 
@@ -40,13 +42,15 @@ class OpenShiftAPI:
     def __init__(
             self, namespace: str = "default",
             pod_name_prefix: str = "", create_prj: bool = True,
-            delete_prj: bool = True
+            delete_prj: bool = True,
+            version: str = ""
     ):
         self.namespace = namespace
         self.create_prj = create_prj
         self.delete_prj = delete_prj
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
+        self.version = version
         if namespace == "default":
             self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
             self.create_project()
@@ -140,12 +144,12 @@ class OpenShiftAPI:
             time.sleep(3)
         return False
 
-    def is_build_pod_finished(self) -> bool:
+    def is_build_pod_finished(self, cycle_count: int = 180) -> bool:
         """
         Function return information if build pod is finished.
         The function waits for 180*3 seconds
         """
-        for count in range(180):
+        for count in range(cycle_count):
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(3)
@@ -163,10 +167,10 @@ class OpenShiftAPI:
             return True
         return False
 
-    def is_s2i_pod_running(self, pod_name_prefix: str = "") -> bool:
+    def is_s2i_pod_running(self, pod_name_prefix: str = "", cycle_count: int = 180) -> bool:
         self.pod_name_prefix = pod_name_prefix
         build_pod_finished = False
-        for count in range(180):
+        for count in range(cycle_count):
             print(f"Cycle for checking s2i build pod status: {count}.")
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
@@ -257,13 +261,21 @@ class OpenShiftAPI:
             return None
         return json_output["spec"]["clusterIP"]
 
-    def import_is(self, path: str, name: str):
+    def is_imagestream_exist(self, name: str):
         try:
             json_output = self.oc_get_is(name=name)
             if json_output["kind"] == "ImageStream" and json_output["metadata"]["name"] == name:
                 return json_output
         except CalledProcessError:
             pass
+        return None
+
+    def import_is(self, path: str, name: str, skip_check=False):
+        if not skip_check:
+            is_exists = self.is_imagestream_exist(name=name)
+            if is_exists:
+                return is_exists
+
         output = OpenShiftAPI.run_oc_command(f"create -f {path}", namespace=self.namespace)
         # Let's wait 3 seconds till imagestreams are not uploaded
         time.sleep(3)
@@ -279,9 +291,48 @@ class OpenShiftAPI:
         output = OpenShiftAPI.run_oc_command(f"get is/{name}", namespace=self.namespace)
         return json.loads(output)
 
-    def start_build(self, name: str):
-        output = OpenShiftAPI.run_oc_command(f"start-build {name}", json_output=False)
+    def start_build(self, service_name: str, app_name: str = "") -> str:
+        from_dir = utils.download_template(template_name=app_name)
+        output = OpenShiftAPI.run_oc_command(f"start-build {service_name} --from-dir={from_dir}", json_output=False)
         return output
+
+    def docker_login_to_openshift(self) -> Any:
+        output = OpenShiftAPI.run_oc_command(cmd="get route default-route -n openshift-image-registry")
+        jsou_output = json.loads(output)
+        print(jsou_output["spec"]["host"])
+        if not jsou_output["spec"]["host"]:
+            print("Default route does not exist. Install OpenShift 4 cluster properly and expose default route.")
+            return None
+        ocp4_register = jsou_output["spec"]["host"]
+        token_output = OpenShiftAPI.run_oc_command(cmd="whoami -t", json_output=False).strip()
+        cmd = f"docker login -u kubeadmin -p {token_output} {ocp4_register}"
+        print(cmd)
+        output = utils.run_command(
+            cmd=cmd,
+            ignore_error=False,
+            return_output=True
+        )
+        print(f"Output from docker login: {output}")
+        return ocp4_register
+
+    def upload_image(self, source_image: str, tagged_image: str):
+        try:
+            ocp4_register = self.docker_login_to_openshift()
+        except subprocess.CalledProcessError:
+            return None
+        output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
+        cmd = f"docker tag {source_image} {output_name}"
+        print(f"Tag docker image {cmd}")
+        output = utils.run_command(
+            cmd=cmd,
+            ignore_error=False
+        )
+        print(f"Upload_image tagged {output}")
+        output = utils.run_command(
+            cmd=f"docker push {output_name}",
+            ignore_error=False
+        )
+        print(f"Upload_image push {output}")
 
     def check_is_exists(self, is_name, version_to_check: str) -> bool:
         """
@@ -333,12 +384,12 @@ class OpenShiftAPI:
             return None
         return json_output["spec"]["host"]
 
-    def is_pod_ready(self) -> bool:
+    def is_pod_ready(self, cycle_count: int = 60) -> bool:
         """
         Function checks if pod with specific name is really ready
         """
 
-        for count in range(60):
+        for count in range(cycle_count):
             print(f"Cycle for checking pod status: {count}.")
             json_data = self.get_pod_status()
             if len(json_data["items"]) == 0:
@@ -370,11 +421,11 @@ class OpenShiftAPI:
 
     def template_deployed(self, name_in_template: str = "") -> bool:
         if not self.is_build_pod_finished():
-            print("deploy_template: Build pod does not finished in proper time")
+            print("template_deployed: Build pod does not finished in proper time")
             self.print_get_status()
             return False
         if not self.is_pod_running(pod_name_prefix=name_in_template):
-            print("deploy_template: Pod is not running after time.")
+            print("template_deployed: Pod is not running after time.")
             self.print_get_status()
             return False
         return True
@@ -392,13 +443,41 @@ class OpenShiftAPI:
         cmd_file = utils.save_command_yaml(image_name="registry.access.redhat.com/ubi8/ubi")
         self.run_oc_command(f"create -f {cmd_file}")
         if not self.is_pod_running(pod_name_prefix="command-app"):
-            print("deploy_template: command-app pod is not running after time.")
+            print("create_deploy_command_app: command-app pod is not running after time.")
             self.print_get_status()
             return False
         output_cmd = self.command_app_run("echo $((11*11))")
         if "121" not in output_cmd:
             return False
         return True
+
+    def deploy_s2i_app(self, image_name: str, app_name: str, context: str) -> bool:
+        tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
+        self.upload_image(source_image=image_name, tagged_image=tagged_image)
+        service_name = utils.get_service_image(image_name)
+        app_param = app_name
+        if Path(app_name).is_dir():
+            app_param = utils.download_template(template_name=app_name)
+        oc_cmd = f"new-app {tagged_image}~{app_param} --strategy=source --context-dir={context} --name={service_name}"
+        try:
+            output = self.run_oc_command(f"{oc_cmd}", json_output=False)
+            print(output)
+        except subprocess.CalledProcessError:
+            return False
+
+        time.sleep(5)
+        if Path(app_name).is_dir():
+            output = self.start_build(service_name=service_name, app_name=app_name)
+
+        return True
+
+    def deploy_imagestream_s2i(self, imagestream_file: str, image_name: str, app_name: str, context: str) -> bool:
+        imagestream_file = re.sub(r"[0-9]", "", imagestream_file)
+        local_template = utils.download_template(template_name=imagestream_file)
+        if not local_template:
+            return False
+        self.import_is(local_template, name="", skip_check=True)
+        return self.deploy_s2i_app(image_name=image_name, app_name=app_name, context=context)
 
     def deploy_template(
             self, template: str,
@@ -419,7 +498,7 @@ class OpenShiftAPI:
             openshift_args = self.get_openshift_args(openshift_args)
         print(f"========"
               f"Creating a new-app with name {name_in_template} in "
-              f"namespace {self.namespace} with args ${openshift_args}."
+              f"namespace {self.namespace} with args ${openshift_args} "
               f"========")
         local_template = utils.download_template(template_name=template)
         if not local_template:
