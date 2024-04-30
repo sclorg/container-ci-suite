@@ -46,7 +46,7 @@ setup(
     version="0.1.0",
     keywords='tool,containers,images,tests',
     packages=find_packages(exclude=["tests"]),
-    url="https://github.com/phracek/container-ci-suite",
+    url="https://github.com/sclorg/container-ci-suite",
     license="MIT",
     author="Petr Hracek",
     author_email="phracek@redhat.com",
