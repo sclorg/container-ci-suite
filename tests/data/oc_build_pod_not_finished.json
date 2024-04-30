@@ -1,0 +1,1038 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "annotations": {
+          "k8s.ovn.org/pod-networks": "",
+          "k8s.v1.cni.cncf.io/network-status": "]",
+          "openshift.io/generated-by": "OpenShiftNewApp",
+          "openshift.io/scc": "restricted-v2",
+          "seccomp.security.alpha.kubernetes.io/pod": "runtime/default"
+        },
+        "creationTimestamp": "2024-04-29T11:01:47Z",
+        "generateName": "postgresql-7456b789ff-",
+        "labels": {
+          "name": "postgresql",
+          "pod-template-hash": "7456b789ff"
+        },
+        "name": "postgresql-7456b789ff-qd4zp",
+        "namespace": "sclorg-28085",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": "True",
+            "controller": "True",
+            "kind": "ReplicaSet",
+            "name": "postgresql-7456b789ff",
+            "uid": "272aa85c-d509-41e6-b4ba-93fd6ec20a62"
+          }
+        ],
+        "resourceVersion": "22259556",
+        "uid": "5c88b41e-c3c8-4c23-a4c3-37334f4e2f29"
+      },
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "POSTGRESQL_USER",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "database-user",
+                    "name": "python-311-testing"
+                  }
+                }
+              },
+              {
+                "name": "POSTGRESQL_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "database-password",
+                    "name": "python-311-testing"
+                  }
+                }
+              },
+              {
+                "name": "POSTGRESQL_DATABASE",
+                "value": "default"
+              }
+            ],
+            "image": "image-registry.openshift-image-registry.svc:5000/sclorg-28085/postgresql@sha256:05ec98e396bfaf21484e32a241694c7cd7bbb6d577d8cb88dc52a9a38ffb645b",
+            "imagePullPolicy": "IfNotPresent",
+            "livenessProbe": {
+              "exec": {
+                "command": [
+                  "/usr/libexec/check-container",
+                  "--live"
+                ]
+              },
+              "failureThreshold": 3,
+              "initialDelaySeconds": 120,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 10
+            },
+            "name": "postgresql",
+            "ports": [
+              {
+                "containerPort": 5432,
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "exec": {
+                "command": [
+                  "/usr/libexec/check-container"
+                ]
+              },
+              "failureThreshold": 3,
+              "initialDelaySeconds": 5,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 1
+            },
+            "resources": {
+              "limits": {
+                "memory": "512Mi"
+              },
+              "requests": {
+                "memory": "512Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": "False",
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "runAsNonRoot": "True",
+              "runAsUser": 1000890000
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/pgsql/data",
+                "name": "postgresql-data"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-jcr87",
+                "readOnly": "True"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": "True",
+        "imagePullSecrets": [
+          {
+            "name": "default-dockercfg-vtk7x"
+          }
+        ],
+        "nodeName": "core-serv-ocp-6p8jr-worker-0-sf7s4",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "fsGroup": 1000890000,
+          "seLinuxOptions": {
+            "level": "s0:c30,c10"
+          },
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/memory-pressure",
+            "operator": "Exists"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "postgresql-data",
+            "persistentVolumeClaim": {
+              "claimName": "postgresql"
+            }
+          },
+          {
+            "name": "kube-api-access-jcr87",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "service-ca.crt",
+                        "path": "service-ca.crt"
+                      }
+                    ],
+                    "name": "openshift-service-ca.crt"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:01:53Z",
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:12Z",
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:12Z",
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:01:48Z",
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "containerID": "cri-o://bce03e905df5a684f08e10e3bd24a6a916d66319cec9c3b8a0a3fe3fd77841bd",
+            "image": "image-registry.openshift-image-registry.svc:5000/sclorg-28085/postgresql@sha256:05ec98e396bfaf21484e32a241694c7cd7bbb6d577d8cb88dc52a9a38ffb645b",
+            "imageID": "image-registry.openshift-image-registry.svc:5000/sclorg-11219/postgresql@sha256:05ec98e396bfaf21484e32a241694c7cd7bbb6d577d8cb88dc52a9a38ffb645b",
+            "lastState": {},
+            "name": "postgresql",
+            "ready": "True",
+            "restartCount": 0,
+            "started": "True",
+            "state": {
+              "running": {
+                "startedAt": "2024-04-29T11:02:02Z"
+              }
+            }
+          }
+        ],
+        "hostIP": "192.168.3.223",
+        "phase": "Running",
+        "podIP": "10.128.2.19",
+        "podIPs": [
+          {
+            "ip": "10.128.2.19"
+          }
+        ],
+        "qosClass": "Burstable",
+        "startTime": "2024-04-29T11:01:53Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "annotations": {
+          "k8s.ovn.org/pod-networks": "",
+          "k8s.v1.cni.cncf.io/network-status": "[]",
+          "openshift.io/build.name": "python-311-testing-1",
+          "openshift.io/scc": "privileged"
+        },
+        "creationTimestamp": "2024-04-29T11:01:47Z",
+        "labels": {
+          "openshift.io/build.name": "python-311-testing-1"
+        },
+        "name": "python-311-testing-1-build",
+        "namespace": "sclorg-28085",
+        "ownerReferences": [
+          {
+            "apiVersion": "build.openshift.io/v1",
+            "controller": "True",
+            "kind": "Build",
+            "name": "python-311-testing-1",
+            "uid": "fdfdbfa2-8646-4902-b67f-a6ed8d591a54"
+          }
+        ],
+        "resourceVersion": "22259629",
+        "uid": "82c65414-8e1e-420a-b83a-910f193a957d"
+      },
+      "spec": {
+        "activeDeadlineSeconds": 604800,
+        "containers": [
+          {
+            "args": [
+              "openshift-sti-build",
+              "--v=0"
+            ],
+            "env": [
+              {
+                "name": "BUILD",
+                "value": ""
+              },
+              {
+                "name": "LANG",
+                "value": "C.utf8"
+              },
+              {
+                "name": "SOURCE_REPOSITORY",
+                "value": "https://github.com/sclorg/django-ex.git"
+              },
+              {
+                "name": "SOURCE_URI",
+                "value": "https://github.com/sclorg/django-ex.git"
+              },
+              {
+                "name": "SOURCE_REF",
+                "value": "2.2.x"
+              },
+              {
+                "name": "ALLOWED_UIDS",
+                "value": "1-"
+              },
+              {
+                "name": "DROP_CAPS",
+                "value": "KILL,MKNOD,SETGID,SETUID"
+              },
+              {
+                "name": "PUSH_DOCKERCFG_PATH",
+                "value": "/var/run/secrets/openshift.io/push"
+              },
+              {
+                "name": "PULL_DOCKERCFG_PATH",
+                "value": "/var/run/secrets/openshift.io/pull"
+              },
+              {
+                "name": "BUILD_REGISTRIES_CONF_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/registries.conf"
+              },
+              {
+                "name": "BUILD_REGISTRIES_DIR_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/registries.d"
+              },
+              {
+                "name": "BUILD_SIGNATURE_POLICY_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/policy.json"
+              },
+              {
+                "name": "BUILD_STORAGE_CONF_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/storage.conf"
+              },
+              {
+                "name": "BUILD_BLOBCACHE_DIR",
+                "value": "/var/cache/blobs"
+              },
+              {
+                "name": "HTTP_PROXY"
+              },
+              {
+                "name": "HTTPS_PROXY"
+              },
+              {
+                "name": "NO_PROXY"
+              }
+            ],
+            "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "sti-build",
+            "resources": {},
+            "securityContext": {
+              "privileged": "True",
+              "runAsGroup": 0,
+              "runAsUser": 0,
+              "seccompProfile": {
+                "type": "Unconfined"
+              }
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "FallbackToLogsOnError",
+            "volumeMounts": [
+              {
+                "mountPath": "/var/lib/kubelet/config.json",
+                "name": "node-pullsecrets"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": "True",
+        "imagePullSecrets": [
+          {
+            "name": "builder-dockercfg-hs4r4"
+          }
+        ],
+        "initContainers": [
+          {
+            "args": [
+              "openshift-git-clone",
+              "--v=0"
+            ],
+            "env": [
+              {
+                "name": "BUILD",
+                "value": ""
+              },
+              {
+                "name": "LANG",
+                "value": "C.utf8"
+              },
+              {
+                "name": "SOURCE_REPOSITORY",
+                "value": "https://github.com/sclorg/django-ex.git"
+              },
+              {
+                "name": "SOURCE_URI",
+                "value": "https://github.com/sclorg/django-ex.git"
+              },
+              {
+                "name": "SOURCE_REF",
+                "value": "2.2.x"
+              },
+              {
+                "name": "ALLOWED_UIDS",
+                "value": "1-"
+              },
+              {
+                "name": "DROP_CAPS",
+                "value": "KILL,MKNOD,SETGID,SETUID"
+              },
+              {
+                "name": "BUILD_REGISTRIES_CONF_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/registries.conf"
+              },
+              {
+                "name": "BUILD_REGISTRIES_DIR_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/registries.d"
+              },
+              {
+                "name": "BUILD_SIGNATURE_POLICY_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/policy.json"
+              },
+              {
+                "name": "BUILD_STORAGE_CONF_PATH",
+                "value": "/var/run/configs/openshift.io/build-system/storage.conf"
+              },
+              {
+                "name": "BUILD_BLOBCACHE_DIR",
+                "value": "/var/cache/blobs"
+              },
+              {
+                "name": "HTTP_PROXY"
+              },
+              {
+                "name": "HTTPS_PROXY"
+              },
+              {
+                "name": "NO_PROXY"
+              }
+            ]
+          }
+        ],
+        "nodeName": "core-serv-ocp-6p8jr-worker-0-sf7s4",
+        "nodeSelector": {
+          "kubernetes.io/os": "linux"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Never",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "builder",
+        "serviceAccountName": "builder",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "hostPath": {
+              "path": "/var/lib/kubelet/config.json",
+              "type": "File"
+            },
+            "name": "node-pullsecrets"
+          },
+          {
+            "hostPath": {
+              "path": "/var/lib/containers/cache",
+              "type": ""
+            },
+            "name": "buildcachedir"
+          },
+          {
+            "emptyDir": {},
+            "name": "buildworkdir"
+          },
+          {
+            "name": "builder-dockercfg-hs4r4-push",
+            "secret": {
+              "defaultMode": 384,
+              "secretName": "builder-dockercfg-hs4r4"
+            }
+          },
+          {
+            "name": "builder-dockercfg-hs4r4-pull",
+            "secret": {
+              "defaultMode": 384,
+              "secretName": "builder-dockercfg-hs4r4"
+            }
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "python-311-testing-1-sys-config"
+            },
+            "name": "build-system-configs"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "service-ca.crt",
+                  "path": "certs.d/image-registry.openshift-image-registry.svc:5000/ca.crt"
+                },
+                {
+                  "key": "registry-proxy.engineering.redhat.com",
+                  "path": "certs.d/registry-proxy.engineering.redhat.com/ca.crt"
+                }
+              ],
+              "name": "python-311-testing-1-ca"
+            },
+            "name": "build-ca-bundles"
+          },
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "items": [
+                {
+                  "key": "ca-bundle.crt",
+                  "path": "tls-ca-bundle.pem"
+                }
+              ],
+              "name": "python-311-testing-1-global-ca"
+            },
+            "name": "build-proxy-ca-bundles"
+          },
+          {
+            "emptyDir": {},
+            "name": "container-storage-root"
+          },
+          {
+            "emptyDir": {},
+            "name": "container-storage-run"
+          },
+          {
+            "emptyDir": {},
+            "name": "build-blob-cache"
+          },
+          {
+            "name": "kube-api-access-vkj67",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "service-ca.crt",
+                        "path": "service-ca.crt"
+                      }
+                    ],
+                    "name": "openshift-service-ca.crt"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:01:55Z",
+            "reason": "PodCompleted",
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:22Z",
+            "reason": "PodCompleted",
+            "status": "False",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:22Z",
+            "reason": "PodCompleted",
+            "status": "False",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:01:47Z",
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "containerID": "cri-o://aec4f1a826fe46cf12922c1267abc1ef1e5ac534e9c06338248ae96bdc690b24",
+            "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "imageID": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "lastState": {},
+            "name": "sti-build",
+            "ready": "False",
+            "restartCount": 0,
+            "started": "False",
+            "state": {
+              "terminated": {
+                "containerID": "cri-o://aec4f1a826fe46cf12922c1267abc1ef1e5ac534e9c06338248ae96bdc690b24",
+                "exitCode": 0,
+                "finishedAt": "2024-04-29T11:02:22Z",
+                "reason": "Completed",
+                "startedAt": "2024-04-29T11:01:55Z"
+              }
+            }
+          }
+        ],
+        "hostIP": "192.168.3.223",
+        "initContainerStatuses": [
+          {
+            "containerID": "cri-o://1fa5a8b09facc8d7d7837922fee768e65c4cdb337daf27bf3b1f2e987a8b4a4b",
+            "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "imageID": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "lastState": {},
+            "name": "git-clone",
+            "ready": "True",
+            "restartCount": 0,
+            "state": {
+              "terminated": {
+                "containerID": "cri-o://1fa5a8b09facc8d7d7837922fee768e65c4cdb337daf27bf3b1f2e987a8b4a4b",
+                "exitCode": 0,
+                "finishedAt": "2024-04-29T11:01:53Z",
+                "reason": "Completed",
+                "startedAt": "2024-04-29T11:01:53Z"
+              }
+            }
+          },
+          {
+            "containerID": "cri-o://aaceab58f45c7c7ce81379abd1b480d8f8c7c31c449d66afa0debc7e0da75e50",
+            "image": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "imageID": "quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7207a02d23e70b9b07f01446e5cf2916b807e43b2169e35c33c668302e0842f9",
+            "lastState": {},
+            "name": "manage-dockerfile",
+            "ready": "True",
+            "restartCount": 0,
+            "state": {
+              "terminated": {
+                "containerID": "cri-o://aaceab58f45c7c7ce81379abd1b480d8f8c7c31c449d66afa0debc7e0da75e50",
+                "exitCode": 0,
+                "finishedAt": "2024-04-29T11:01:54Z",
+                "reason": "Completed",
+                "startedAt": "2024-04-29T11:01:54Z"
+              }
+            }
+          }
+        ],
+        "phase": "Running",
+        "podIP": "10.128.2.18",
+        "podIPs": [
+          {
+            "ip": "10.128.2.18"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "startTime": "2024-04-29T11:01:52Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "annotations": {
+          "openshift.io/generated-by": "OpenShiftNewApp",
+          "openshift.io/scc": "restricted-v2",
+          "seccomp.security.alpha.kubernetes.io/pod": "runtime/default"
+        },
+        "creationTimestamp": "2024-04-29T11:02:17Z",
+        "generateName": "python-311-testing-587956b487-",
+        "labels": {
+          "name": "python-311-testing",
+          "pod-template-hash": "587956b487"
+        },
+        "name": "python-311-testing-587956b487-dcv29",
+        "namespace": "sclorg-28085",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": "True",
+            "controller": "True",
+            "kind": "ReplicaSet",
+            "name": "python-311-testing-587956b487",
+            "uid": "7ce9f8ab-13d1-4635-91b1-c770807040c4"
+          }
+        ],
+        "resourceVersion": "22259634",
+        "uid": "663bc47c-1332-4c2f-a187-1e5901661d9a"
+      },
+      "spec": {
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "DATABASE_SERVICE_NAME",
+                "value": "postgresql"
+              },
+              {
+                "name": "DATABASE_ENGINE",
+                "value": "postgresql"
+              },
+              {
+                "name": "DATABASE_NAME",
+                "value": "default"
+              },
+              {
+                "name": "DATABASE_USER",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "database-user",
+                    "name": "python-311-testing"
+                  }
+                }
+              },
+              {
+                "name": "DATABASE_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "database-password",
+                    "name": "python-311-testing"
+                  }
+                }
+              },
+              {
+                "name": "APP_CONFIG"
+              },
+              {
+                "name": "DJANGO_SECRET_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "django-secret-key",
+                    "name": "python-311-testing"
+                  }
+                }
+              }
+            ],
+            "image": "image-registry.openshift-image-registry.svc:5000/sclorg-28085/python-311-testing@sha256:33c2f032d28cf6134bd58b28133127eb754aae07c582d322886d266a524c729b",
+            "imagePullPolicy": "IfNotPresent",
+            "livenessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 30,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 3
+            },
+            "name": "django-psql-persistent",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health",
+                "port": 8080,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 3,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 3
+            },
+            "resources": {
+              "limits": {
+                "memory": "512Mi"
+              },
+              "requests": {
+                "memory": "512Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": "False",
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "runAsNonRoot": "True",
+              "runAsUser": 1000890000
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-qr2vv",
+                "readOnly": "True"
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": "True",
+        "imagePullSecrets": [
+          {
+            "name": "default-dockercfg-vtk7x"
+          }
+        ],
+        "nodeName": "core-serv-ocp-6p8jr-worker-0-x4w6q",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "fsGroup": 1000890000,
+          "seLinuxOptions": {
+            "level": "s0:c30,c10"
+          },
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoSchedule",
+            "key": "node.kubernetes.io/memory-pressure",
+            "operator": "Exists"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "kube-api-access-qr2vv",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "service-ca.crt",
+                        "path": "service-ca.crt"
+                      }
+                    ],
+                    "name": "openshift-service-ca.crt"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:21Z",
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:21Z",
+            "message": "containers with unready status: [django-psql-persistent]",
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:21Z",
+            "message": "containers with unready status: [django-psql-persistent]",
+            "reason": "ContainersNotReady",
+            "status": "False",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": "None",
+            "lastTransitionTime": "2024-04-29T11:02:17Z",
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "image": "image-registry.openshift-image-registry.svc:5000/sclorg-28085/python-311-testing@sha256:33c2f032d28cf6134bd58b28133127eb754aae07c582d322886d266a524c729b",
+            "imageID": "",
+            "lastState": {},
+            "name": "django-psql-persistent",
+            "ready": "False",
+            "restartCount": 0,
+            "started": "False",
+            "state": {
+              "waiting": {
+                "reason": "ContainerCreating"
+              }
+            }
+          }
+        ],
+        "hostIP": "192.168.0.235",
+        "phase": "Pending",
+        "qosClass": "Burstable",
+        "startTime": "2024-04-29T11:02:21Z"
+      }
+    }
+  ],
+  "kind": "List",
+  "metadata": {
+    "resourceVersion": ""
+  }
+}

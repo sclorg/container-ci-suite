@@ -94,5 +94,30 @@ def oc_get_is_ruby_json():
 
 
 @pytest.fixture()
+def oc_build_pod_not_finished_json():
+    return json.loads((DATA_DIR / "oc_build_pod_not_finished.json").read_text())
+
+
+@pytest.fixture()
+def oc_build_pod_finished_json():
+    return json.loads((DATA_DIR / "oc_build_pod_finished.json").read_text())
+
+
+@pytest.fixture()
+def oc_is_pod_running():
+    return json.loads((DATA_DIR / "oc_is_pod_running.json").read_text())
+
+
+@pytest.fixture()
 def get_chart_yaml():
     return yaml.safe_load((DATA_DIR / "Chart.yaml").read_text())
+
+
+@pytest.fixture()
+def get_svc_ip():
+    return json.loads((DATA_DIR / "oc_get_svc.json").read_text())
+
+
+@pytest.fixture()
+def get_svc_ip_empty():
+    return json.loads((DATA_DIR / "oc_get_svc_empty.json").read_text())

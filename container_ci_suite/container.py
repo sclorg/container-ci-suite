@@ -1,6 +1,7 @@
 # MIT License
 #
 # Copyright (c) 2018-2019 Red Hat, Inc.
+import time
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,13 +43,13 @@ class DockerCLIWrapper(object):
     def docker_image_exists(image_name: str) -> bool:
         """
         Check if docker image exists or not
+        :param image_name: image to check
+        :return True: In case if image is present
+                False: In case if image is not present
         """
         output = DockerCLIWrapper.run_docker_command(
-            f"images {image_name}", ignore_error=True
-        )
-        if image_name in output:
-            return True
-        return False
+            f"images -q {image_name}", ignore_error=True, return_output=True)
+        return True if output != "" else False
 
     @staticmethod
     def docker_inspect(field: str, src_image: str) -> str:
@@ -65,3 +66,23 @@ class DockerCLIWrapper(object):
         return DockerCLIWrapper.docker_run_command(
             f"--rm {src_image} bash -c 'id -u {user} 2>/dev/null"
         )
+
+    @staticmethod
+    def docker_pull_image(image_name: str, loops: int = 10) -> bool:
+        """
+        Function checks if image_name is present in system.
+        In case it isn't, try to pull it for specific count of loops
+        Default is 10.
+        """
+        if DockerCLIWrapper.docker_image_exists(image_name=image_name):
+            print("Pulled image already exists.")
+            return True
+        for loop in range(loops):
+            ret_val = DockerCLIWrapper.run_docker_command(
+                cmd=f"pull {image_name}"
+            )
+            if ret_val == 0:
+                return True
+            print(f"Pulling of image {image_name} failed. Let's wait {loop*5} seconds and try again.")
+            time.sleep(loop*5)
+        return False
