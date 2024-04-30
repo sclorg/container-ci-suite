@@ -116,3 +116,8 @@ def get_chart_yaml():
 @pytest.fixture()
 def get_svc_ip():
     return json.loads((DATA_DIR / "oc_get_svc.json").read_text())
+
+
+@pytest.fixture()
+def get_svc_ip_empty():
+    return json.loads((DATA_DIR / "oc_get_svc_empty.json").read_text())

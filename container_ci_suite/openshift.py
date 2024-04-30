@@ -111,8 +111,8 @@ class OpenShiftAPI:
         print(f"get_pod_count: {count}")
         return count
 
-    def is_pod_running(self, pod_name_prefix: str = "") -> bool:
-        for count in range(60):
+    def is_pod_running(self, pod_name_prefix: str = "", loops: int = 60) -> bool:
+        for count in range(loops):
             print(f"Cycle for checking pod status: {count}.")
             self.pod_json_data = self.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
@@ -255,9 +255,16 @@ class OpenShiftAPI:
         output = OpenShiftAPI.run_oc_command(f"exec {pod_name} -- \"{command}\"")
         print(output)
 
-    def get_service_ip(self, service_name) -> Any:
+    def oc_get_services(self, service_name):
         output = OpenShiftAPI.run_oc_command(f"get svc/{service_name}", json_output=True, namespace=self.namespace)
         json_output = json.loads(output)
+        print(json_output)
+        return json_output
+
+    def get_service_ip(self, service_name) -> Any:
+        json_output = self.oc_get_services(service_name=service_name)
+        if "clusterIP" not in json_output["spec"]:
+            return None
         if not json_output["spec"]["clusterIP"]:
             return None
         return json_output["spec"]["clusterIP"]
@@ -328,6 +335,8 @@ class OpenShiftAPI:
             return False
         try:
             ocp4_register = self.docker_login_to_openshift()
+            if not ocp4_register:
+                return False
         except subprocess.CalledProcessError:
             return False
         output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
@@ -467,6 +476,9 @@ class OpenShiftAPI:
     ) -> bool:
         local_imagestream_file = utils.download_template(imagestream_file)
         self.import_is(local_imagestream_file, name="", skip_check=True)
+        tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
+        if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+            return False
         return self.deploy_template_with_image(
             image_name=image_name, template=template_file, name_in_template=name_in_template,
             openshift_args=openshift_args
