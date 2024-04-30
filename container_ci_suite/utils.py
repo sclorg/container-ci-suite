@@ -116,10 +116,8 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
     ext = template_name.split(".")[1]
     import tempfile
     temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
-    print(f"Temporary file: download_template: {temp_file.name}")
+    print(f"Temporary file: download_template from {template_name} to {temp_file.name}")
     path_name: Path = Path(temp_file.name)
-    if not Path(template_name).exists():
-        return None
     if Path(template_name).is_file():
         shutil.copy2(template_name, path_name)
     if Path(template_name).is_dir():

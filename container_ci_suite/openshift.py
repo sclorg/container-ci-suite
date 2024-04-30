@@ -30,6 +30,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Dict, Any, List
 
+from container_ci_suite.container import DockerCLIWrapper
 
 import container_ci_suite.utils as utils
 
@@ -306,7 +307,6 @@ class OpenShiftAPI:
         ocp4_register = jsou_output["spec"]["host"]
         token_output = OpenShiftAPI.run_oc_command(cmd="whoami -t", json_output=False).strip()
         cmd = f"docker login -u kubeadmin -p {token_output} {ocp4_register}"
-        print(cmd)
         output = utils.run_command(
             cmd=cmd,
             ignore_error=False,
@@ -315,11 +315,21 @@ class OpenShiftAPI:
         print(f"Output from docker login: {output}")
         return ocp4_register
 
-    def upload_image(self, source_image: str, tagged_image: str):
+    def upload_image(self, source_image: str, tagged_image: str) -> bool:
+        """
+        Function pull the image specified by parameter source_image
+        and tagged it into OpenShift environment as tagged_image
+        :param source_image: image that is pulled and uploaded to OpenShift
+        :param tagged_image: image uploaded to OpenShift and tagged by this parameter
+        :return True: image was properly uploaded to OpenShift
+                False: image was not either pulled or uploading failed
+        """
+        if not DockerCLIWrapper.docker_pull_image(image_name=source_image, loops=3):
+            return False
         try:
             ocp4_register = self.docker_login_to_openshift()
         except subprocess.CalledProcessError:
-            return None
+            return False
         output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
         cmd = f"docker tag {source_image} {output_name}"
         print(f"Tag docker image {cmd}")
@@ -333,6 +343,7 @@ class OpenShiftAPI:
             ignore_error=False
         )
         print(f"Upload_image push {output}")
+        return True
 
     def check_is_exists(self, is_name, version_to_check: str) -> bool:
         """
@@ -367,7 +378,6 @@ class OpenShiftAPI:
         args = [""]
         if template_args:
             args = [f"-p {key}={val}" for key, val in template_args]
-        print(args)
         output = OpenShiftAPI.run_oc_command(
             f"new-app {template_json} --name {name} -p NAMESPACE={self.namespace} {args}",
             json_output=False
@@ -390,7 +400,7 @@ class OpenShiftAPI:
         """
 
         for count in range(cycle_count):
-            print(f"Cycle for checking pod status: {count}.")
+            print(f"is_pod_ready: Cycle for checking pod status: {count}.")
             json_data = self.get_pod_status()
             if len(json_data["items"]) == 0:
                 time.sleep(3)
@@ -451,13 +461,24 @@ class OpenShiftAPI:
             return False
         return True
 
-    def deploy_s2i_app(self, image_name: str, app_name: str, context: str) -> bool:
+    def imagestream_quickstart(
+            self, imagestream_file: str, template_file: str,
+            image_name: str, name_in_template: str, openshift_args=None
+    ) -> bool:
+        local_imagestream_file = utils.download_template(imagestream_file)
+        self.import_is(local_imagestream_file, name="", skip_check=True)
+        return self.deploy_template_with_image(
+            image_name=image_name, template=template_file, name_in_template=name_in_template,
+            openshift_args=openshift_args
+        )
+
+    def deploy_s2i_app(self, image_name: str, app: str, context: str) -> bool:
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
         self.upload_image(source_image=image_name, tagged_image=tagged_image)
         service_name = utils.get_service_image(image_name)
-        app_param = app_name
-        if Path(app_name).is_dir():
-            app_param = utils.download_template(template_name=app_name)
+        app_param = app
+        if Path(app).is_dir():
+            app_param = utils.download_template(template_name=app)
         oc_cmd = f"new-app {tagged_image}~{app_param} --strategy=source --context-dir={context} --name={service_name}"
         try:
             output = self.run_oc_command(f"{oc_cmd}", json_output=False)
@@ -466,18 +487,40 @@ class OpenShiftAPI:
             return False
 
         time.sleep(5)
-        if Path(app_name).is_dir():
-            output = self.start_build(service_name=service_name, app_name=app_name)
+        if Path(app).is_dir():
+            output = self.start_build(service_name=service_name, app_name=app)
 
         return True
 
-    def deploy_imagestream_s2i(self, imagestream_file: str, image_name: str, app_name: str, context: str) -> bool:
+    def deploy_imagestream_s2i(
+            self, imagestream_file: str, image_name: str, name_in_template: str, context: str
+    ) -> bool:
+        """
+        Function deploys imagestreams as s2i application
+        In case of failure check if imagestream_file really exist
+        :param imagestream_file: imagestream file that is imported to OCP4
+        :param image_name: image name that is used for testing
+        :param name_in_template: the name that is used in template
+        :param context: specify context of in source git repository
+        :return True: application was properly deployed
+                False: application was not properly deployed
+        """
         imagestream_file = re.sub(r"[0-9]", "", imagestream_file)
         local_template = utils.download_template(template_name=imagestream_file)
         if not local_template:
             return False
         self.import_is(local_template, name="", skip_check=True)
-        return self.deploy_s2i_app(image_name=image_name, app_name=app_name, context=context)
+        return self.deploy_s2i_app(image_name=image_name, app=name_in_template, context=context)
+
+    def deploy_template_with_image(
+            self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
+    ) -> bool:
+        tagged_image = f"{name_in_template}:{self.version}"
+        if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+            return False
+        return self.deploy_template(
+            template=template, name_in_template=name_in_template, openshift_args=openshift_args, expected_output=""
+        )
 
     def deploy_template(
             self, template: str,
@@ -496,9 +539,9 @@ class OpenShiftAPI:
             openshift_args = ""
         else:
             openshift_args = self.get_openshift_args(openshift_args)
-        print(f"========"
+        print(f"========\n"
               f"Creating a new-app with name {name_in_template} in "
-              f"namespace {self.namespace} with args ${openshift_args} "
+              f"namespace {self.namespace} with args ${openshift_args}\n"
               f"========")
         local_template = utils.download_template(template_name=template)
         if not local_template:

@@ -21,10 +21,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import subprocess
+
+import pytest
 
 from flexmock import flexmock
 
 from container_ci_suite.openshift import OpenShiftAPI
+from container_ci_suite.container import DockerCLIWrapper
+from container_ci_suite import utils
 
 
 class TestOpenShiftCISuite(object):
@@ -37,35 +42,62 @@ class TestOpenShiftCISuite(object):
         assert not self.oc_api.check_is_exists("ruby", "333-ubi9")
 
     # TODO variant with outputs
-    def test_get_pod_count(self):
-        # self.oc_api.get_pod_count()
-        pass
+    def test_get_pod_count(self, oc_build_pod_finished_json):
+        self.oc_api.pod_json_data = oc_build_pod_finished_json
+        self.oc_api.pod_name_prefix = "python-311-testing"
+        assert self.oc_api.get_pod_count() == 1
 
-    def test_is_pod_running(self):
-        # self.oc_api.is_pod_running()
-        pass
+    def test_is_pod_running(self, oc_is_pod_running):
+        flexmock(OpenShiftAPI).should_receive("get_pod_status").and_return(oc_is_pod_running)
+        assert self.oc_api.is_pod_running()
 
-    def test_is_build_pod_finished(self):
-        # self.oc_api.is_build_pod_finished()
-        pass
+    def test_build_pod_not_finished(self, oc_build_pod_not_finished_json):
+        flexmock(OpenShiftAPI).should_receive("get_pod_status").and_return(oc_build_pod_not_finished_json)
+        assert not self.oc_api.is_build_pod_finished(cycle_count=2)
+
+    def test_build_pod_finished(self, oc_build_pod_finished_json):
+        flexmock(OpenShiftAPI).should_receive("get_pod_status").and_return(oc_build_pod_finished_json)
+        assert self.oc_api.is_build_pod_finished(cycle_count=2)
 
     def test_is_s2i_pod_running(self):
         # self.oc_api.is_s2i_pod_running()
         pass
 
-    # Parametrized
-    def test_get_raw_url_for_json(self):
-        # self.oc_api.get_raw_url_for_json()
-        pass
+    @pytest.mark.parametrize(
+        "container,dir,filename,branch",
+        [
+            ("postgresql-container", "imagestreams", "postgres-rhel.json", "master"),
+            ("mysql-container", "openshift/templates", "foo.json", "bar"),
+        ]
+    )
+    def test_get_raw_url_for_json(self, container, dir, filename, branch, expected_output):
+        expected_output = f"https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
+        assert self.oc_api.get_raw_url_for_json(
+            container=container, dir=dir, filename=filename, branch=branch
+        ) == expected_output
+
+    def test_upload_image_pull_failed(self):
+        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(False)
+        assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+
+    def test_upload_image_login_failed(self):
+        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(True)
+        with pytest.raises(subprocess.CalledProcessError):
+            assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+
+    def test_upload_image_success(self):
+        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(True)
+        flexmock(utils).should_receive("run_command").twice()
+        assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_get_pod_status(self):
         # self.oc_api.get_pod_status()
         pass
 
-    def test_is_pod_finished(self):
-        # self.oc_api.is_pod_finished()
-        pass
+    def test_get_service_ip(self, get_svc_ip):
+        flexmock(OpenShiftAPI).should_receive("run_oc_command").and_return(get_svc_ip)
+        assert self.oc_api.get_service_ip("python-testing") == "172.30.224.217"
 
-    def test_get_service_ip(self):
-        # self.oc_api.get_service_ip()
-        pass
+    def test_get_service_ip_not_available(self):
+        flexmock(OpenShiftAPI).should_receive("run_oc_command").and_return({})
+        assert not self.oc_api.get_service_ip("python-testing") == "172.30.224.217"
