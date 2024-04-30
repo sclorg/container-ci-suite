@@ -29,5 +29,5 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           # secrets.PYPI_API_TOKEN is set to usercont-release-bot user token
-          password: ${{ secrets.PYPI_CCI_API_TOKEN }}
+          password: ${{ secrets.PYPI_CCI_SUITE_TOKEN }}
           verbose: true
