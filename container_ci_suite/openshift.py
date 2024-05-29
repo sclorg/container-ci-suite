@@ -505,14 +505,14 @@ class OpenShiftAPI:
         return True
 
     def deploy_imagestream_s2i(
-            self, imagestream_file: str, image_name: str, name_in_template: str, context: str
+            self, imagestream_file: str, image_name: str, app: str, context: str
     ) -> bool:
         """
         Function deploys imagestreams as s2i application
         In case of failure check if imagestream_file really exist
         :param imagestream_file: imagestream file that is imported to OCP4
         :param image_name: image name that is used for testing
-        :param name_in_template: the name that is used in template
+        :param app: the app reference that is used in template like https://github.com/sclorg/httpd-ex.git
         :param context: specify context of in source git repository
         :return True: application was properly deployed
                 False: application was not properly deployed
@@ -522,7 +522,7 @@ class OpenShiftAPI:
         if not local_template:
             return False
         self.import_is(local_template, name="", skip_check=True)
-        return self.deploy_s2i_app(image_name=image_name, app=name_in_template, context=context)
+        return self.deploy_s2i_app(image_name=image_name, app=app, context=context)
 
     def deploy_template_with_image(
             self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
