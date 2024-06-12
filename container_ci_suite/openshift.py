@@ -484,11 +484,12 @@ class OpenShiftAPI:
             openshift_args=openshift_args
         )
 
-    def deploy_s2i_app(self, image_name: str, app: str, context: str) -> bool:
+    def deploy_s2i_app(self, image_name: str, app: str, context: str, service_name: str = "") -> bool:
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
         print(f"Source image {image_name} was tagged as {tagged_image}")
         self.upload_image(source_image=image_name, tagged_image=tagged_image)
-        service_name = utils.get_service_image(image_name)
+        if service_name == "":
+            service_name = utils.get_service_image(image_name)
         print(f"Service name in app is: {service_name}")
         app_param = app
         if Path(app).is_dir():
