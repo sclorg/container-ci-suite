@@ -40,6 +40,7 @@ class ImageStreamChecker(object):
 
     def get_latest_version(self) -> str:
         latest_version = ""
+        print(f"Working dir for latest imagestream is {self.working_dir}.")
         with open(self.working_dir / "Makefile") as f:
             for line in f:
                 if not line.startswith("VERSIONS ="):
