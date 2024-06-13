@@ -79,10 +79,11 @@ class DockerCLIWrapper(object):
             return True
         for loop in range(loops):
             ret_val = DockerCLIWrapper.run_docker_command(
-                cmd=f"pull {image_name}"
+                cmd=f"pull {image_name}", return_output=False
             )
-            if ret_val == 0:
+            if ret_val == 0 and DockerCLIWrapper.docker_image_exists(image_name=image_name):
                 return True
+            DockerCLIWrapper.run_docker_command("images", return_output=True)
             print(f"Pulling of image {image_name} failed. Let's wait {loop*5} seconds and try again.")
             time.sleep(loop*5)
         return False
