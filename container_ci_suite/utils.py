@@ -26,7 +26,8 @@ import shutil
 import subprocess
 import re
 import time
-
+import random
+import string
 import requests
 import tempfile
 import yaml
@@ -105,35 +106,32 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
 
 
 def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
-    if not template_name.startswith("http://") and not template_name.startswith("https://"):
-        print(f"Local temporary file {template_name}")
-        if not Path(template_name).exists():
-            print("File to download does not exist.")
-            return None
-        new_name = Path(dir_name) / Path(template_name).name
-        shutil.copy2(template_name, new_name)
-        return new_name
-    ext = template_name.split(".")[1]
-    import tempfile
-    temp_file = tempfile.NamedTemporaryFile(dir=dir_name, prefix="test-input", suffix=ext, delete=False)
-    print(f"Temporary file: download_template from {template_name} to {temp_file.name}")
-    path_name: Path = Path(temp_file.name)
+    ext = ""
+    file_ext_field = template_name.split(".")
+    if len(file_ext_field) > 1:
+        ext = f".{file_ext_field[1]}"
+    print(f"Local temporary file {template_name} with extension {ext}")
+    print(f"Temporary file: download_template from {template_name}")
+    if not Path(template_name).exists():
+        print("File to download does not exist.")
+        return None
+    random_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    path_name = f"{dir_name}/{random_text}{ext}"
     if Path(template_name).is_file():
         shutil.copy2(template_name, path_name)
+        return str(path_name)
     if Path(template_name).is_dir():
         shutil.copytree(template_name, path_name, symlinks=True)
+        return str(path_name)
     if template_name.startswith("http"):
         resp = requests.get(template_name, verify=False)
         resp.raise_for_status()
         if resp.status_code != 200:
             print(f"utils.download_template: {resp.status_code} and {resp.text}")
             return None
-        with open(temp_file.name, "wb") as fd:
+        with open(path_name, "wb") as fd:
             fd.write(resp.content)
-    if not path_name.exists():
-        print(f"utils.download_template: file {path_name} does not exist.")
-        return None
-    return str(path_name)
+        return str(path_name)
 
 
 def run_command(
