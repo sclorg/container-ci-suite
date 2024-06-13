@@ -244,8 +244,8 @@ def check_variables() -> bool:
     if not os.getenv("IMAGE_NAME", None):
         print("Make sure IMAGE_NAME is defined")
         ret_value = False
-    if not os.getenv("VERSION"):
-        print("Make sure VERSION is defined")
+    if not os.getenv("SINGLE_VERSION"):
+        print("Make sure SINGLE_VERSION is defined")
         ret_value = False
     if not os.getenv("OS"):
         print("Make sure OS is defined")

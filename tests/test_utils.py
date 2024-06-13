@@ -111,7 +111,7 @@ class TestContainerCISuiteUtils(object):
     )
     def test_check_variables(self, image_name, version, os_name, expected_output):
         os.environ["IMAGE_NAME"] = image_name
-        os.environ["VERSION"] = version
+        os.environ["SINGLE_VERSION"] = version
         os.environ["OS"] = os_name
         assert utils.check_variables() == expected_output
 
