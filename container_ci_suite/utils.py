@@ -112,9 +112,6 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
         ext = f".{file_ext_field[1]}"
     print(f"Local temporary file {template_name} with extension {ext}")
     print(f"Temporary file: download_template from {template_name}")
-    if not Path(template_name).exists():
-        print("File to download does not exist.")
-        return None
     random_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
     path_name = f"{dir_name}/{random_text}{ext}"
     if Path(template_name).is_file():
@@ -132,6 +129,9 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
         with open(path_name, "wb") as fd:
             fd.write(resp.content)
         return str(path_name)
+    if not Path(template_name).exists():
+        print("File to download does not exist.")
+        return None
 
 
 def run_command(
