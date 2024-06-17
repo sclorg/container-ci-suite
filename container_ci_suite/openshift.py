@@ -251,9 +251,10 @@ class OpenShiftAPI:
                 return True
         return False
 
-    def run_command_in_pod(self, pod_name, command: str = ""):
+    def run_command_in_pod(self, pod_name, command: str = "") -> str:
         output = OpenShiftAPI.run_oc_command(f"exec {pod_name} -- \"{command}\"")
         print(output)
+        return output
 
     def oc_get_services(self, service_name):
         output = OpenShiftAPI.run_oc_command(f"get svc/{service_name}", json_output=True, namespace=self.namespace)
@@ -458,8 +459,8 @@ class OpenShiftAPI:
         print(f"cmd_image_run output: {cmd_out}")
         return cmd_out
 
-    def create_deploy_command_app(self) -> bool:
-        cmd_file = utils.save_command_yaml(image_name="registry.access.redhat.com/ubi8/ubi")
+    def create_deploy_command_app(self, image_name: str = "registry.access.redhat.com/ubi8/ubi") -> bool:
+        cmd_file = utils.save_command_yaml(image_name=image_name)
         self.run_oc_command(f"create -f {cmd_file}")
         if not self.is_pod_running(pod_name_prefix="command-app"):
             print("create_deploy_command_app: command-app pod is not running after time.")
@@ -504,7 +505,36 @@ class OpenShiftAPI:
         time.sleep(5)
         if Path(app).is_dir():
             output = self.start_build(service_name=service_name, app_name=app)
+            print(f"Output from start build: {output}")
 
+        return True
+
+    def deploy_image_stream_template(
+            self, imagestream_file: str, template_file: str, app_name: str, openshift_args=None
+    ) -> bool:
+        local_is_file = utils.download_template(template_name=imagestream_file)
+        local_template = utils.download_template(template_name=template_file)
+        json_output = self.import_is(local_is_file, name="", skip_check=True)
+        if not json_output:
+            print("deploy_image_stream_template: import_is failed")
+            return False
+        if openshift_args is None:
+            openshift_args = ""
+        else:
+            openshift_args = self.get_openshift_args(oc_args=openshift_args)
+        print(f"========\n"
+              f"Creating a new-app with name {app_name} in "
+              f"namespace {self.namespace} with args {openshift_args}\n"
+              f"========")
+        oc_cmd = f"new-app -f {local_template} --name={app_name} -p NAMESPACE={self.namespace} {openshift_args}"
+        print(f"Deploy template by command: oc {oc_cmd}")
+        try:
+            output = self.run_oc_command(f"{oc_cmd}", json_output=False)
+            print(output)
+        except subprocess.CalledProcessError:
+            return False
+        # Let's wait couple seconds to deployment can start
+        time.sleep(3)
         return True
 
     def deploy_imagestream_s2i(
@@ -571,6 +601,25 @@ class OpenShiftAPI:
         # Let's wait couple seconds to deployment can start
         time.sleep(3)
         return True
+
+    def check_command_internal(
+            self,
+            image_name: str,
+            service_name: str,
+            cmd: str,
+            expected_output: str,
+            timeout: int = 120
+    ) -> bool:
+        if not self.create_deploy_command_app(image_name=image_name):
+            return False
+        ip_address = self.get_service_ip(service_name=service_name)
+        cmd = cmd.replace("<IP>", ip_address)
+        for count in range(timeout):
+            output = self.command_app_run(cmd=cmd, return_output=True)
+            if expected_output in output:
+                return True
+            time.sleep(3)
+        return False
 
     def check_response_inside_cluster(
             self, cmd_to_run: str = None, name_in_template: str = "",
