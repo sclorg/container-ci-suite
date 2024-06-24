@@ -591,7 +591,7 @@ class OpenShiftAPI:
         local_template = utils.download_template(template_name=template)
         if not local_template:
             return False
-        oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} -p {openshift_args}"
+        oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
             output = self.run_oc_command(f"{oc_cmd}", json_output=False)
