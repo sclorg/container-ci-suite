@@ -52,6 +52,7 @@ class OpenShiftAPI:
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version
+        self.build_failed: bool = False
         if namespace == "default":
             self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
             self.create_project()
@@ -69,7 +70,6 @@ class OpenShiftAPI:
         """
         json_cmd = "-o json" if json_output else ""
         namespace_cmd = f"-n {namespace}" if namespace != "" else ""
-        print(f"run_oc_command: oc {cmd} {namespace_cmd} {json_cmd}")
 
         return utils.run_command(
             f"oc {cmd} {namespace_cmd} {json_cmd}",
@@ -80,7 +80,7 @@ class OpenShiftAPI:
 
     def create_project(self):
         if self.create_prj:
-            OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False)
+            OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
         else:
             OpenShiftAPI.run_oc_command(f"project {self.namespace}", json_output=False)
         return self.is_project_exits()
@@ -88,7 +88,7 @@ class OpenShiftAPI:
     def delete_project(self):
         if self.delete_prj:
             OpenShiftAPI.run_oc_command("project default", json_output=False)
-            OpenShiftAPI.run_oc_command(f"delete project {self.namespace}", json_output=False)
+            OpenShiftAPI.run_oc_command(f"delete project {self.namespace} --grace-period=0 --force", json_output=False)
 
     def is_project_exits(self) -> bool:
         output = OpenShiftAPI.run_oc_command("projects", json_output=False)
@@ -100,7 +100,6 @@ class OpenShiftAPI:
         count: int = 0
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            print(f"get_pod_count: {pod_name} and {self.pod_name_prefix}.")
             if self.pod_name_prefix not in pod_name:
                 continue
             if "deploy" in pod_name:
@@ -108,15 +107,15 @@ class OpenShiftAPI:
             if "build" in pod_name:
                 continue
             count += 1
-        print(f"get_pod_count: {count}")
         return count
 
     def is_pod_running(self, pod_name_prefix: str = "", loops: int = 60) -> bool:
+        print(f"Check for POD is running {pod_name_prefix}")
         for count in range(loops):
-            print(f"Cycle for checking pod status: {count}.")
+            print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
-                print("Application pod name is not specified. Call: is_pod_running(pod_name_prefix=\"something\").")
+                print("\nApplication pod name is not specified. Call: is_pod_running(pod_name_prefix=\"something\").")
                 return False
             if pod_name_prefix != "":
                 self.pod_name_prefix = pod_name_prefix
@@ -130,11 +129,11 @@ class OpenShiftAPI:
                 if self.pod_name_prefix not in pod_name:
                     continue
                 status = item["status"]["phase"]
-                print(f"Pod Name: {pod_name} and status: {status}.")
                 if "deploy" in pod_name:
+                    print(".", sep="", end="")
                     continue
                 if item["status"]["phase"] == "Running":
-                    print(f"Pod with name {pod_name} is running {status}.")
+                    print(f"\nPod with name {pod_name} is running {status}.")
                     output = OpenShiftAPI.run_oc_command(
                         f"logs {pod_name}", namespace=self.namespace, json_output=False
                     )
@@ -150,53 +149,55 @@ class OpenShiftAPI:
         Function return information if build pod is finished.
         The function waits for 180*3 seconds
         """
+        print("Check if build pod is finished")
         for count in range(cycle_count):
+            print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(3)
                 continue
             if not self.is_build_pod_present():
-                print("Build pod is not present.")
+                print(".", sep="", end="")
                 time.sleep(3)
                 continue
-            print("Build pod is present.")
             if not self.is_pod_finished(pod_suffix_name="build"):
-                print("Build pod is not yet finished")
+                print(".", sep="", end="")
+                if self.build_failed:
+                    return False
                 time.sleep(3)
                 continue
-            print("Build pod is finished")
+            print("\nBuild pod is finished")
             return True
         return False
 
     def is_s2i_pod_running(self, pod_name_prefix: str = "", cycle_count: int = 180) -> bool:
         self.pod_name_prefix = pod_name_prefix
         build_pod_finished = False
+        print("Check if S2I build pod is running")
         for count in range(cycle_count):
-            print(f"Cycle for checking s2i build pod status: {count}.")
+            print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(3)
                 continue
             if not self.is_build_pod_present():
-                print("Build pod is not present.")
                 time.sleep(3)
                 continue
-            print("Build pod is present.")
             if not self.is_pod_finished(pod_suffix_name="build"):
-                print("Build pod is not yet finished")
                 time.sleep(3)
                 continue
-            print("Build pod is finished")
             build_pod_finished = True
+            print(f"\nBuild pod with name {pod_name_prefix} is finished.")
         if not build_pod_finished:
-            print("Build pod was not finished.")
+            print(f"\nBuild pod with name {pod_name_prefix} was not finished.")
             return False
-        for count in range(60):
+        print("Check if S2I pod is running.")
+        for count in range(cycle_count):
+            print(".", sep="", end="")
             if not self.is_pod_running():
-                print("Running pod is not yet finished")
                 time.sleep(3)
                 continue
-            print("Pod is running")
+            print("\nPod is running")
             return True
         return False
 
@@ -215,39 +216,46 @@ class OpenShiftAPI:
     def is_build_pod_present(self) -> bool:
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            print(f"is_build_pod_present: {pod_name}.")
             if "build" in pod_name:
                 return True
         return False
 
     def print_get_status(self):
+        print("Print get all and status:")
         print(OpenShiftAPI.run_oc_command("get all", namespace=self.namespace, json_output=False))
         print(OpenShiftAPI.run_oc_command("status", namespace=self.namespace, json_output=False))
         print(OpenShiftAPI.run_oc_command("status --suggest", namespace=self.namespace, json_output=False))
 
     def print_pod_logs(self):
         self.pod_json_data = self.get_pod_status()
+        print("Print all pod logs")
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            print(OpenShiftAPI.run_oc_command(f"logs {pod_name}", json_output=False))
+            print(f"Logs from pod name {pod_name}:")
+            oc_logs = OpenShiftAPI.run_oc_command(f"logs pod/{pod_name}", json_output=False)
+            print(oc_logs)
 
     def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
         if not self.pod_json_data:
             self.pod_json_data = self.get_pod_status()
         for item in self.pod_json_data["items"]:
+            print(".", sep="", end="")
             pod_name = item["metadata"]["name"]
             if self.pod_name_prefix not in pod_name:
+                print(".", sep="", end="")
                 continue
             status = item["status"]["phase"]
-            print(f"is_pod_finished for {pod_suffix_name}: {pod_name} and status: {status}.")
             if pod_suffix_name in pod_name and status == "Failed":
+                print(f"\nPod with {pod_suffix_name} finished with {status}. See logs.")
+                self.build_failed = True
                 self.print_pod_logs()
                 self.print_get_status()
                 return False
             if pod_suffix_name in pod_name and status != "Succeeded":
+                print(".", sep="", end="")
                 continue
             if pod_suffix_name in pod_name and status == "Succeeded":
-                print(f"Pod with suffix {pod_suffix_name} is finished")
+                print(f"\nPod with suffix {pod_suffix_name} is finished")
                 return True
         return False
 
@@ -408,9 +416,9 @@ class OpenShiftAPI:
         """
         Function checks if pod with specific name is really ready
         """
-
+        print("Check if pod is ready.")
         for count in range(cycle_count):
-            print(f"is_pod_ready: Cycle for checking pod status: {count}.")
+            print(".", end="")
             json_data = self.get_pod_status()
             if len(json_data["items"]) == 0:
                 time.sleep(3)
@@ -421,11 +429,10 @@ class OpenShiftAPI:
             for item in json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 status = item["status"]["phase"]
-                print(f"Pod Name: {pod_name} and status: {status}.")
                 if "deploy" in pod_name:
                     continue
                 if item["status"]["phase"] == "Running":
-                    print(f"Pod with name {pod_name} is running {status}.")
+                    print(f"\nPod with name {pod_name} is running {status}.")
                     output = OpenShiftAPI.run_oc_command(
                         f"logs {pod_name}", namespace=self.namespace, json_output=False
                     )
@@ -441,11 +448,11 @@ class OpenShiftAPI:
 
     def template_deployed(self, name_in_template: str = "") -> bool:
         if not self.is_build_pod_finished():
-            print("template_deployed: Build pod does not finished in proper time")
+            print("\nBuild pod does not finished in proper time")
             self.print_get_status()
             return False
         if not self.is_pod_running(pod_name_prefix=name_in_template):
-            print("template_deployed: Pod is not running after time.")
+            print("Pod is not running after time.")
             self.print_get_status()
             return False
         return True
@@ -456,7 +463,6 @@ class OpenShiftAPI:
         cmd_out = self.run_oc_command(
             cmd=cmd, ignore_error=True, return_output=return_output, json_output=False
         )
-        print(f"cmd_image_run output: {cmd_out}")
         return cmd_out
 
     def create_deploy_command_app(self, image_name: str = "registry.access.redhat.com/ubi8/ubi") -> bool:
@@ -618,6 +624,7 @@ class OpenShiftAPI:
             output = self.command_app_run(cmd=cmd, return_output=True)
             if expected_output in output:
                 return True
+            print(f"Output {expected_output} in NOT present in the output of `{cmd}`")
             time.sleep(3)
         return False
 
@@ -637,18 +644,27 @@ class OpenShiftAPI:
         if cmd_to_run is None:
             cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
         # Check if application returns proper HTTP_CODE
+        print("Check if HTTP_CODE is valid.")
         for count in range(max_tests):
             output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
-            print(f"HTTP_CODE from command {cmd_to_run} is {output_code}.")
-            if output_code != response_code:
-                time.sleep(10)
+            return_code = output_code.split('\n')[-1]
+            print(f"HTTP_CODE from command {cmd_to_run} is '{return_code}'.")
+            int_ret_code = 0
+            try:
+                int_ret_code = int(return_code)
+            except ValueError:
+                time.sleep(3)
+                continue
+            if int_ret_code != response_code:
+                time.sleep(5)
                 continue
         cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
         # Check if application returns proper output
         for count in range(max_tests):
             output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
-            print(f"Output from command {cmd_to_run} is {output_code}.")
+            print(f"Check if expected output {expected_output} is in {cmd_to_run}.")
             if expected_output in output_code:
+                print(f"Expected output '{expected_output}' is present.")
                 return True
             print(
                 f"check_response_inside_cluster:"
