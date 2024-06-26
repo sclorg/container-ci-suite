@@ -527,7 +527,7 @@ class OpenShiftAPI:
         if openshift_args is None:
             openshift_args = ""
         else:
-            openshift_args = self.get_openshift_args(oc_args=openshift_args)
+            openshift_args = f"-p {self.get_openshift_args(oc_args=openshift_args)}"
         print(f"========\n"
               f"Creating a new-app with name {app_name} in "
               f"namespace {self.namespace} with args {openshift_args}\n"
@@ -589,7 +589,7 @@ class OpenShiftAPI:
         if openshift_args is None:
             openshift_args = ""
         else:
-            openshift_args = self.get_openshift_args(openshift_args)
+            openshift_args = f"-p {self.get_openshift_args(openshift_args)}"
         print(f"========\n"
               f"Creating a new-app with name {name_in_template} in "
               f"namespace {self.namespace} with args ${openshift_args}\n"
