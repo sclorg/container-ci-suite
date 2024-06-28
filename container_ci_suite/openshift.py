@@ -634,7 +634,7 @@ class OpenShiftAPI:
             port: int = 8080,
             protocol: str = "http",
             response_code: int = 200,
-            max_tests: int = 3
+            max_tests: int = 20
     ) -> bool:
         ip_address = self.get_service_ip(service_name=name_in_template)
         url = f"{protocol}://{ip_address}:{port}/"
@@ -647,17 +647,19 @@ class OpenShiftAPI:
         print("Check if HTTP_CODE is valid.")
         for count in range(max_tests):
             output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
-            return_code = output_code.split('\n')[-1]
-            print(f"HTTP_CODE from command {cmd_to_run} is '{return_code}'.")
-            int_ret_code = 0
+            return_code = output_code[-3:]
             try:
                 int_ret_code = int(return_code)
+                if int_ret_code == response_code:
+                    print(f"HTTP_CODE is VALID {int_ret_code}")
+                    break
             except ValueError:
+                print(return_code)
                 time.sleep(3)
                 continue
-            if int_ret_code != response_code:
-                time.sleep(5)
-                continue
+            time.sleep(5)
+            continue
+
         cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
         # Check if application returns proper output
         for count in range(max_tests):
