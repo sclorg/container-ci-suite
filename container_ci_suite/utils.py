@@ -139,6 +139,7 @@ def run_command(
     return_output: bool = True,
     ignore_error: bool = False,
     shell: bool = True,
+    debug: bool = False,
     **kwargs,
 ):
     """
@@ -148,9 +149,11 @@ def run_command(
     :param return_output: bool, return output of the command
     :param ignore_error: bool, do not fail in case nonzero return code
     :param shell: bool, run command in shell
+    :param debug: bool, print command in shell, default is suppressed
     :return: None or str
     """
-    logger.debug(f"command: {cmd}")
+    if debug:
+        logger.debug(f"command: {cmd}")
     try:
         if return_output:
             return subprocess.check_output(
