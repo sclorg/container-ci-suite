@@ -221,6 +221,96 @@ def save_command_yaml(image_name: str) -> str:
     return temp_file.name
 
 
+def save_tenant_namespace_yaml(project_name: str) -> str:
+    cmd_yaml = {
+        "apiVersion": "tenant.paas.redhat.com/v1alpha1",
+        "kind": "TenantNamespace",
+        "metadata": {
+            "name": project_name,
+            "namespace": "core-services-ocp--config"
+        },
+        "spec": {
+            "type": "runtime",
+            "roles": [
+                    "namespace-admin",
+                    "tenant-egress-admin"
+            ],
+            "network": {
+                "security-zone": "internal"
+            }
+
+        }
+    }
+    temp_file = tempfile.NamedTemporaryFile(prefix="tenant-namespace-yml", delete=False)
+    with open(temp_file.name, "w") as fp:
+        yaml.dump(cmd_yaml, fp)
+    print(f"TenantNamespace yaml file: {temp_file.name}")
+    return temp_file.name
+
+
+def save_tenant_egress_yaml(project_name: str) -> str:
+    tenant_egress_yaml = {
+        "apiVersion": "tenant.paas.redhat.com/v1alpha1",
+        "kind": "TenantEgress",
+        "metadata": {
+            "name": "default",
+            "namespace": f"core-services-ocp--{project_name}"
+        },
+        "spec": {
+            "egress": [
+                {
+                    "to": {
+                        "dnsName": "github.com"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "172.0.0.0/8"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "172.0.0.0/8"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "10.0.0.0/9"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "52.218.128.0/17"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "52.92.128.0/17"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "cidrSelector": "52.216.0.0/15"
+                    },
+                    "type": "Allow"
+                }
+            ]
+        }
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
+    with open(temp_file.name, "w") as fp:
+        yaml.dump(tenant_egress_yaml, fp)
+    print(f"TenantNamespace yaml file: {temp_file.name}")
+    return temp_file.name
+
+
 def get_tagged_image(image_name: str, version: str) -> Any:
     try:
         image_no_namespace = image_name.split('/')[1]
@@ -252,3 +342,15 @@ def check_variables() -> bool:
         print("Make sure OS is defined")
         ret_value = False
     return ret_value
+
+
+def load_shared_credentials(credential: str) -> Any:
+    cread_path = os.environ.get(credential, None)
+    if not cread_path:
+        return None
+    cred = ""
+    with open(cread_path) as f:
+        cred = f.read()
+    if cred == "":
+        return None
+    return cred
