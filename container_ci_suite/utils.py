@@ -226,7 +226,7 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantNamespace",
         "metadata": {
-            "name": project_name,
+            "name": f"{project_name}",
             "namespace": "core-services-ocp--config"
         },
         "spec": {
