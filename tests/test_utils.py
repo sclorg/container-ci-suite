@@ -138,3 +138,88 @@ class TestContainerCISuiteUtils(object):
     )
     def test_get_service_image(self, image_name, expected_output):
         assert utils.get_service_image(image_name=image_name) == expected_output
+
+    def test_tenantnamespace_yaml(self):
+        expected_yaml = {
+            "apiVersion": "tenant.paas.redhat.com/v1alpha1",
+            "kind": "TenantNamespace",
+            "metadata": {
+                "name": "123456",
+                "namespace": "core-services-ocp--config"
+            },
+            "spec": {
+                "type": "runtime",
+                "roles": [
+                        "namespace-admin",
+                        "tenant-egress-admin"
+                ],
+                "network": {
+                    "security-zone": "internal"
+                }
+
+            }
+        }
+        tenant_yaml = utils.save_tenant_namespace_yaml(project_name="12345")
+        assert tenant_yaml
+        assert tenant_yaml["metadata"]["name"] == "123456"
+        assert tenant_yaml == expected_yaml
+
+    def test_tenantnegress_yaml(self):
+        expected_yaml = {
+            "apiVersion": "tenant.paas.redhat.com/v1alpha1",
+            "kind": "TenantEgress",
+            "metadata": {
+                "name": "default",
+                "namespace": "core-services-ocp--123456"
+            },
+            "spec": {
+                "egress": [
+                    {
+                        "to": {
+                            "dnsName": "github.com"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "172.0.0.0/8"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "172.0.0.0/8"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "10.0.0.0/9"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "52.218.128.0/17"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "52.92.128.0/17"
+                        },
+                        "type": "Allow"
+                    },
+                    {
+                        "to": {
+                            "cidrSelector": "52.216.0.0/15"
+                        },
+                        "type": "Allow"
+                    }
+                ]
+            }
+        }
+        tenant_yaml = utils.save_tenant_namespace_yaml(project_name="12345")
+        assert tenant_yaml
+        assert tenant_yaml["metadata"]["namespace"] == "core-services-ocp--123456"
+        assert tenant_yaml == expected_yaml

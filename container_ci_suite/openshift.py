@@ -21,6 +21,7 @@
 # SOFTWARE.
 import json
 import logging
+import os
 import re
 import time
 import random
@@ -44,17 +45,20 @@ class OpenShiftAPI:
             self, namespace: str = "default",
             pod_name_prefix: str = "", create_prj: bool = True,
             delete_prj: bool = True,
-            version: str = ""
+            version: str = "",
+            shared_cluster: bool = False
     ):
         self.namespace = namespace
         self.create_prj = create_prj
         self.delete_prj = delete_prj
+        self.shared_cluster = shared_cluster
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version
         self.build_failed: bool = False
-        if namespace == "default":
-            self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
+        self.shared_random_name = ""
+        self.config_tenant_name = "core-services-ocp--config"
+        if self.namespace == "default":
             self.create_project()
         else:
             self.namespace = namespace
@@ -80,15 +84,58 @@ class OpenShiftAPI:
 
     def create_project(self):
         if self.create_prj:
-            OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
+            if self.shared_cluster:
+                self.shared_random_name = f"{random.randrange(10000, 100000)}"
+                self.namespace = f"core-services-ocp--{self.shared_random_name}"
+                self.prepare_tenant_namespace()
+            else:
+                self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
+                OpenShiftAPI.run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
         else:
             OpenShiftAPI.run_oc_command(f"project {self.namespace}", json_output=False)
         return self.is_project_exits()
 
+    def prepare_tenant_namespace(self):
+        json_flag = False
+        self.login_to_shared_cluster()
+        tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
+        OpenShiftAPI.run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=json_flag, return_output=True)
+        tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
+        OpenShiftAPI.run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
+        time.sleep(3)
+        OpenShiftAPI.run_oc_command(
+            cmd=f"project {self.namespace}",
+            json_output=json_flag,
+            return_output=True
+        )
+
+    def delete_tenant_namespace(self):
+        json_flag = False
+        namespace = OpenShiftAPI.run_oc_command(cmd="project -q", json_output=json_flag)
+        if namespace == self.config_tenant_name:
+            print(f"Deleting tenant '{self.config_tenant_name}' is not allowed.")
+            return
+        OpenShiftAPI.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+        if OpenShiftAPI.run_oc_command(
+                f"delete tenantnamespace {self.shared_random_name}",
+                json_output=json_flag
+        ):
+            print(f"TenantNamespace {self.shared_random_name} was deleted properly")
+        else:
+            print(f"!!!!! TenantNamespace ${self.shared_random_name} was not delete properly."
+                  f"But it does not block CI.!!!!")
+
     def delete_project(self):
-        if self.delete_prj:
+        if not self.delete_prj:
+            # project is not deleted by request user
+            pass
+        if self.shared_cluster:
+            self.delete_tenant_namespace()
+        else:
             OpenShiftAPI.run_oc_command("project default", json_output=False)
-            OpenShiftAPI.run_oc_command(f"delete project {self.namespace} --grace-period=0 --force", json_output=False)
+            OpenShiftAPI.run_oc_command(
+                f"delete project {self.namespace} --grace-period=0 --force", json_output=False
+            )
 
     def is_project_exits(self) -> bool:
         output = OpenShiftAPI.run_oc_command("projects", json_output=False)
@@ -109,7 +156,7 @@ class OpenShiftAPI:
             count += 1
         return count
 
-    def is_pod_running(self, pod_name_prefix: str = "", loops: int = 60) -> bool:
+    def is_pod_running(self, pod_name_prefix: str = "", loops: int = 180) -> bool:
         print(f"Check for POD is running {pod_name_prefix}")
         for count in range(loops):
             print(".", sep="", end="")
@@ -292,7 +339,6 @@ class OpenShiftAPI:
             is_exists = self.is_imagestream_exist(name=name)
             if is_exists:
                 return is_exists
-
         output = OpenShiftAPI.run_oc_command(f"create -f {path}", namespace=self.namespace)
         # Let's wait 3 seconds till imagestreams are not uploaded
         time.sleep(3)
@@ -312,6 +358,57 @@ class OpenShiftAPI:
         from_dir = utils.download_template(template_name=app_name)
         output = OpenShiftAPI.run_oc_command(f"start-build {service_name} --from-dir={from_dir}", json_output=False)
         return output
+
+    def login_to_shared_cluster(self):
+        token = utils.load_shared_credentials("SHARED_CLUSTER_TOKEN")
+        url = utils.load_shared_credentials("SHARED_CLUSTER_URL")
+        if not all([token, url]):
+            print("Important variables 'SHARED_CLUSTER_TOKEN,SHARED_CLUSTER_URL' are missing.")
+            return None
+        output = OpenShiftAPI.run_oc_command(f"login --token={token} --server={url}", json_output=False)
+        print(output)
+        output = OpenShiftAPI.run_oc_command("version", json_output=False)
+        print(output)
+        output = OpenShiftAPI.run_oc_command(f"project {self.config_tenant_name}", json_output=False)
+        print(output)
+
+    @staticmethod
+    def login_external_registry() -> Any:
+        registry_url = os.getenv("INTERNAL_IMAGE_REGISTRY", None)
+        robot_token = utils.load_shared_credentials("ROBOT_TOKEN")
+        robot_name = utils.load_shared_credentials("ROBOT_NAME")
+        if not all([registry_url, robot_token, robot_name]):
+            print("Important variables 'INTERNAL_IMAGE_REGISTRY,ROBOT_TOKEN,ROBOT_NAME' are missing.")
+            return None
+        cmd = f"podman login -u {robot_name} -p {robot_token} {registry_url}"
+        output = utils.run_command(
+            cmd=cmd,
+            ignore_error=False,
+            return_output=True
+        )
+        print(f"Output from podman login: {output}")
+        return registry_url
+
+    def upload_image_to_external_registry(self, source_image: str, tagged_image: str):
+        register_url = OpenShiftAPI.login_external_registry()
+        print(f"Registry_url: {register_url}")
+        if not register_url:
+            return None
+        output_name = f"{register_url}/core-services-ocp/{tagged_image}"
+        print(utils.run_command("podman images"))
+        cmd = f"podman tag {source_image} {output_name}"
+        output = utils.run_command(cmd, ignore_error=False, return_output=True)
+        print(f"Output from podman tag command {output}")
+        cmd = f"podman push {output_name}"
+        output = utils.run_command(cmd, ignore_error=False, return_output=True)
+        print(f"Output from podman push command {output}")
+        ret = OpenShiftAPI.run_oc_command(
+            f"import-image {tagged_image} --from={output_name} --confirm", json_output=False, return_output=True
+        )
+        print(ret)
+        # Let's wait couple seconds
+        time.sleep(3)
+        return True
 
     def docker_login_to_openshift(self) -> Any:
         output = OpenShiftAPI.run_oc_command(cmd="get route default-route -n openshift-image-registry")
@@ -484,8 +581,12 @@ class OpenShiftAPI:
         local_imagestream_file = utils.download_template(imagestream_file)
         self.import_is(local_imagestream_file, name="", skip_check=True)
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
-        if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
-            return False
+        if self.shared_cluster:
+            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+                return False
+        else:
+            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+                return False
         return self.deploy_template_with_image(
             image_name=image_name, template=template_file, name_in_template=name_in_template,
             openshift_args=openshift_args
@@ -494,7 +595,13 @@ class OpenShiftAPI:
     def deploy_s2i_app(self, image_name: str, app: str, context: str, service_name: str = "") -> bool:
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
         print(f"Source image {image_name} was tagged as {tagged_image}")
-        self.upload_image(source_image=image_name, tagged_image=tagged_image)
+        if self.shared_cluster:
+            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+                return False
+        else:
+            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+                return False
+
         if service_name == "":
             service_name = utils.get_service_image(image_name)
         print(f"Service name in app is: {service_name}")
@@ -505,7 +612,8 @@ class OpenShiftAPI:
         try:
             output = self.run_oc_command(f"{oc_cmd}", json_output=False)
             print(output)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as cpe:
+            print(cpe.output)
             return False
 
         time.sleep(5)
@@ -567,8 +675,13 @@ class OpenShiftAPI:
             self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
     ) -> bool:
         tagged_image = f"{name_in_template}:{self.version}"
-        if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
-            return False
+        if self.shared_cluster:
+            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+                return False
+        else:
+            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+                return False
+
         return self.deploy_template(
             template=template, name_in_template=name_in_template, openshift_args=openshift_args, expected_output=""
         )
