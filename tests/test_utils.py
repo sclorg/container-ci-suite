@@ -23,9 +23,9 @@
 # SOFTWARE.
 
 import os
+import yaml
 
 import pytest
-
 
 from container_ci_suite.utils import (
     get_public_image_name,
@@ -159,10 +159,12 @@ class TestContainerCISuiteUtils(object):
 
             }
         }
-        tenant_yaml = utils.save_tenant_namespace_yaml(project_name="12345")
-        assert tenant_yaml
-        assert tenant_yaml["metadata"]["name"] == "123456"
-        assert tenant_yaml == expected_yaml
+        tenant_yaml = utils.save_tenant_namespace_yaml(project_name="123456")
+        with open(tenant_yaml) as fd:
+            yaml_load = yaml.safe_load(fd.read())
+        assert yaml_load
+        assert yaml_load["metadata"]["name"] == "123456"
+        assert yaml_load == expected_yaml
 
     def test_tenantnegress_yaml(self):
         expected_yaml = {
@@ -219,7 +221,10 @@ class TestContainerCISuiteUtils(object):
                 ]
             }
         }
-        tenant_yaml = utils.save_tenant_namespace_yaml(project_name="12345")
-        assert tenant_yaml
-        assert tenant_yaml["metadata"]["namespace"] == "core-services-ocp--123456"
-        assert tenant_yaml == expected_yaml
+        tenant_yaml = utils.save_tenant_egress_yaml(project_name="123456")
+        print(tenant_yaml)
+        with open(tenant_yaml) as fd:
+            yaml_load = yaml.safe_load(fd.read())
+        assert yaml_load
+        assert yaml_load["metadata"]["namespace"] == "core-services-ocp--123456"
+        assert yaml_load == expected_yaml
