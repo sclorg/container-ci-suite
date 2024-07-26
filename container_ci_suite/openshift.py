@@ -45,13 +45,12 @@ class OpenShiftAPI:
             self, namespace: str = "default",
             pod_name_prefix: str = "", create_prj: bool = True,
             delete_prj: bool = True,
-            version: str = "",
-            shared_cluster: bool = False
+            version: str = ""
     ):
         self.namespace = namespace
         self.create_prj = create_prj
         self.delete_prj = delete_prj
-        self.shared_cluster = shared_cluster
+        self.shared_cluster = utils.is_share_cluster()
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version

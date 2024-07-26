@@ -25,6 +25,8 @@
 import os
 import yaml
 
+from flexmock import flexmock
+
 import pytest
 
 from container_ci_suite.utils import (
@@ -228,3 +230,24 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load
         assert yaml_load["metadata"]["namespace"] == "core-services-ocp--123456"
         assert yaml_load == expected_yaml
+
+    @pytest.mark.parametrize(
+        "os_env,expected_output",
+        [
+            ("False", False),
+            ("false", False),
+            (None, False),
+            ("True", True),
+            ("true", True),
+            ("", False),
+            ("Somthing", False),
+            ("Y", True),
+            ("y", True),
+            ("1", True),
+            ("No", False),
+            ("0", False),
+        ],
+    )
+    def test_is_shared_cluster(self, os_env, expected_output):
+        flexmock(utils).should_receive("load_shared_credentials").and_return(os_env)
+        assert utils.is_share_cluster() == expected_output
