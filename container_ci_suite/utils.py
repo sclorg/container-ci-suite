@@ -176,6 +176,24 @@ def run_command(
             raise cpe
 
 
+def run_oc_command(
+    cmd, json_output: bool = True, return_output: bool = True, ignore_error: bool = False, shell: bool = True,
+        namespace: str = ""
+):
+    """
+    Run docker command:
+    """
+    json_cmd = "-o json" if json_output else ""
+    namespace_cmd = f"-n {namespace}" if namespace != "" else ""
+
+    return run_command(
+        f"oc {cmd} {namespace_cmd} {json_cmd}",
+        return_output=return_output,
+        ignore_error=ignore_error,
+        shell=shell
+    )
+
+
 def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:
     for count in range(max_tests):
         try:
@@ -363,3 +381,8 @@ def is_share_cluster() -> bool:
     if file_shared_cluster in ["True", "true", "1", "yes", "Yes", "y", "Y"]:
         return True
     return False
+
+
+def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = "master") -> str:
+    RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
+    return RAW_SCL_JSON_URL.format(container=container, branch=branch, dir=dir, filename=filename)
