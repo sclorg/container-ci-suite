@@ -55,6 +55,7 @@ class HelmChartsAPI:
         self.oc_api.create_project()
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
+        self.namespace = self.set_namespace()
 
     @staticmethod
     def run_helm_command(
@@ -72,6 +73,9 @@ class HelmChartsAPI:
             ignore_error=ignore_error,
             shell=shell,
         )
+
+    def set_namespace(self):
+        return self.oc_api.namespace
 
     def delete_project(self):
         self.oc_api.delete_project()

@@ -37,6 +37,7 @@ class TestContainerCISuiteHelmCharts:
 
     def setup_method(self):
         flexmock(OpenShiftAPI).should_receive("create_project").and_return(True)
+        flexmock(HelmChartsAPI).should_receive("set_namespace").and_return("something")
         self.helm_chart = HelmChartsAPI(
             Path("foo_path"), package_name="postgresql-imagestreams", tarball_dir=test_dir
         )
