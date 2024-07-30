@@ -38,15 +38,17 @@ class TestContainerCISuiteHelmCharts:
     def setup_method(self):
         flexmock(OpenShiftAPI).should_receive("create_project").and_return(True)
         self.helm_chart = HelmChartsAPI(
-            Path("foo_path"), package_name="postgresql-imagestreams", tarball_dir=test_dir, namespace="pgsql-13"
+            Path("foo_path"), package_name="postgresql-imagestreams", tarball_dir=test_dir
         )
+
+        self.helm_chart.oc_api.namespace = "something"
+        self.helm_chart.namespace = "something"
         self.helm_chart.set_version("0.0.1")
 
     def test_helm_api(self):
         assert self.helm_chart.path == Path("foo_path")
         assert self.helm_chart.package_name == "postgresql-imagestreams"
         assert self.helm_chart.version == "0.0.1"
-        assert self.helm_chart.namespace == "pgsql-13"
 
     @pytest.mark.parametrize(
         "tag,registry,expected_value",
