@@ -109,6 +109,15 @@ class OpenShiftAPI:
             print(f"!!!!! TenantNamespace ${self.shared_random_name} was not delete properly."
                   f"But it does not block CI.!!!!")
 
+    def get_raw_url_for_json(self, container: str, dir: str, filename: str, branch: str = "master"):
+        return utils.get_raw_url_for_json(container=container, dir=dir, filename=filename, branch=branch)
+
+    def is_s2i_pod_running(self, pod_name_prefix: str):
+        return self.openshift_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix)
+
+    def is_pod_running(self, pod_name_prefix: str):
+        return self.openshift_ops.is_pod_running(pod_name_prefix=pod_name_prefix)
+
     def delete_project(self):
         if not self.delete_prj:
             # project is not deleted by request user
