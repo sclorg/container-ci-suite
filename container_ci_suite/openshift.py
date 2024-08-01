@@ -123,15 +123,16 @@ class OpenShiftAPI:
         if not self.delete_prj:
             print("Deleting project is SUPPRESSED.")
             # project is not deleted by request user
-            pass
-        if self.shared_cluster:
-            print("Delete project on shared cluster")
-            self.delete_tenant_namespace()
         else:
-            run_oc_command("project default", json_output=False)
-            run_oc_command(
-                f"delete project {self.namespace} --grace-period=0 --force", json_output=False
-            )
+            if self.shared_cluster:
+                print("Delete project on shared cluster")
+                self.delete_tenant_namespace()
+            else:
+                print(f"Deleting project {self.namespace}")
+                run_oc_command("project default", json_output=False)
+                run_oc_command(
+                    f"delete project {self.namespace} --grace-period=0 --force", json_output=False
+                )
 
     def run_command_in_pod(self, pod_name, command: str = "") -> str:
         output = run_oc_command(f"exec {pod_name} -- \"{command}\"")
