@@ -77,6 +77,7 @@ class OpenShiftAPI:
                 run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
         else:
             run_oc_command(f"project {self.namespace}", json_output=False)
+        print(f"Project with the name '{self.namespace}' were created.")
         return self.openshift_ops.is_project_exits()
 
     def prepare_tenant_namespace(self):
@@ -120,9 +121,11 @@ class OpenShiftAPI:
 
     def delete_project(self):
         if not self.delete_prj:
+            print("Deleting project is SUPPRESSED.")
             # project is not deleted by request user
             pass
         if self.shared_cluster:
+            print("Delete project on shared cluster")
             self.delete_tenant_namespace()
         else:
             run_oc_command("project default", json_output=False)
