@@ -376,6 +376,7 @@ def load_shared_credentials(credential: str) -> Any:
 
 def is_share_cluster() -> bool:
     file_shared_cluster = load_shared_credentials("SHARED_CLUSTER")
+    print(f"Is shared cluster allowed? {file_shared_cluster}")
     if not file_shared_cluster:
         return False
     if file_shared_cluster in ["True", "true", "1", "yes", "Yes", "y", "Y"]:

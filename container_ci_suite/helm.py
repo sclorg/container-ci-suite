@@ -51,8 +51,6 @@ class HelmChartsAPI:
         self.delete_prj: bool = delete_prj
         self.create_prj: bool = True
         self.oc_api = OpenShiftAPI(create_prj=self.create_prj, delete_prj=self.delete_prj)
-        self.oc_api.create_prj = self.create_prj
-        self.oc_api.create_project()
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
