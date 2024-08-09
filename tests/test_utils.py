@@ -246,6 +246,7 @@ class TestContainerCISuiteUtils(object):
             ("1", True),
             ("No", False),
             ("0", False),
+            ("true\n\n", True),
         ],
     )
     def test_is_shared_cluster(self, os_env, expected_output):

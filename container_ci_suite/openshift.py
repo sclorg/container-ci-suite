@@ -65,34 +65,40 @@ class OpenShiftAPI:
             self.create_prj = False
 
     def create_project(self):
+        print(f"Create project {self.create_prj} and {self.shared_cluster}")
         if self.create_prj:
             if self.shared_cluster:
-                self.shared_random_name = f"{random.randrange(10000, 100000)}"
+                self.shared_random_name = f"sclorg-{random.randrange(10000, 100000)}"
                 self.namespace = f"core-services-ocp--{self.shared_random_name}"
                 self.openshift_ops.set_namespace(self.namespace)
-                self.prepare_tenant_namespace()
+                if not self.prepare_tenant_namespace():
+                    return False
             else:
                 self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
                 self.openshift_ops.set_namespace(self.namespace)
                 run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
+                print(f"Project with the name '{self.namespace}' were created.")
         else:
             run_oc_command(f"project {self.namespace}", json_output=False)
-        print(f"Project with the name '{self.namespace}' were created.")
         return self.openshift_ops.is_project_exits()
 
     def prepare_tenant_namespace(self):
+        print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
         self.login_to_shared_cluster()
         tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
-        run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=json_flag, return_output=True)
+        tentant_output = run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=json_flag, return_output=True)
+        print(tentant_output)
         tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
-        run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
+        tentant_output = run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
+        print(tentant_output)
         time.sleep(3)
         run_oc_command(
             cmd=f"project {self.namespace}",
             json_output=json_flag,
             return_output=True
         )
+        print("Tenant Namespace were created")
 
     def delete_tenant_namespace(self):
         json_flag = False
