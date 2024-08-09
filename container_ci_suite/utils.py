@@ -321,7 +321,6 @@ def save_tenant_egress_yaml(project_name: str) -> str:
             ]
         }
     }
-
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_egress_yaml, fp)
@@ -376,11 +375,14 @@ def load_shared_credentials(credential: str) -> Any:
 
 def is_share_cluster() -> bool:
     file_shared_cluster = load_shared_credentials("SHARED_CLUSTER")
-    print(f"Is shared cluster allowed? {file_shared_cluster}")
     if not file_shared_cluster:
+        print("Not defined variable SHARED_CLUSTER")
         return False
+    file_shared_cluster = ''.join(file_shared_cluster.split())
     if file_shared_cluster in ["True", "true", "1", "yes", "Yes", "y", "Y"]:
+        print("Shared cluster allowed")
         return True
+    print("\nShared cluster is not allowed.\nTo allow it add 'true' to file in variable $SHARED_CLUSTER.")
     return False
 
 
