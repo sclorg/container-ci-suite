@@ -82,17 +82,37 @@ class OpenShiftAPI:
             run_oc_command(f"project {self.namespace}", json_output=False)
         return self.openshift_ops.is_project_exits()
 
+    def create_tenant_namespace(self) -> bool:
+        tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
+        try:
+            tentant_output = run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=False, return_output=True)
+            print(tentant_output)
+        except subprocess.CalledProcessError:
+            print(f"Create tenant namespace with the name '{self.shared_random_name}' was not successful.")
+            return False
+        return True
+
+    def create_egress_rules(self) -> bool:
+        tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
+        try:
+            tentant_output = run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
+            print(tentant_output)
+        except subprocess.CalledProcessError:
+            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful.")
+            self.delete_tenant_namespace()
+            return False
+        return True
+
     def prepare_tenant_namespace(self):
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
         self.login_to_shared_cluster()
-        tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
-        tentant_output = run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=json_flag, return_output=True)
-        print(tentant_output)
-        tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
-        tentant_output = run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
-        print(tentant_output)
+        if not self.create_tenant_namespace():
+            return False
+        # Let's wait 3 seconds till project is not up
         time.sleep(3)
+        if not self.create_egress_rules():
+            return False
         run_oc_command(
             cmd=f"project {self.namespace}",
             json_output=json_flag,
