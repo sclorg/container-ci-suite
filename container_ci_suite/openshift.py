@@ -97,9 +97,8 @@ class OpenShiftAPI:
         try:
             tentant_output = run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
             print(tentant_output)
-        except subprocess.CalledProcessError:
-            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful.")
-            self.delete_tenant_namespace()
+        except subprocess.CalledProcessError as cpe:
+            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful. {cpe}")
             return False
         return True
 
@@ -111,8 +110,7 @@ class OpenShiftAPI:
             return False
         # Let's wait 3 seconds till project is not up
         time.sleep(3)
-        if not self.create_egress_rules():
-            return False
+        self.create_egress_rules()
         run_oc_command(
             cmd=f"project {self.namespace}",
             json_output=json_flag,
