@@ -198,6 +198,7 @@ class OpenShiftOperations:
                 continue
             build_pod_finished = True
             print(f"\nBuild pod with name {pod_name_prefix} is finished.")
+            break
         if not build_pod_finished:
             print(f"\nBuild pod with name {pod_name_prefix} was not finished.")
             return False
@@ -233,6 +234,17 @@ class OpenShiftOperations:
         except CalledProcessError:
             pass
         return None
+
+    def get_routes(self):
+        output = run_oc_command(
+            "get route",
+            namespace=self.namespace, return_output=True, ignore_error=True, shell=True
+        )
+        return json.loads(output)
+
+    def oc_gel_all_is(self):
+        output = run_oc_command("get is", namespace=self.namespace)
+        return json.loads(output)
 
     def oc_get_is(self, name: str):
         output = run_oc_command(f"get is/{name}", namespace=self.namespace)

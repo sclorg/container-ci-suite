@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import json
+import shutil
+
 import yaml
 import logging
 import time
@@ -33,7 +35,6 @@ import container_ci_suite.utils as utils
 
 from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.openshift_ops import OpenShiftOperations
-from container_ci_suite.utils import run_oc_command
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 class HelmChartsAPI:
 
     def __init__(
-            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True
+            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, remote: bool = False
     ):
         self.path: Path = path
         self.version: str = ""
@@ -54,6 +55,8 @@ class HelmChartsAPI:
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
+        self.cloned_dir = ""
+        self.remote = remote
 
     @staticmethod
     def run_helm_command(
@@ -77,10 +80,12 @@ class HelmChartsAPI:
 
     def delete_project(self):
         self.oc_api.delete_project()
+        if self.remote and Path(self.cloned_dir).exists():
+            shutil.rmtree(self.cloned_dir)
 
     @property
-    def full_package_dir(self):
-        return self.path / self.package_name / "src"
+    def full_package_dir(self) -> Path:
+        return Path(self.path) / self.package_name / "src"
 
     @property
     def get_tarball_name(self):
@@ -89,6 +94,18 @@ class HelmChartsAPI:
     @property
     def get_full_tarball_path(self):
         return self.tarball_dir / self.get_tarball_name
+
+    def clone_helm_chart_repo(self, repo_url: str, repo_name: str, subdir: str = ""):
+        temp_dir = utils.temporary_dir()
+        self.cloned_dir = temp_dir
+        cmd_clone = f"git clone {repo_url} {temp_dir}/{repo_name}"
+        print(f"Clone charts repo by command: {cmd_clone}")
+        clone_output = utils.run_command(cmd_clone, return_output=True)
+        print(clone_output)
+        if subdir != "":
+            self.path = Path(temp_dir) / repo_name / subdir
+        else:
+            self.path = Path(temp_dir) / repo_name
 
     def get_version_from_chart_yaml(self) -> Any:
         chart_yaml = self.full_package_dir / "Chart.yaml"
@@ -151,8 +168,6 @@ class HelmChartsAPI:
 
     def check_helm_installation(self):
         # Let's check that pod is really running
-        output = run_oc_command("get all", json_output=False)
-        print(output)
         json_output = self.get_helm_json_output(command="list")
         for out in json_output:
             if out["name"] != self.package_name:
@@ -241,28 +256,15 @@ class HelmChartsAPI:
                 continue
             if self.check_test_output(output, expected_str=expected_str):
                 return True
-        output = run_oc_command("status", json_output=False)
-        print(output)
-        output = run_oc_command("get all", json_output=False)
-        print(output)
+        oc_ops = OpenShiftOperations()
+        oc_ops.set_namespace(namespace=self.oc_api.namespace)
+        oc_ops.print_get_status()
         return False
 
-    def get_is_json(self):
-        output = run_oc_command(
-            "get is", namespace=self.oc_api.namespace, return_output=True, ignore_error=True, shell=True
-        )
-        print(f"OC GET IS: {output}")
-        return json.loads(output)
-
-    def get_routes(self):
-        output = run_oc_command(
-            "get route",
-            namespace=self.oc_api.namespace, return_output=True, ignore_error=True, shell=True
-        )
-        return json.loads(output)
-
     def get_route_name(self, route_name: str):
-        json_data = self.get_routes()
+        oc_ops = OpenShiftOperations()
+        oc_ops.set_namespace(namespace=self.oc_api.namespace)
+        json_data = oc_ops.get_routes()
         if len(json_data["items"]) == 0:
             return None
         for item in json_data["items"]:
@@ -280,7 +282,9 @@ class HelmChartsAPI:
         Returns JSON output
         """
         tag_found = False
-        json_output = self.get_is_json()
+        oc_ops = OpenShiftOperations()
+        oc_ops.set_namespace(namespace=self.oc_api.namespace)
+        json_output = oc_ops.oc_gel_all_is()
         for tag in json_output["items"][0]["spec"]["tags"]:
             print(f"TAG: {tag}")
             if tag["name"] == version and tag["from"]["name"] == registry:
