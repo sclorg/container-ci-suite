@@ -213,6 +213,12 @@ def get_response_request(url_address: str, expected_str: str, response_code: int
     return False
 
 
+def temporary_dir(prefix: str = "helm-chart") -> str:
+    temp_file = tempfile.TemporaryDirectory(prefix=prefix)
+    print(f"Temporary dir name: {temp_file.name}")
+    return temp_file.name
+
+
 def save_command_yaml(image_name: str) -> str:
     cmd_yaml = {
         "apiVersion": "v1",
