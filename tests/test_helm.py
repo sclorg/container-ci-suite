@@ -29,6 +29,7 @@ from pathlib import Path
 
 from container_ci_suite.helm import HelmChartsAPI
 from container_ci_suite.openshift import OpenShiftAPI
+from container_ci_suite.openshift_ops import OpenShiftOperations
 
 test_dir = Path(os.path.abspath(os.path.dirname(__file__)))
 
@@ -44,12 +45,10 @@ class TestContainerCISuiteHelmCharts:
 
         self.helm_chart.oc_api.namespace = "something"
         self.helm_chart.namespace = "something"
-        self.helm_chart.set_version("0.0.1")
 
     def test_helm_api(self):
         assert self.helm_chart.path == Path("foo_path")
         assert self.helm_chart.package_name == "postgresql-imagestreams"
-        assert self.helm_chart.version == "0.0.1"
 
     @pytest.mark.parametrize(
         "tag,registry,expected_value",
@@ -61,7 +60,7 @@ class TestContainerCISuiteHelmCharts:
         ]
     )
     def test_check_imagestreams(self, tag, registry, expected_value, postgresql_json):
-        flexmock(HelmChartsAPI).should_receive("get_is_json").and_return(postgresql_json)
+        flexmock(OpenShiftOperations).should_receive("oc_gel_all_is").and_return(postgresql_json)
         self.helm_chart.tag = tag
         assert self.helm_chart.check_imagestreams(tag, registry=registry) == expected_value
 
