@@ -112,64 +112,68 @@ class TestHelmPostgresqlImageStreams:
     def setup_method(self):
         package_name = "postgresql-imagestreams"
         path = os.path.join(test_dir, "../charts/redhat", package_name)
-        self.hc_api = HelmChartsAPI(path=path, package_name=package_name, version="0.0.1")
+        self.hc_api = HelmChartsAPI(path=path, package_name=package_name)
     def test_package_imagestream(self):
         self.hc_api.helm_package()
 
 ```
 
-## OpenShift tests
+## Container functions onboarding
 
-* [ ] ct_os_cleanup
-* [ ] ct_os_check_compulsory_vars
-* [ ] ct_os_get_status
-* [ ] ct_os_print_logs
-* [ ] ct_os_enable_print_logs
-* [ ] ct_get_public_ip
-* [ ] ct_os_run_in_pod
-* [ ] ct_os_get_service_ip
-* [ ] ct_os_get_all_pods_status
-* [ ] ct_os_get_all_pods_name
-* [ ] ct_os_get_pod_status
-* [ ] ct_os_get_build_pod_status
-* [ ] ct_os_get_buildconfig_pod_name
-* [ ] ct_os_get_pod_name
-* [ ] ct_os_get_pod_ip
-* [ ] ct_os_get_sti_build_logs
-* [ ] ct_os_check_pod_readiness
-* [ ] ct_os_wait_pod_ready
-* [ ] ct_os_wait_rc_ready
-* [ ] ct_os_deploy_pure_image
-* [ ] ct_os_deploy_s2i_image
-* [ ] ct_os_deploy_template_image
-* [ ] _ct_os_get_uniq_project_name
-* [ ] ct_os_new_project
-* [ ] ct_os_delete_project
-* [ ] ct_delete_all_objects
-* [ ] ct_os_docker_login
-* [ ] ct_os_upload_image
-* [ ] ct_os_is_tag_exists
-* [ ] ct_os_template_exists
-* [ ] ct_os_install_in_centos
-* [ ] ct_os_cluster_up
-* [ ] ct_os_cluster_down
-* [ ] ct_os_cluster_running
-* [ ] ct_os_logged_in
-* [ ] ct_os_set_path_oc
-* [ ] ct_os_get_latest_ver
-* [ ] ct_os_download_upstream_oc
-* [ ] ct_os_test_s2i_app_func
-* [ ] ct_os_test_s2i_app
-* [ ] ct_os_test_template_app_func
-* [ ] ct_os_test_template_app
-* [ ] ct_os_test_image_update
-* [ ] ct_os_deploy_cmd_image
-* [ ] ct_os_cmd_image_run
-* [ ] ct_os_test_response_internal
-* [ ] ct_os_get_image_from_pod
-* [ ] ct_os_check_cmd_internal
-* [ ] ct_os_test_image_stream_template
-* [ ] ct_os_wait_stream_ready
-* [ ] ct_os_test_image_stream_s2i
-* [ ] ct_os_test_image_stream_quickstart
-* [ ] ct_os_service_image_info
+- [] ct_init - call `ct_enable_cleanup`, creates temp dir for app_id and cid_files
+- [] ct_cleanup - call `ct_clean_app_images`, and `ct_clean_container`
+- [] ct_build_image_and_parse_id -
+- [x] ct_container_running - ContainerCISuite.is_container_running - used for cleaning containers only
+- [x] ct_container_exists - ContainerCISuite.is_container_exists - used for cleaning containers only
+- [] ct_clean_app_images
+- [x] ct_clean_containers - ContainerCISuite.cleanup_container
+- [] ct_show_results
+- [] ct_enable_cleanup
+- [] ct_trap_on_exit
+- [] ct_trap_on_sigint
+- [x] ct_pull_image - PodmanCLIWrapper.docker_pull_image
+- [] ct_check_envs_set
+- [] ct_get_cid
+- [x] ct_get_cip - ContainerCISuite.get_cip
+- [x] ct_wait_for_cid - ContainerCISuite.wait_for_cid
+- [x] ct_assert_container_creation_fails - ContainerCISuite.assert_container_fails
+- [x] ct_create_container - ContainerCISuite.create_container
+- [] ct_scl_usage_old
+- [] ct_doc_content_old
+- [x] full_ca_file_path - utils.get_full_ca_file_path
+- [x] ct_mount_ca_file - utils.get_mount_ca_file
+- [x] ct_build_s2i_npm_variables - utils.get_npm_variables
+- [x] ct_npm_works - ContainerCISuite.npm_works
+- [x] ct_binary_found_from_df - ContainerCISuite.binary_found_from_df
+- [x] ct_check_exec_env_vars - ContainerCISuite.test_check_exec_env_vars
+- [x] ct_check_scl_enable_vars - ContainerCISuite.test_check_envs_set
+- [] ct_path_append
+- [] ct_path_foreach
+- [] ct_gen_self_signed_cert_pem
+- [] ct_obtain_input -
+- [x] ct_test_response - UPDATE NEEDED utils.get_response_request
+- [x] ct_registry_from_os - utils.get_registry_name
+- [x] ct_get_public_image_name - utils.get_public_image_name
+- [] ct_assert_cmd_success
+- [] ct_assert_cmd_failure
+- [] ct_random_string
+- [x] ct_s2i_usage - ContainerCISuite.s2i_usage
+- [x] ct_s2i_build_as_df - ContainerCISuite.s2i_build_as_df
+- [x] ct_s2i_build_as_df_build_args - ContainerCISuite.s2i_create_df
+- [] ct_s2i_multistage_build
+- [x] ct_check_image_availability - ContainerCISuite.check_image_availability
+- [] ct_show_resources
+- [] ct_clone_git_repository
+- [] ct_get_uid_from_image
+- [] ct_test_app_dockerfile
+- [] ct_check_testcase_result
+- [] ct_update_test_result
+- [] ct_run_tests_from_testset
+- [] ct_timestamp_s
+- [] ct_timestamp_pretty
+- [] ct_timestamp_diff
+- [] ct_get_certificate_timestamp
+- [] ct_get_certificate_age_s
+- [] ct_get_image_age_s
+- [] ct_get_image_size_uncompresseed
+- [] ct_get_image_size_compresseed

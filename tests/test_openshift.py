@@ -28,7 +28,7 @@ from flexmock import flexmock
 
 from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.openshift_ops import OpenShiftOperations
-from container_ci_suite.container import DockerCLIWrapper
+from container_ci_suite.container_engine import PodmanCLIWrapper
 from container_ci_suite import utils
 
 
@@ -39,29 +39,29 @@ class TestOpenShiftCISuite(object):
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
 
     @pytest.mark.parametrize(
-        "container,dir,filename,branch",
+        "container,dir_name,filename,branch",
         [
             ("postgresql-container", "imagestreams", "postgres-rhel.json", "master"),
             ("mysql-container", "openshift/templates", "foo.json", "bar"),
         ]
     )
-    def test_get_raw_url_for_json(self, container, dir, filename, branch):
-        expected_output = f"https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
+    def test_get_raw_url_for_json(self, container, dir_name, filename, branch):
+        expected_output = f"https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir_name}/{filename}"
         assert utils.get_raw_url_for_json(
-            container=container, dir=dir, filename=filename, branch=branch
+            container=container, dir=dir_name, filename=filename, branch=branch
         ) == expected_output
 
     def test_upload_image_pull_failed(self):
-        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(False)
+        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(False)
         assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_upload_image_login_failed(self):
-        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(True)
+        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(True)
         flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return(None)
         assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_upload_image_success(self):
-        flexmock(DockerCLIWrapper).should_receive("docker_pull_image").and_return(True)
+        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(True)
         flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return("default_registry")
         flexmock(utils).should_receive("run_command").twice()
         assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
