@@ -34,8 +34,7 @@ from os import getenv
 from pathlib import Path
 from tempfile import mkdtemp, mktemp
 
-from container_ci_suite.container import DockerCLIWrapper
-from container_ci_suite.helm import HelmChartsAPI
+from container_ci_suite.container_engine import PodmanCLIWrapper
 from container_ci_suite.utils import (
     run_command,
     get_file_content,
@@ -58,14 +57,25 @@ class ContainerCISuite(object):
         self.cid_file_dir: Path = None
         logger.info(f"Image name to test: {image_name}")
 
-    def s2i_usage(self):
-        return DockerCLIWrapper.run_docker_command(
+    # Replacement for ct_s2i_usage
+    def s2i_usage(self) -> str:
+        return PodmanCLIWrapper.run_docker_command(
             f"run --rm {self.image_name} bash -c /usr/libexec/s2i/usage"
         )
 
+    # Replacement for
     def is_image_available(self):
-        return DockerCLIWrapper.run_docker_command(f"inspect {self.image_name}")
+        return PodmanCLIWrapper.run_docker_command(f"inspect {self.image_name}")
 
+    # Replacement for ct_container_running
+    def is_container_running(self):
+        return PodmanCLIWrapper.run_docker_command(f"inspect {self.image_name} -f '{{.State.Running}}'")
+
+    # Replacement for ct_container_exists
+    def is_container_exists(self, id_hash: str):
+        return PodmanCLIWrapper.run_docker_command(f"ps -q -a -f 'id={id_hash}'")
+
+    # Replacement for ct_s2i_build_as_df
     def s2i_build_as_df(self, app_path: str, s2i_args: str, src_image, dst_image: str):
         named_tmp_dir = mkdtemp()
         tmp_dir = Path(named_tmp_dir)
@@ -86,10 +96,11 @@ class ContainerCISuite(object):
             f.writelines(df_content)
         mount_options = get_mount_options_from_s2i_args(s2i_args=s2i_args)
         # Run the build and tag the result
-        DockerCLIWrapper.run_docker_command(
+        PodmanCLIWrapper.run_docker_command(
             f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
         )
 
+    # Replacement for ct_s2i_build_as_df_build_args
     def s2i_create_df(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
     ) -> List[str]:
@@ -98,18 +109,18 @@ class ContainerCISuite(object):
         local_scripts: str = "upload/scripts"
         local_app: str = "upload/src"
         os.chdir(tmp_dir)
-        if not DockerCLIWrapper.docker_image_exists(src_image):
+        if not PodmanCLIWrapper.docker_image_exists(src_image):
             if "pull-policy=never" not in s2i_args:
-                DockerCLIWrapper.run_docker_command(f"pull {src_image}")
+                PodmanCLIWrapper.run_docker_command(f"pull {src_image}")
 
-        user = DockerCLIWrapper.docker_inspect(
+        user = PodmanCLIWrapper.docker_inspect(
             field="{{.Config.User}}", src_image=src_image
         )
         if not user:
             user = "0"
 
         assert int(user)
-        user_id = DockerCLIWrapper.docker_get_user_id(src_image=src_image, user=user)
+        user_id = PodmanCLIWrapper.docker_get_user_id(src_image=src_image, user=user)
         if not user_id:
             logger.error(f"id of user {user} not found inside image {src_image}.")
             logger.error("Terminating s2i build.")
@@ -122,7 +133,7 @@ class ContainerCISuite(object):
             inc_tmp = Path(mktemp(dir=str(tmp_dir), prefix="incremental."))
             run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
             # Check if the image exists, build should fail (for testing use case) if it does not
-            if not DockerCLIWrapper.docker_image_exists(src_image):
+            if not PodmanCLIWrapper.docker_image_exists(src_image):
                 return None
             # Run the original image with a mounted in volume and get the artifacts out of it
             cmd = (
@@ -130,7 +141,7 @@ class ContainerCISuite(object):
                 ' then /usr/libexec/s2i/save-artifacts > "$inc_tmp/artifacts.tar";'
                 ' else touch "$inc_tmp/artifacts.tar"; fi'
             )
-            DockerCLIWrapper.run_docker_command(
+            PodmanCLIWrapper.run_docker_command(
                 f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c {cmd}"
             )
             # Move the created content into the $tmpdir for the build to pick it up
@@ -202,17 +213,19 @@ class ContainerCISuite(object):
     def scl_usage_old(self):
         pass
 
+    # Replacement for ct_create_container
     def create_container(self, cid_file: str, container_args: str = "", *args):
         self.cid_file_dir = Path(mkdtemp(suffix=".test_cid_files"))
         p = Path(self.cid_file_dir)
         self.cid_file = p / cid_file
-        DockerCLIWrapper.run_docker_command(
+        PodmanCLIWrapper.run_docker_command(
             f"run --cidfile={self.cid_file} -d {container_args} {self.image_name} {args}"
         )
         if not self.wait_for_cid():
             return False
         logger.info(f"Created container {self.get_cid_file()}")
 
+    # Replacement for ct_wait_for_cid
     def wait_for_cid(self):
         max_attempts: int = 10
         attempt: int = 1
@@ -227,9 +240,10 @@ class ContainerCISuite(object):
             time.sleep(1)
         return False
 
+    # Replacement for get_cip
     def get_cip(self):
         container_id = self.get_cid_file()
-        return DockerCLIWrapper.run_docker_command(
+        return PodmanCLIWrapper.run_docker_command(
             f"inspect --format='{{.NetworkSettings.IPAddress}}' {container_id}"
         )
 
@@ -241,9 +255,10 @@ class ContainerCISuite(object):
             return get_file_content(self.cid_file)
         return get_file_content(cid_file)
 
+    # Replacement for ct_check_image_availability
     def check_image_availability(self, public_image_name: str):
         try:
-            DockerCLIWrapper.run_docker_command(
+            PodmanCLIWrapper.run_docker_command(
                 f"pull {public_image_name}", return_output=False
             )
         except subprocess.CalledProcessError as cfe:
@@ -252,6 +267,7 @@ class ContainerCISuite(object):
             return False
         return True
 
+    # Replacement for ct_clean_containers
     def cleanup_container(self):
         logger.info(f"Cleaning CID_FILE_DIR {self.cid_file_dir} is ongoing.")
         p = Path(self.cid_file_dir)
@@ -259,48 +275,50 @@ class ContainerCISuite(object):
         for cid_file in cid_files:
             container_id = get_file_content(cid_file)
             logger.info("Stopping container")
-            DockerCLIWrapper.run_docker_command(f"stop {container_id}")
-            exit_code = DockerCLIWrapper.docker_inspect(
+            PodmanCLIWrapper.run_docker_command(f"stop {container_id}")
+            exit_code = PodmanCLIWrapper.docker_inspect(
                 field="{{.State.ExitCode}}", src_image=container_id
             )
             if exit_code != 0:
-                logs = DockerCLIWrapper.run_docker_command(f"logs {container_id}")
+                logs = PodmanCLIWrapper.run_docker_command(f"logs {container_id}")
                 logger.info(logs)
-            DockerCLIWrapper.run_docker_command(f"rm -v {container_id}")
+            PodmanCLIWrapper.run_docker_command(f"rm -v {container_id}")
             cid_file.unlink()
         os.rmdir(self.cid_file_dir)
         logger.info(f"Cleanning CID_FILE_DIR {self.cid_file_dir} is DONE.")
 
+    # Replacement for ct_assert_container_creation_fails
     def assert_container_fails(self, cid_file: str, container_args: str):
         attempt: int = 1
         max_attempts: int = 10
         old_container_args = container_args
         if self.create_container(cid_file, container_args=container_args):
             cid = self.get_cid_file()
-            while not DockerCLIWrapper.docker_inspect(
+            while not PodmanCLIWrapper.docker_inspect(
                 field="{{.State.Running}}", src_image=cid
             ):
                 time.sleep(2)
                 attempt += 1
                 if attempt > max_attempts:
-                    DockerCLIWrapper.run_docker_command("stop cid")
+                    PodmanCLIWrapper.run_docker_command("stop cid")
                     return True
-            exit_code = DockerCLIWrapper.docker_inspect(
+            exit_code = PodmanCLIWrapper.docker_inspect(
                 field="{{.State.ExitCode}}", src_image=cid
             )
             if exit_code == 0:
                 return True
-            DockerCLIWrapper.run_docker_command(f"rm -v {cid}")
+            PodmanCLIWrapper.run_docker_command(f"rm -v {cid}")
             self.cid_file.unlink()
         if old_container_args != "":
             self.container_args = old_container_args
         return False
 
+    # Replacement for ct_npm_works
     def npm_works(self):
         tempdir = mkdtemp(suffix="npm_test")
         self.cid_file = Path(tempdir) / "cid_npm_test"
         try:
-            DockerCLIWrapper.run_docker_command(
+            PodmanCLIWrapper.run_docker_command(
                 f'run --rm {self.image_name} /bin/bash -c "npm --version"'
             )
         except subprocess.CalledProcessError:
@@ -311,7 +329,7 @@ class ContainerCISuite(object):
 
         # TODO
         # Add {self.image_name}-testapp as soon as function `s2i_create_df` is ready.
-        DockerCLIWrapper.run_docker_command(
+        PodmanCLIWrapper.run_docker_command(
             f"run -d {get_mount_ca_file()} --rm --cidfile={self.cid_file} {self.image_name}"
         )
         if not self.wait_for_cid():
@@ -319,7 +337,7 @@ class ContainerCISuite(object):
             return False
 
         try:
-            jquery_output = DockerCLIWrapper.run_docker_command(
+            jquery_output = PodmanCLIWrapper.run_docker_command(
                 f"exec {self.get_cid_file(self.cid_file)} "
                 f"/bin/bash -c "
                 f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'"
@@ -335,13 +353,14 @@ class ContainerCISuite(object):
                 return False
 
         if self.cid_file.exists():
-            DockerCLIWrapper.run_docker_command(
+            PodmanCLIWrapper.run_docker_command(
                 f"stop {self.get_cid_file(self.cid_file)}"
             )
             self.cid_file.unlink()
         logger.info("Npm works.")
         return True
 
+    # Replacement for ct_binary_found_from_df
     def binary_found_from_df(self, binary: str = "", binary_path: str = "^/opt/rh"):
         tempdir = mkdtemp(suffix=f"{self.image_name}_binary")
         dockerfile = Path(tempdir) / "Dockerfile"
@@ -351,30 +370,18 @@ RUN which {binary} | grep {binary_path}
         """
         with open(dockerfile, "w") as f:
             f.write(content)
-        if not DockerCLIWrapper.run_docker_command(
+        if not PodmanCLIWrapper.run_docker_command(
             f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
         ):
             logger.error(f"Failed to find {binary} in Dockerfile!")
             return False
         return True
 
-    def check_latest_imagestreams(self):
-        pass
-
-    #     local latest_version=
-    #     local test_lib_dir=
-    #
-    #     # Check only lines which starts with VERSIONS
-    #     latest_version=$(grep '^VERSIONS' Makefile | rev | cut -d ' ' -f 1 | rev )
-    #     test_lib_dir=$(dirname "$(readlink -f "$0")")
-    #     python3 "${test_lib_dir}/check_imagestreams.py" "$latest_version"
-    #
-
     def doc_content_old(self, strings: List) -> bool:
         logger.info("Testing documentation in the container image")
         files_to_check = ["help.1"]
         for f in files_to_check:
-            doc_content = DockerCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c cat {f}')
+            doc_content = PodmanCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c cat {f}')
             for term in strings:
                 # test = re.search(f"{term}", doc_content)
                 logger.info(f"ERROR: File /{f} does not contain '{term}'.")
@@ -431,13 +438,15 @@ RUN which {binary} | grep {binary_path}
     def test_response(self):
         pass
 
+    # Replacement for ct_check_exec_env_vars
     def test_check_exec_env_vars(self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root"):
-        check_envs = DockerCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c env')
+        check_envs = PodmanCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c env')
         logger.debug(f"Run envs {check_envs}")
         self.create_container(cid_file="exec_env_vars", container_args="bash -c 'sleep 1000'")
-        loop_envs = DockerCLIWrapper.run_docker_command(f"exec {self.get_cid_file(self.cid_file)} env")
+        loop_envs = PodmanCLIWrapper.run_docker_command(f"exec {self.get_cid_file(self.cid_file)} env")
         self.test_check_envs_set(env_filter=env_filter, check_envs=check_envs, loop_envs=loop_envs)
 
+    # Replacement for ct_check_scl_enable_vars
     def test_check_envs_set(self, env_filter: str, check_envs: str, loop_envs: str, env_format="VALUE"):
         fields_to_check: List = [
             x for x in loop_envs.split('\n') if re.findall(env_filter, x) and not x.startswith("PWD=")
@@ -460,19 +469,4 @@ RUN which {binary} | grep {binary_path}
                     logger.error(f"Value {value} is missing from variable {var_name}")
                     logger.error(filtered_envs)
                     return False
-        return True
-
-    def test_helm_chart(self, path: str,  package_name: str, version: str, test_check_string: str):
-        hc = HelmChartsAPI(path=path, package_name=package_name, version=version)
-        if not hc.helm_package():
-            return False
-        hc.helm_installation()
-        hc.test_helm_chart(test_check_string)
-
-    def test_helm_chart_imagestreams(self, path: str, package_name: str, version: str, registry: str) -> bool:
-        hc = HelmChartsAPI(path=path, package_name=package_name, version=version)
-        if not hc.helm_package():
-            return False
-        hc.helm_installation()
-        hc.check_imagestreams(version, registry)
         return True

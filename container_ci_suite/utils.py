@@ -53,12 +53,14 @@ def get_os_environment(variable: str) -> str:
     return os.getenv(variable)
 
 
+# Replacement for ct_mount_ca_file
 def get_mount_ca_file() -> str:
     if get_os_environment("NPM_REGISTRY") and get_full_ca_file_path().exists():
         return f"-v {CA_FILE_PATH}:{CA_FILE_PATH}:Z"
     return ""
 
 
+# Replacement for ct_mount_ca_file
 def get_npm_variables():
     npm_registry = get_os_environment("NPM_REGISTRY")
     if npm_registry and get_full_ca_file_path().exists():

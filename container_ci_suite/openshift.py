@@ -30,7 +30,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, List
 
-from container_ci_suite.container import DockerCLIWrapper
+from container_ci_suite.container_engine import PodmanCLIWrapper
 from container_ci_suite.openshift_ops import OpenShiftOperations
 from container_ci_suite.utils import run_oc_command
 
@@ -262,7 +262,7 @@ class OpenShiftAPI:
         :return True: image was properly uploaded to OpenShift
                 False: image was not either pulled or uploading failed
         """
-        if not DockerCLIWrapper.docker_pull_image(image_name=source_image, loops=3):
+        if not PodmanCLIWrapper.docker_pull_image(image_name=source_image, loops=3):
             return False
         try:
             ocp4_register = self.docker_login_to_openshift()

@@ -24,7 +24,7 @@ import time
 from container_ci_suite.utils import run_command
 
 
-class DockerCLIWrapper(object):
+class PodmanCLIWrapper(object):
     @staticmethod
     def run_docker_command(
         cmd, return_output: bool = True, ignore_error: bool = False, shell: bool = True
@@ -47,23 +47,23 @@ class DockerCLIWrapper(object):
         :return True: In case if image is present
                 False: In case if image is not present
         """
-        output = DockerCLIWrapper.run_docker_command(
+        output = PodmanCLIWrapper.run_docker_command(
             f"images -q {image_name}", ignore_error=True, return_output=True)
         return True if output != "" else False
 
     @staticmethod
     def docker_inspect(field: str, src_image: str) -> str:
-        return DockerCLIWrapper.run_docker_command(
+        return PodmanCLIWrapper.run_docker_command(
             f"docker inspect -f '{field}' {src_image}"
         )
 
     @staticmethod
     def docker_run_command(cmd):
-        return DockerCLIWrapper.run_docker_command(f"run {cmd}")
+        return PodmanCLIWrapper.run_docker_command(f"run {cmd}")
 
     @staticmethod
     def docker_get_user_id(src_image, user):
-        return DockerCLIWrapper.docker_run_command(
+        return PodmanCLIWrapper.docker_run_command(
             f"--rm {src_image} bash -c 'id -u {user} 2>/dev/null"
         )
 
@@ -74,16 +74,16 @@ class DockerCLIWrapper(object):
         In case it isn't, try to pull it for specific count of loops
         Default is 10.
         """
-        if DockerCLIWrapper.docker_image_exists(image_name=image_name):
+        if PodmanCLIWrapper.docker_image_exists(image_name=image_name):
             print("Pulled image already exists.")
             return True
         for loop in range(loops):
-            ret_val = DockerCLIWrapper.run_docker_command(
+            ret_val = PodmanCLIWrapper.run_docker_command(
                 cmd=f"pull {image_name}", return_output=False
             )
-            if ret_val == 0 and DockerCLIWrapper.docker_image_exists(image_name=image_name):
+            if ret_val == 0 and PodmanCLIWrapper.docker_image_exists(image_name=image_name):
                 return True
-            DockerCLIWrapper.run_docker_command("images", return_output=True)
+            PodmanCLIWrapper.run_docker_command("images", return_output=True)
             print(f"Pulling of image {image_name} failed. Let's wait {loop*5} seconds and try again.")
             time.sleep(loop*5)
         return False
