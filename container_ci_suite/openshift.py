@@ -391,7 +391,7 @@ class OpenShiftAPI:
             print(cpe.output)
             return False
 
-        time.sleep(5)
+        time.sleep(3)
         if Path(app).is_dir():
             output = self.start_build(service_name=service_name, app_name=app)
             print(f"Output from start build: {output}")
@@ -543,9 +543,9 @@ class OpenShiftAPI:
                     break
             except ValueError:
                 print(return_code)
-                time.sleep(3)
+                time.sleep(1)
                 continue
-            time.sleep(5)
+            time.sleep(3)
             continue
 
         cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
@@ -560,7 +560,7 @@ class OpenShiftAPI:
                 f"check_response_inside_cluster:"
                 f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
             )
-            time.sleep(10)
+            time.sleep(5)
         return False
 
     def check_response_outside_cluster(
@@ -574,13 +574,13 @@ class OpenShiftAPI:
         route_name = self.get_route_url(routes_name=name_in_template)
         print(f"Route name is {route_name}")
         url = f"{protocol}://{route_name}"
-        for count in range(3):
+        for count in range(10):
             print(f"Let's try to get response from route {url} one more time {count}")
             response_status = utils.get_response_request(
                 url_address=url, response_code=response_code, expected_str=expected_output
             )
             if not response_status:
-                time.sleep(10)
+                time.sleep(5)
                 continue
             break
 
