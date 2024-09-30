@@ -102,7 +102,7 @@ class OpenShiftOperations:
                 self.pod_name_prefix = pod_name_prefix
             # Only one running pod is allowed
             if self.get_pod_count() != 1:
-                time.sleep(3)
+                time.sleep(1)
                 continue
 
             for item in self.pod_json_data["items"]:
@@ -118,9 +118,9 @@ class OpenShiftOperations:
                     output = self.get_logs(pod_name=pod_name)
                     print(output)
                     # Wait couple seconds for sure
-                    time.sleep(3)
+                    time.sleep(1)
                     return True
-            time.sleep(3)
+            time.sleep(1)
         return False
 
     def is_build_pod_present(self) -> bool:
@@ -164,17 +164,17 @@ class OpenShiftOperations:
             print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
-                time.sleep(3)
+                time.sleep(1)
                 continue
             if not self.is_build_pod_present():
                 print(".", sep="", end="")
-                time.sleep(3)
+                time.sleep(1)
                 continue
             if not self.is_pod_finished(pod_suffix_name="build"):
                 print(".", sep="", end="")
                 if self.build_failed:
                     return False
-                time.sleep(3)
+                time.sleep(1)
                 continue
             print("\nBuild pod is finished")
             return True
@@ -188,13 +188,13 @@ class OpenShiftOperations:
             print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
-                time.sleep(3)
+                time.sleep(1)
                 continue
             if not self.is_build_pod_present():
-                time.sleep(3)
+                time.sleep(1)
                 continue
             if not self.is_pod_finished(pod_suffix_name="build"):
-                time.sleep(3)
+                time.sleep(1)
                 continue
             build_pod_finished = True
             print(f"\nBuild pod with name {pod_name_prefix} is finished.")
@@ -206,7 +206,7 @@ class OpenShiftOperations:
         for count in range(cycle_count):
             print(".", sep="", end="")
             if not self.is_pod_running():
-                time.sleep(3)
+                time.sleep(1)
                 continue
             print("\nPod is running")
             return True
@@ -269,7 +269,7 @@ class OpenShiftOperations:
             tag_found = True
         return tag_found
 
-    def is_pod_ready(self, cycle_count: int = 60) -> bool:
+    def is_pod_ready(self, cycle_count: int = 180) -> bool:
         """
         Function checks if pod with specific name is really ready
         """
@@ -278,10 +278,10 @@ class OpenShiftOperations:
             print(".", end="")
             json_data = self.get_pod_status()
             if len(json_data["items"]) == 0:
-                time.sleep(3)
+                time.sleep(1)
                 continue
             if not self.is_pod_finished(pod_suffix_name=self.pod_name_prefix):
-                time.sleep(3)
+                time.sleep(1)
                 continue
             for item in json_data["items"]:
                 pod_name = item["metadata"]["name"]
@@ -295,7 +295,7 @@ class OpenShiftOperations:
                     )
                     print(output)
                     # Wait couple seconds for sure
-                    time.sleep(10)
+                    time.sleep(5)
                     return True
-                time.sleep(3)
+                time.sleep(1)
         return False

@@ -244,8 +244,8 @@ class HelmChartsAPI:
         return True
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
-        for count in range(40):
-            time.sleep(3)
+        for count in range(60):
+            time.sleep(1)
             try:
                 output = HelmChartsAPI.run_helm_command(
                     f"test {self.package_name} --logs", json_output=False
@@ -296,7 +296,7 @@ class HelmChartsAPI:
             self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"
     ) -> bool:
         # Let's get some time to start application
-        time.sleep(10)
+        time.sleep(3)
         host_name = self.get_route_name(route_name=route_name)
         print(f"test_helm_curl_output: Route name is: {host_name}")
         if not host_name:
@@ -306,7 +306,7 @@ class HelmChartsAPI:
             url_address = f"{url_address}:{port}"
         print(f"test_helm_curl_output: to {url_address}")
         valid_request: bool = False
-        for count in range(20):
+        for count in range(60):
             try:
                 resp = requests.get(url_address, verify=False)
                 resp.raise_for_status()
@@ -321,7 +321,7 @@ class HelmChartsAPI:
                 return True
             except requests.exceptions.HTTPError:
                 print("test_helm_curl_output: Service is not yet available. Let's wait some time")
-                time.sleep(3)
+                time.sleep(1)
                 pass
         if not valid_request:
             print("test_helm_curl_output: Service was not available")
