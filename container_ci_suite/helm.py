@@ -126,15 +126,15 @@ class HelmChartsAPI:
             return True
         return False
 
-    def is_s2i_pod_running(self, pod_name_prefix: str):
+    def is_s2i_pod_running(self, pod_name_prefix: str, timeout: int = 180):
         oc_ops = OpenShiftOperations()
         oc_ops.set_namespace(namespace=self.oc_api.namespace)
-        return oc_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix)
+        return oc_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix, cycle_count=timeout)
 
-    def is_pod_running(self, pod_name_prefix: str):
+    def is_pod_running(self, pod_name_prefix: str, loops: int = 180):
         oc_ops = OpenShiftOperations()
         oc_ops.set_namespace(namespace=self.oc_api.namespace)
-        return oc_ops.is_pod_running(pod_name_prefix=pod_name_prefix)
+        return oc_ops.is_pod_running(pod_name_prefix=pod_name_prefix, loops=loops)
 
     def helm_package(self) -> bool:
         """
