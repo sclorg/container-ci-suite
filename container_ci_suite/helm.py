@@ -158,7 +158,6 @@ class HelmChartsAPI:
         # Remove debug wrong output
         new_output = []
         for line in output.split('\n'):
-            print(line)
             if line.startswith("W"):
                 continue
             new_output.append(line)
@@ -199,7 +198,14 @@ class HelmChartsAPI:
             self.helm_uninstallation()
         command_values = ""
         if values:
-            command_values = ' '.join([f"--set {key}={value}" for key, value in values.items()])
+            if utils.is_shared_cluster():
+                command_values = ' '.join(
+                    [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
+                )
+            if "name" in values:
+                date_string = utils.get_datetime_string()
+                values["name"] = values["name"] + f"-{date_string}"
+            command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
         json_output = self.get_helm_json_output(
             f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
         )
