@@ -51,7 +51,7 @@ class OpenShiftAPI:
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
-        self.shared_cluster = utils.is_share_cluster()
+        self.shared_cluster = utils.is_shared_cluster()
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version

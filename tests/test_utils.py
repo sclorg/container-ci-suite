@@ -146,11 +146,15 @@ class TestContainerCISuiteUtils(object):
             "apiVersion": "tenant.paas.redhat.com/v1alpha1",
             "kind": "TenantNamespace",
             "metadata": {
+                'labels': {
+                    'tenant.paas.redhat.com/namespace-type': 'build',
+                    'tenant.paas.redhat.com/tenant': 'core-services-ocp',
+                },
                 "name": "123456",
                 "namespace": "core-services-ocp--config"
             },
             "spec": {
-                "type": "runtime",
+                "type": "build",
                 "roles": [
                         "namespace-admin",
                         "tenant-egress-admin"
@@ -251,4 +255,4 @@ class TestContainerCISuiteUtils(object):
     )
     def test_is_shared_cluster(self, os_env, expected_output):
         flexmock(utils).should_receive("load_shared_credentials").and_return(os_env)
-        assert utils.is_share_cluster() == expected_output
+        assert utils.is_shared_cluster() == expected_output

@@ -34,6 +34,8 @@ import yaml
 
 from typing import List, Any
 from pathlib import Path
+from datetime import datetime
+
 
 from container_ci_suite.constants import CA_FILE_PATH
 
@@ -252,11 +254,15 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantNamespace",
         "metadata": {
+            "labels": {
+                "tenant.paas.redhat.com/namespace-type": "build",
+                "tenant.paas.redhat.com/tenant": "core-services-ocp"
+            },
             "name": f"{project_name}",
             "namespace": "core-services-ocp--config"
         },
         "spec": {
-            "type": "runtime",
+            "type": "build",
             "roles": [
                     "namespace-admin",
                     "tenant-egress-admin"
@@ -381,7 +387,7 @@ def load_shared_credentials(credential: str) -> Any:
     return cred
 
 
-def is_share_cluster() -> bool:
+def is_shared_cluster() -> bool:
     file_shared_cluster = load_shared_credentials("SHARED_CLUSTER")
     if not file_shared_cluster:
         print("Not defined variable SHARED_CLUSTER")
@@ -397,3 +403,17 @@ def is_share_cluster() -> bool:
 def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = "master") -> str:
     RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
     return RAW_SCL_JSON_URL.format(container=container, branch=branch, dir=dir, filename=filename)
+
+
+def shared_cluster_variables() -> dict:
+    shared_cluster_data = {
+        "registry.enabled": "true",
+        "registry.name": os.getenv("INTERNAL_IMAGE_REGISTRY", None),
+        "registry.namespace": "core-services-ocp"
+    }
+    return shared_cluster_data
+
+
+def get_datetime_string() -> str:
+    now = datetime.now()
+    return now.strftime("%Y%m%d-%H%M%S")
