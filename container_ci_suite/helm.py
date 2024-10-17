@@ -43,20 +43,25 @@ logger = logging.getLogger(__name__)
 class HelmChartsAPI:
 
     def __init__(
-            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, remote: bool = False
+            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, shared_cluster: bool = True
     ):
         self.path: Path = path
         self.version: str = ""
         self.package_name: str = package_name
         self.tarball_dir = tarball_dir
         self.delete_prj: bool = delete_prj
+        if shared_cluster:
+            self.shared_cluster = True
+        else:
+            self.shared_cluster = utils.is_shared_cluster(test_type="helm")
         self.create_prj: bool = True
-        self.oc_api = OpenShiftAPI(create_prj=self.create_prj, delete_prj=self.delete_prj)
+        self.oc_api = OpenShiftAPI(
+            create_prj=self.create_prj, delete_prj=self.delete_prj, shared_cluster=self.shared_cluster
+        )
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
         self.cloned_dir = ""
-        self.remote = remote
 
     @staticmethod
     def run_helm_command(
@@ -80,7 +85,7 @@ class HelmChartsAPI:
 
     def delete_project(self):
         self.oc_api.delete_project()
-        if self.remote and Path(self.cloned_dir).exists():
+        if self.cloned_dir != "" and Path(self.cloned_dir).exists():
             shutil.rmtree(self.cloned_dir)
 
     @property
@@ -198,7 +203,7 @@ class HelmChartsAPI:
             self.helm_uninstallation()
         command_values = ""
         if values:
-            if utils.is_shared_cluster():
+            if utils.is_shared_cluster(test_type="helm"):
                 command_values = ' '.join(
                     [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
                 )
@@ -287,16 +292,17 @@ class HelmChartsAPI:
         """
         Returns JSON output
         """
-        tag_found = False
         oc_ops = OpenShiftOperations()
         oc_ops.set_namespace(namespace=self.oc_api.namespace)
         json_output = oc_ops.oc_gel_all_is()
         for tag in json_output["items"][0]["spec"]["tags"]:
-            print(f"TAG: {tag}")
-            if tag["name"] == version and tag["from"]["name"] == registry:
-                tag_found = True
-                break
-        return tag_found
+            tag_name = tag["name"]
+            tag_registry = tag["from"]["name"]
+            print(f"Important tags: {version}={tag_name}, {registry}={tag_registry}")
+            if tag_name == version and tag_registry == registry:
+                print("Imagestream tag exists.")
+                return True
+        return False
 
     def test_helm_curl_output(
             self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"

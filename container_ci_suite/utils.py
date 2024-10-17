@@ -1,7 +1,7 @@
 # MIT License
 #
 # Copyright (c) 2018-2019 Red Hat, Inc.
-
+import json
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -387,17 +387,37 @@ def load_shared_credentials(credential: str) -> Any:
     return cred
 
 
-def is_shared_cluster() -> bool:
-    file_shared_cluster = load_shared_credentials("SHARED_CLUSTER")
-    if not file_shared_cluster:
-        print("Not defined variable SHARED_CLUSTER")
+def get_shared_json_data() -> dict:
+    file_name = Path("/root/shared_cluster.json")
+    if not file_name.exists():
+        return {}
+    json_data: dict = {}
+    with open(file_name) as fd:
+        json_data = json.loads(fd.read())
+    return json_data
+
+
+def is_shared_cluster(test_type: str = "ocp4") -> bool:
+    json_data = get_shared_json_data()
+    if test_type not in json_data:
         return False
-    file_shared_cluster = ''.join(file_shared_cluster.split())
-    if file_shared_cluster in ["True", "true", "1", "yes", "Yes", "y", "Y"]:
-        print("Shared cluster allowed")
+    value = json_data[test_type]
+    if isinstance(value, bool) and value is True:
+        print(f"Shared cluster allowed for {test_type}")
         return True
-    print("\nShared cluster is not allowed.\nTo allow it add 'true' to file in variable $SHARED_CLUSTER.")
+    if isinstance(value, str) and value in ["true", "True", "y", "Y", "1"]:
+        print(f"Shared cluster allowed for {test_type}")
+        return True
+    print("\nShared cluster is not allowed.\nTo allow it add 'true' to file /root/shared_cluster.json.")
     return False
+
+
+def get_shared_variable(variable: str) -> Any:
+    json_data = get_shared_json_data()
+    if variable not in json_data:
+        print(f"\nVariable {variable} is not present in file /root/shared_cluster.json")
+        return None
+    return json_data[variable]
 
 
 def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = "master") -> str:
@@ -408,7 +428,7 @@ def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = 
 def shared_cluster_variables() -> dict:
     shared_cluster_data = {
         "registry.enabled": "true",
-        "registry.name": os.getenv("INTERNAL_IMAGE_REGISTRY", None),
+        "registry.name": get_shared_variable("registry_url"),
         "registry.namespace": "core-services-ocp"
     }
     return shared_cluster_data
