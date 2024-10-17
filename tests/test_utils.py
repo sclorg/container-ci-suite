@@ -236,23 +236,28 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load == expected_yaml
 
     @pytest.mark.parametrize(
-        "os_env,expected_output",
+        "json_data,expected_output",
         [
-            ("False", False),
-            ("false", False),
-            (None, False),
-            ("True", True),
-            ("true", True),
-            ("", False),
-            ("Somthing", False),
-            ("Y", True),
-            ("y", True),
-            ("1", True),
-            ("No", False),
-            ("0", False),
-            ("true\n\n", True),
+            ({"helm": "False"}, False),
+            ({"helm": "True"}, True),
+            ({"helm": True}, True),
+            ({"ocp4": "False"}, False),
+            ({"ocp4": "True"}, True),
+            ({"ocp4": True}, True),
+            ({"ocp4": "false"}, False),
+            ({"ocp4": None}, False),
+            ({"ocp4": "true"}, True),
+            ({"ocp4": ""}, False),
+            ({"ocp4": "Somthing"}, False),
+            ({"ocp4": "Y"}, True),
+            ({"helm": "y"}, True),
+            ({"helm": "1"}, True),
+            ({"helm": "No"}, False),
+            ({"helm": "0"}, False),
+            ({"helm": "true"}, True),
         ],
     )
-    def test_is_shared_cluster(self, os_env, expected_output):
-        flexmock(utils).should_receive("load_shared_credentials").and_return(os_env)
-        assert utils.is_shared_cluster() == expected_output
+    def test_is_shared_cluster(self, json_data, expected_output):
+        flexmock(utils).should_receive("get_shared_json_data").and_return(json_data)
+        test = json_data.keys()
+        assert utils.is_shared_cluster(test_type=''.join(test)) == expected_output

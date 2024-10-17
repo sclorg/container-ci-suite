@@ -21,7 +21,6 @@
 # SOFTWARE.
 import json
 import logging
-import os
 import re
 import time
 import random
@@ -47,11 +46,15 @@ class OpenShiftAPI:
             self, namespace: str = "default",
             pod_name_prefix: str = "", create_prj: bool = True,
             delete_prj: bool = True,
+            shared_cluster: bool = False,
             version: str = ""
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
-        self.shared_cluster = utils.is_shared_cluster()
+        if shared_cluster:
+            self.shared_cluster = shared_cluster
+        else:
+            self.shared_cluster = utils.is_shared_cluster(test_type="ocp4")
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version
@@ -186,9 +189,9 @@ class OpenShiftAPI:
 
     def login_to_shared_cluster(self):
         token = utils.load_shared_credentials("SHARED_CLUSTER_TOKEN")
-        url = utils.load_shared_credentials("SHARED_CLUSTER_URL")
+        url = utils.get_shared_variable("shared_cluster_url")
         if not all([token, url]):
-            print("Important variables 'SHARED_CLUSTER_TOKEN,SHARED_CLUSTER_URL' are missing.")
+            print("Important variables 'SHARED_CLUSTER_TOKEN,shared_cluster_url' are missing.")
             return None
         output = run_oc_command(f"login --token={token} --server={url}", json_output=False)
         print(output)
@@ -199,11 +202,14 @@ class OpenShiftAPI:
 
     @staticmethod
     def login_external_registry() -> Any:
-        registry_url = os.getenv("INTERNAL_IMAGE_REGISTRY", None)
-        robot_token = utils.load_shared_credentials("ROBOT_TOKEN")
+        registry_url = utils.get_shared_variable("internal_image_registry")
+        robot_token = utils.get_shared_variable("robot_account")
         robot_name = utils.load_shared_credentials("ROBOT_NAME")
         if not all([registry_url, robot_token, robot_name]):
-            print("Important variables 'INTERNAL_IMAGE_REGISTRY,ROBOT_TOKEN,ROBOT_NAME' are missing.")
+            print(
+                "Important variable ROBOT_TOKEN or variables in file /root/shared_cluster"
+                " 'internal_image_registry,robot_account' are missing."
+            )
             return None
         cmd = f"podman login -u {robot_name} -p {robot_token} {registry_url}"
         output = utils.run_command(
