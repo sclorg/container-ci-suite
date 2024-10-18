@@ -397,6 +397,15 @@ def get_shared_json_data() -> dict:
     return json_data
 
 
+def get_yaml_data(filename_path: Path) -> dict:
+    print(filename_path)
+    if not filename_path.exists():
+        return {}
+    with open(filename_path) as fd_chart:
+        lines = fd_chart.read()
+    return yaml.safe_load(lines)
+
+
 def is_shared_cluster(test_type: str = "ocp4") -> bool:
     json_data = get_shared_json_data()
     if test_type not in json_data:
