@@ -22,7 +22,6 @@
 import json
 import shutil
 
-import yaml
 import logging
 import time
 import requests
@@ -43,20 +42,25 @@ logger = logging.getLogger(__name__)
 class HelmChartsAPI:
 
     def __init__(
-            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, remote: bool = False
+            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, shared_cluster: bool = True
     ):
         self.path: Path = path
         self.version: str = ""
         self.package_name: str = package_name
         self.tarball_dir = tarball_dir
         self.delete_prj: bool = delete_prj
+        if shared_cluster:
+            self.shared_cluster = True
+        else:
+            self.shared_cluster = utils.is_shared_cluster(test_type="helm")
         self.create_prj: bool = True
-        self.oc_api = OpenShiftAPI(create_prj=self.create_prj, delete_prj=self.delete_prj)
+        self.oc_api = OpenShiftAPI(
+            create_prj=self.create_prj, delete_prj=self.delete_prj, shared_cluster=self.shared_cluster
+        )
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
         self.cloned_dir = ""
-        self.remote = remote
 
     @staticmethod
     def run_helm_command(
@@ -80,7 +84,7 @@ class HelmChartsAPI:
 
     def delete_project(self):
         self.oc_api.delete_project()
-        if self.remote and Path(self.cloned_dir).exists():
+        if self.cloned_dir != "" and Path(self.cloned_dir).exists():
             shutil.rmtree(self.cloned_dir)
 
     @property
@@ -108,14 +112,29 @@ class HelmChartsAPI:
             self.path = Path(temp_dir) / repo_name
 
     def get_version_from_chart_yaml(self) -> Any:
-        chart_yaml = self.full_package_dir / "Chart.yaml"
-        if not chart_yaml.exists():
-            return False
-        with open(chart_yaml) as fd_chart:
-            lines = fd_chart.read()
-        chart_dict = yaml.safe_load(lines)
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "Chart.yaml")
         if "appVersion" in chart_dict:
             return chart_dict["appVersion"]
+        return None
+
+    def is_registry_in_values_yaml(self) -> bool:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        print(chart_dict)
+        if "registry" in chart_dict:
+            return True
+        return False
+
+    def is_pvc_in_values_yaml(self) -> bool:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        print(chart_dict)
+        if "pvc" in chart_dict:
+            return True
+        return False
+
+    def get_name_from_values_yaml(self) -> Any:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        if "name" in chart_dict:
+            return chart_dict["name"]
         return None
 
     def set_version(self, version: str):
@@ -158,7 +177,6 @@ class HelmChartsAPI:
         # Remove debug wrong output
         new_output = []
         for line in output.split('\n'):
-            print(line)
             if line.startswith("W"):
                 continue
             new_output.append(line)
@@ -198,8 +216,19 @@ class HelmChartsAPI:
         if self.is_helm_package_installed():
             self.helm_uninstallation()
         command_values = ""
-        if values:
-            command_values = ' '.join([f"--set {key}={value}" for key, value in values.items()])
+        if self.is_registry_in_values_yaml():
+            if values:
+                if utils.is_shared_cluster(test_type="helm"):
+                    command_values = ' '.join(
+                        [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
+                    )
+                if "name" in values:
+                    date_string = utils.get_datetime_string()
+                    values["name"] = self.get_name_from_values_yaml() + f"-{date_string}"
+                command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
+        if self.is_pvc_in_values_yaml():
+            command_values += f" --set pvc.netapp_nfs=true --set pvc.app_code={utils.get_shared_variable('app_code')}"
+        print(command_values)
         json_output = self.get_helm_json_output(
             f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
         )
@@ -281,16 +310,17 @@ class HelmChartsAPI:
         """
         Returns JSON output
         """
-        tag_found = False
         oc_ops = OpenShiftOperations()
         oc_ops.set_namespace(namespace=self.oc_api.namespace)
         json_output = oc_ops.oc_gel_all_is()
         for tag in json_output["items"][0]["spec"]["tags"]:
-            print(f"TAG: {tag}")
-            if tag["name"] == version and tag["from"]["name"] == registry:
-                tag_found = True
-                break
-        return tag_found
+            tag_name = tag["name"]
+            tag_registry = tag["from"]["name"]
+            print(f"Important tags: {version}={tag_name}, {registry}={tag_registry}")
+            if tag_name == version and tag_registry == registry:
+                print("Imagestream tag exists.")
+                return True
+        return False
 
     def test_helm_curl_output(
             self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"

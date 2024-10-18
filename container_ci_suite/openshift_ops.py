@@ -228,9 +228,11 @@ class OpenShiftOperations:
 
     def is_imagestream_exist(self, name: str):
         try:
-            json_output = self.oc_get_is(name=name)
-            if json_output["kind"] == "ImageStream" and json_output["metadata"]["name"] == name:
-                return json_output
+            for count in range(3):
+                json_output = self.oc_get_is(name=name)
+                if json_output["kind"] == "ImageStream" and json_output["metadata"]["name"] == name:
+                    return json_output
+                time.sleep(1)
         except CalledProcessError:
             pass
         return None
