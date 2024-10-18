@@ -298,6 +298,36 @@ def save_tenant_egress_yaml(project_name: str) -> str:
                 },
                 {
                     "to": {
+                        "dnsName": "pypi.org"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "dnsName": "www.cpan.org"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "dnsName": "backpan.perl.org"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "dnsName": "www.metacpan.org"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
+                        "dnsName": "files.pythonhosted.org"
+                    },
+                    "type": "Allow"
+                },
+                {
+                    "to": {
                         "cidrSelector": "172.0.0.0/8"
                     },
                     "type": "Allow"
@@ -395,6 +425,15 @@ def get_shared_json_data() -> dict:
     with open(file_name) as fd:
         json_data = json.loads(fd.read())
     return json_data
+
+
+def get_yaml_data(filename_path: Path) -> dict:
+    print(filename_path)
+    if not filename_path.exists():
+        return {}
+    with open(filename_path) as fd_chart:
+        lines = fd_chart.read()
+    return yaml.safe_load(lines)
 
 
 def is_shared_cluster(test_type: str = "ocp4") -> bool:
