@@ -22,7 +22,6 @@
 import json
 import shutil
 
-import yaml
 import logging
 import time
 import requests
@@ -113,14 +112,27 @@ class HelmChartsAPI:
             self.path = Path(temp_dir) / repo_name
 
     def get_version_from_chart_yaml(self) -> Any:
-        chart_yaml = self.full_package_dir / "Chart.yaml"
-        if not chart_yaml.exists():
-            return False
-        with open(chart_yaml) as fd_chart:
-            lines = fd_chart.read()
-        chart_dict = yaml.safe_load(lines)
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "Chart.yaml")
         if "appVersion" in chart_dict:
             return chart_dict["appVersion"]
+        return None
+
+    def is_registry_in_values_yaml(self) -> bool:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        if "registry" in chart_dict:
+            return True
+        return False
+
+    def is_pvc_in_values_yaml(self) -> bool:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        if "pvc" in chart_dict:
+            return True
+        return False
+
+    def get_name_from_values_yaml(self) -> Any:
+        chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        if "name" in chart_dict:
+            return chart_dict["name"]
         return None
 
     def set_version(self, version: str):
@@ -202,15 +214,18 @@ class HelmChartsAPI:
         if self.is_helm_package_installed():
             self.helm_uninstallation()
         command_values = ""
-        if values:
-            if utils.is_shared_cluster(test_type="helm"):
-                command_values = ' '.join(
-                    [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
-                )
-            if "name" in values:
-                date_string = utils.get_datetime_string()
-                values["name"] = values["name"] + f"-{date_string}"
-            command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
+        if self.is_registry_in_values_yaml():
+            if values:
+                if utils.is_shared_cluster(test_type="helm"):
+                    command_values = ' '.join(
+                        [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
+                    )
+                if "name" in values:
+                    date_string = utils.get_datetime_string()
+                    values["name"] = self.get_name_from_values_yaml() + f"-{date_string}"
+                command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
+        if self.is_pvc_in_values_yaml():
+            command_values += f" --set pvc.netapp_nfs=true --set pvc.app_code={utils.get_shared_variable('app_code')}"
         json_output = self.get_helm_json_output(
             f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
         )
