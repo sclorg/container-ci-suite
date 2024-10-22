@@ -61,6 +61,7 @@ class OpenShiftAPI:
         self.shared_random_name = ""
         self.config_tenant_name = "core-services-ocp--config"
         self.openshift_ops = OpenShiftOperations(pod_name_prefix=pod_name_prefix)
+        print(f"Namespace is: {namespace}")
         if namespace == "default":
             self.create_project()
         else:
@@ -202,16 +203,16 @@ class OpenShiftAPI:
 
     @staticmethod
     def login_external_registry() -> Any:
-        registry_url = utils.get_shared_variable("internal_image_registry")
-        robot_token = utils.get_shared_variable("robot_account")
-        robot_name = utils.load_shared_credentials("ROBOT_NAME")
+        registry_url = utils.get_shared_variable("registry_url")
+        robot_token = utils.load_shared_credentials("ROBOT_TOKEN")
+        robot_name = utils.get_shared_variable("robot_account")
         if not all([registry_url, robot_token, robot_name]):
             print(
                 "Important variable ROBOT_TOKEN or variables in file /root/shared_cluster"
-                " 'internal_image_registry,robot_account' are missing."
+                " 'registry_url,robot_account' are missing."
             )
             return None
-        cmd = f"podman login -u {robot_name} -p {robot_token} {registry_url}"
+        cmd = f"podman login -u \"{robot_name}\" -p \"{robot_token}\" {registry_url}"
         output = utils.run_command(
             cmd=cmd,
             ignore_error=False,

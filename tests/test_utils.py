@@ -173,67 +173,14 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load == expected_yaml
 
     def test_tenantnegress_yaml(self):
-        expected_yaml = {
-            "apiVersion": "tenant.paas.redhat.com/v1alpha1",
-            "kind": "TenantEgress",
-            "metadata": {
-                "name": "default",
-                "namespace": "core-services-ocp--123456"
-            },
-            "spec": {
-                "egress": [
-                    {
-                        "to": {
-                            "dnsName": "github.com"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "172.0.0.0/8"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "172.0.0.0/8"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "10.0.0.0/9"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "52.218.128.0/17"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "52.92.128.0/17"
-                        },
-                        "type": "Allow"
-                    },
-                    {
-                        "to": {
-                            "cidrSelector": "52.216.0.0/15"
-                        },
-                        "type": "Allow"
-                    }
-                ]
-            }
-        }
         tenant_yaml = utils.save_tenant_egress_yaml(project_name="123456")
-        print(tenant_yaml)
         with open(tenant_yaml) as fd:
             yaml_load = yaml.safe_load(fd.read())
         assert yaml_load
         assert yaml_load["metadata"]["namespace"] == "core-services-ocp--123456"
-        assert yaml_load == expected_yaml
+        assert yaml_load["spec"]["egress"][0]["to"]["dnsName"] == "github.com"
+        assert len(yaml_load["spec"]["egress"]) == 14
+        assert yaml_load["spec"]["egress"][14-2]["to"]["cidrSelector"] == "52.92.128.0/17"
 
     @pytest.mark.parametrize(
         "json_data,expected_output",

@@ -220,9 +220,6 @@ class HelmChartsAPI:
                     command_values = ' '.join(
                         [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
                     )
-                if "name" in values:
-                    date_string = utils.get_datetime_string()
-                    values["name"] = self.get_name_from_values_yaml() + f"-{date_string}"
                 command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
         if self.is_pvc_in_values_yaml():
             command_values += f" --set pvc.netapp_nfs=true --set pvc.app_code={utils.get_shared_variable('app_code')}"
@@ -264,6 +261,7 @@ class HelmChartsAPI:
             print("Function expects list of strings to check.")
             return False
         check_list.extend(expected_str)
+        print(f"Strings to check in helm output log: {check_list}")
         result_list = [x in ''.join(output) for x in check_list]
         if False in result_list:
             return False
@@ -271,7 +269,7 @@ class HelmChartsAPI:
 
     def test_helm_chart(self, expected_str: List[str]) -> bool:
         for count in range(60):
-            time.sleep(1)
+            time.sleep(2)
             try:
                 output = HelmChartsAPI.run_helm_command(
                     f"test {self.package_name} --logs", json_output=False
