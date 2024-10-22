@@ -118,9 +118,9 @@ class OpenShiftOperations:
                     output = self.get_logs(pod_name=pod_name)
                     print(output)
                     # Wait couple seconds for sure
-                    time.sleep(1)
+                    time.sleep(3)
                     return True
-            time.sleep(1)
+            time.sleep(3)
         return False
 
     def is_build_pod_present(self) -> bool:
@@ -174,7 +174,7 @@ class OpenShiftOperations:
                 print(".", sep="", end="")
                 if self.build_failed:
                     return False
-                time.sleep(1)
+                time.sleep(3)
                 continue
             print("\nBuild pod is finished")
             return True
@@ -194,7 +194,7 @@ class OpenShiftOperations:
                 time.sleep(1)
                 continue
             if not self.is_pod_finished(pod_suffix_name="build"):
-                time.sleep(1)
+                time.sleep(3)
                 continue
             build_pod_finished = True
             print(f"\nBuild pod with name {pod_name_prefix} is finished.")
@@ -206,7 +206,7 @@ class OpenShiftOperations:
         for count in range(cycle_count):
             print(".", sep="", end="")
             if not self.is_pod_running():
-                time.sleep(1)
+                time.sleep(3)
                 continue
             print("\nPod is running")
             return True

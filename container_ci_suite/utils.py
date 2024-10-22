@@ -280,7 +280,27 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
     return temp_file.name
 
 
-def save_tenant_egress_yaml(project_name: str) -> str:
+def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
+    if not rules:
+        rules = [
+            "github.com", "api.github.com", "codeload.github.com", "pypi.org", "www.cpan.org",
+            "backpan.perl.org", "www.metacpan.org", "files.pythonhosted.org", "getcomposer.org",
+        ]
+    generated_yaml = []
+    for rule in rules:
+        generated_yaml.append({
+            "to": {
+                "dnsName": f"{rule}"
+            },
+            "type": "Allow"
+        })
+    for rule in ["172.0.0.0/8", "10.0.0.0/9", "52.218.128.0/17", "52.92.128.0/17", "52.216.0.0/15"]:
+        generated_yaml.append({
+            "to": {
+                "cidrSelector": f"{rule}"
+            },
+            "type": "Allow"
+        })
     tenant_egress_yaml = {
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantEgress",
@@ -289,80 +309,7 @@ def save_tenant_egress_yaml(project_name: str) -> str:
             "namespace": f"core-services-ocp--{project_name}"
         },
         "spec": {
-            "egress": [
-                {
-                    "to": {
-                        "dnsName": "github.com"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "dnsName": "pypi.org"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "dnsName": "www.cpan.org"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "dnsName": "backpan.perl.org"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "dnsName": "www.metacpan.org"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "dnsName": "files.pythonhosted.org"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "172.0.0.0/8"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "172.0.0.0/8"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "10.0.0.0/9"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "52.218.128.0/17"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "52.92.128.0/17"
-                    },
-                    "type": "Allow"
-                },
-                {
-                    "to": {
-                        "cidrSelector": "52.216.0.0/15"
-                    },
-                    "type": "Allow"
-                }
-            ]
+            "egress": generated_yaml
         }
     }
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
@@ -468,7 +415,8 @@ def shared_cluster_variables() -> dict:
     shared_cluster_data = {
         "registry.enabled": "true",
         "registry.name": get_shared_variable("registry_url"),
-        "registry.namespace": "core-services-ocp"
+        "registry.namespace": "core-services-ocp",
+        "registry.push_secret": get_shared_variable("push_secret"),
     }
     return shared_cluster_data
 
