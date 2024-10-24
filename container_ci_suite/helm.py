@@ -178,7 +178,11 @@ class HelmChartsAPI:
         return False
 
     def get_helm_json_output(self, command: str) -> Dict:
-        output = HelmChartsAPI.run_helm_command(cmd=command)
+        try:
+            output = HelmChartsAPI.run_helm_command(cmd=command)
+        except subprocess.CalledProcessError as cpe:
+            print(f"Helm command {command} failed. See {cpe.output}")
+            return {}
         # Remove debug wrong output
         new_output = []
         for line in output.split('\n'):
@@ -235,6 +239,8 @@ class HelmChartsAPI:
         )
         # Let's wait couple seconds, till it is not really imported
         time.sleep(3)
+        if not json_output:
+            return False
         assert json_output["name"] == self.package_name
         assert json_output["chart"]["metadata"]["version"] == self.version
         assert json_output["info"]["status"] == "deployed"
