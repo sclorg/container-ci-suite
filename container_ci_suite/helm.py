@@ -42,7 +42,13 @@ logger = logging.getLogger(__name__)
 class HelmChartsAPI:
 
     def __init__(
-            self, path: Path, package_name: str, tarball_dir: Path, delete_prj: bool = True, shared_cluster: bool = True
+            self,
+            path: Path,
+            package_name: str,
+            tarball_dir: Path,
+            delete_prj: bool = True,
+            shared_cluster: bool = True,
+            remote: bool = False
     ):
         self.path: Path = path
         self.version: str = ""
@@ -61,6 +67,7 @@ class HelmChartsAPI:
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
         self.cloned_dir = ""
+        self.remote = remote
 
     @staticmethod
     def run_helm_command(
