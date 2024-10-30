@@ -284,6 +284,7 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     if not rules:
         rules = [
             "github.com", "api.github.com", "codeload.github.com", "pypi.org", "www.cpan.org",
+            "registry.npmjs.org", "npmjs.org", "npmjs.com",
             "backpan.perl.org", "www.metacpan.org", "files.pythonhosted.org", "getcomposer.org",
         ]
     generated_yaml = []
