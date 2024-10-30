@@ -179,8 +179,17 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load
         assert yaml_load["metadata"]["namespace"] == "core-services-ocp--123456"
         assert yaml_load["spec"]["egress"][0]["to"]["dnsName"] == "github.com"
-        assert len(yaml_load["spec"]["egress"]) == 14
-        assert yaml_load["spec"]["egress"][14-2]["to"]["cidrSelector"] == "52.92.128.0/17"
+        check_address = False
+        check_dnsName = False
+        for egress in yaml_load["spec"]["egress"]:
+            if "cidrSelector" in egress["to"]:
+                if egress["to"]["cidrSelector"] == "52.92.128.0/17":
+                    check_address = True
+            if "dnsName" in egress["to"]:
+                if egress["to"]["dnsName"] == "registry.npmjs.org":
+                    check_dnsName = True
+        assert check_address
+        assert check_dnsName
 
     @pytest.mark.parametrize(
         "json_data,expected_output",
