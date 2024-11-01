@@ -24,7 +24,7 @@
 
 from flexmock import flexmock
 
-from container_ci_suite.openshift_ops import OpenShiftOperations
+from container_ci_suite.engines.openshift import OpenShiftOperations
 
 
 class TestOpenShiftOpsSuite(object):

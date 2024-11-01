@@ -34,7 +34,7 @@ from os import getenv
 from pathlib import Path
 from tempfile import mkdtemp, mktemp
 
-from container_ci_suite.container_engine import PodmanCLIWrapper
+from container_ci_suite.engines.container import PodmanCLIWrapper
 from container_ci_suite.utils import (
     run_command,
     get_file_content,

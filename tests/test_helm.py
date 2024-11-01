@@ -29,7 +29,7 @@ from pathlib import Path
 
 from container_ci_suite.helm import HelmChartsAPI
 from container_ci_suite.openshift import OpenShiftAPI
-from container_ci_suite.openshift_ops import OpenShiftOperations
+from container_ci_suite.engines.openshift import OpenShiftOperations
 
 test_dir = Path(os.path.abspath(os.path.dirname(__file__)))
 

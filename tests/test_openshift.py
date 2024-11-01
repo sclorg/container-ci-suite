@@ -27,8 +27,8 @@ import pytest
 from flexmock import flexmock
 
 from container_ci_suite.openshift import OpenShiftAPI
-from container_ci_suite.openshift_ops import OpenShiftOperations
-from container_ci_suite.container_engine import PodmanCLIWrapper
+from container_ci_suite.engines.openshift import OpenShiftOperations
+from container_ci_suite.engines.container import PodmanCLIWrapper
 from container_ci_suite import utils
 
 
