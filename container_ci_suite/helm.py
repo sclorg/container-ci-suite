@@ -33,7 +33,7 @@ from pathlib import Path
 import container_ci_suite.utils as utils
 
 from container_ci_suite.openshift import OpenShiftAPI
-from container_ci_suite.openshift_ops import OpenShiftOperations
+from container_ci_suite.engines.openshift import OpenShiftOperations
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)

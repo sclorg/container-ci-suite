@@ -29,8 +29,8 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, List
 
-from container_ci_suite.container_engine import PodmanCLIWrapper
-from container_ci_suite.openshift_ops import OpenShiftOperations
+from container_ci_suite.engines.container import PodmanCLIWrapper
+from container_ci_suite.engines.openshift import OpenShiftOperations
 from container_ci_suite.utils import run_oc_command
 
 
