@@ -23,10 +23,11 @@ import json
 import logging
 import time
 
+from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Dict, Any
 
-from container_ci_suite.utils import run_oc_command
+from container_ci_suite.utils import run_oc_command, get_file_content, load_shared_credentials, get_shared_variable
 
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -43,6 +44,23 @@ class OpenShiftOperations:
 
     def set_namespace(self, namespace: str):
         self.namespace = namespace
+
+    def login_to_cluster(self, shared_cluster: bool = False):
+        if shared_cluster:
+            token = load_shared_credentials("SHARED_CLUSTER_TOKEN")
+            url = get_shared_variable("shared_cluster_url")
+            if not all([token, url]):
+                print("Important variables 'SHARED_CLUSTER_TOKEN,shared_cluster_url' are missing.")
+                return None
+            cmd = f"login --token={token} --server={url}"
+        else:
+            url = load_shared_credentials("LOCAL_CLUSTER_URL")
+            password = get_file_content(filename=Path("/root/.kube/ocp-kube"))
+            cmd = f"login -u kubeadmin -p {password} --server={url}"
+        output = run_oc_command(cmd, json_output=False)
+        print(output)
+        output = run_oc_command("version", json_output=False)
+        print(output)
 
     def get_pod_status(self) -> Dict:
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
