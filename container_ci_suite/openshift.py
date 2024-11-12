@@ -47,7 +47,7 @@ class OpenShiftAPI:
             pod_name_prefix: str = "", create_prj: bool = True,
             delete_prj: bool = True,
             shared_cluster: bool = False,
-            version: str = ""
+            version: str = "",
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
@@ -71,6 +71,7 @@ class OpenShiftAPI:
     def create_project(self):
         print(f"Create project {self.create_prj} and {self.shared_cluster}")
         if self.create_prj:
+            self.openshift_ops.login_to_cluster(shared_cluster=self.shared_cluster)
             if self.shared_cluster:
                 self.shared_random_name = f"sclorg-{random.randrange(10000, 100000)}"
                 self.namespace = f"core-services-ocp--{self.shared_random_name}"
@@ -109,7 +110,6 @@ class OpenShiftAPI:
     def prepare_tenant_namespace(self):
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
-        self.login_to_shared_cluster()
         if not self.create_tenant_namespace():
             return False
         # Let's wait 3 seconds till project is not up
@@ -189,13 +189,7 @@ class OpenShiftAPI:
         return output
 
     def login_to_shared_cluster(self):
-        token = utils.load_shared_credentials("SHARED_CLUSTER_TOKEN")
-        url = utils.get_shared_variable("shared_cluster_url")
-        if not all([token, url]):
-            print("Important variables 'SHARED_CLUSTER_TOKEN,shared_cluster_url' are missing.")
-            return None
-        output = run_oc_command(f"login --token={token} --server={url}", json_output=False)
-        print(output)
+        self.openshift_ops.login_to_cluster(shared_cluster=True)
         output = run_oc_command("version", json_output=False)
         print(output)
         output = run_oc_command(f"project {self.config_tenant_name}", json_output=False)
