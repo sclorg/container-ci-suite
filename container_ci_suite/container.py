@@ -49,7 +49,7 @@ logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-class ContainerCISuite(object):
+class ContainerAPI(object):
     def __init__(self, image_name: str):
         self.image_name: str = image_name
         self.container_args: str = ""

@@ -21,7 +21,7 @@ import os
 
 import pytest
 
-from container_ci_suite.api import ContainerCISuite
+from container_ci_suite.container import ContainerAPI
 
 image_name = os.environ.get("IMAGE_NAME", "nginx-container")
 test_dir = os.path.abspath(os.path.dirname(__file__))
@@ -29,7 +29,7 @@ test_dir = os.path.abspath(os.path.dirname(__file__))
 
 class TestDummyImage(object):
     def test_s2i_usage(self):
-        ccs = ContainerCISuite(image_name=image_name)
+        ccs = ContainerAPI(image_name=image_name)
         ccs.s2i_usage()
 
 ```
