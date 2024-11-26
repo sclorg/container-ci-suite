@@ -27,18 +27,18 @@ from pathlib import Path
 
 import pytest
 
-from container_ci_suite.constants import CA_FILE_PATH
-
 from tests.spellbook import DATA_DIR
 
 
 def create_ca_file():
+    CA_FILE_PATH = "/tmp/CA_FILE_PATH"
     with open(CA_FILE_PATH, "w") as f:
         f.write("foobar")
     os.environ["NPM_REGISTRY"] = "foobar"
 
 
 def delete_ca_file():
+    CA_FILE_PATH = "/tmp/CA_FILE_PATH"
     p = Path(CA_FILE_PATH)
     p.unlink()
     os.unsetenv("NPM_REGISTRY")

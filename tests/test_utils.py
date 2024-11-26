@@ -25,6 +25,7 @@
 import os
 import yaml
 
+from pathlib import Path
 from flexmock import flexmock
 
 import pytest
@@ -37,6 +38,7 @@ from container_ci_suite.utils import (
     get_env_commands_from_s2i_args,
 )
 from container_ci_suite import utils
+
 from tests.conftest import create_ca_file, delete_ca_file
 
 
@@ -63,6 +65,7 @@ class TestContainerCISuiteUtils(object):
 
     def test_get_npm_variables(self):
         create_ca_file()
+        flexmock(utils).should_receive("get_full_ca_file_path").and_return(Path("/tmp/CA_FILE_PATH"))
         assert get_npm_variables() == f"-e NPM_MIRROR=foobar {get_mount_ca_file()}"
         delete_ca_file()
 
