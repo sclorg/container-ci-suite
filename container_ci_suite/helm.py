@@ -234,12 +234,20 @@ class HelmChartsAPI:
                 command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
         if self.is_pvc_in_values_yaml():
             command_values += f" --set pvc.netapp_nfs=true --set pvc.app_code={utils.get_shared_variable('app_code')}"
-        json_output = self.get_helm_json_output(
-            f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
-        )
+        install_success: bool = False
+        json_output: Dict = {}
+        for count in range(3):
+            json_output = self.get_helm_json_output(
+                f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
+            )
+            print(f"Output from installation '{json_output}'.")
+            if json_output:
+                install_success = True
+                break
+            time.sleep(3)
         # Let's wait couple seconds, till it is not really imported
         time.sleep(3)
-        if not json_output:
+        if not install_success:
             return False
         assert json_output["name"] == self.package_name
         assert json_output["chart"]["metadata"]["version"] == self.version
