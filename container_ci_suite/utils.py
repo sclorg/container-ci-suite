@@ -31,6 +31,7 @@ import string
 import requests
 import tempfile
 import yaml
+import contextlib
 
 from typing import List, Any
 from pathlib import Path
@@ -176,7 +177,7 @@ def run_command(
             else:
                 return cpe.returncode
         else:
-            logger.error(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
+            print(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
             raise cpe
 
 
@@ -425,3 +426,17 @@ def shared_cluster_variables() -> dict:
 def get_datetime_string() -> str:
     now = datetime.now()
     return now.strftime("%Y%m%d-%H%M%S")
+
+
+@contextlib.contextmanager
+def cwd(path):
+    """
+    Changes CWD to the temporary directory.
+    Yields the temporary directory.
+    """
+    prev_cwd = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(prev_cwd)

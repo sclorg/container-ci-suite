@@ -1,5 +1,4 @@
 #!/bin/env python3
-import json
 # MIT License
 #
 # Copyright (c) 2018-2019 Red Hat, Inc.
@@ -29,7 +28,7 @@ import time
 import subprocess
 import shutil
 
-from typing import List
+from typing import List, Any
 from os import getenv
 from pathlib import Path
 from tempfile import mkdtemp, mktemp
@@ -302,18 +301,10 @@ class ContainerImage(object):
         return False
 
     # Replacement for get_cip
-    def get_cip(self):
+    def get_cip(self) -> Any:
         container_id = self.get_cid_file()
         logger.info(f"Container id file is: {container_id}")
-        output = PodmanCLIWrapper.run_docker_command(
-            f"inspect {container_id}"
-        )
-        json_output = json.loads(output)
-        if len(json_output) == 0:
-            return None
-        if "NetworkSettings" not in json_output[0]:
-            return None
-        return json_output[0]["NetworkSettings"]["IPAddress"]
+        return PodmanCLIWrapper.docker_inspect_ip_address(container_id=container_id)
 
     def check_envs_set(self):
         pass

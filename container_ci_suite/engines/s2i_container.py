@@ -43,6 +43,7 @@ from container_ci_suite.utils import (
     get_os_environment,
     get_mount_options_from_s2i_args,
     get_env_commands_from_s2i_args,
+    cwd,
 )
 from container_ci_suite.exceptions import ContainerCIException
 
@@ -84,44 +85,44 @@ class S2IContainerImage(object):
             logger.debug("Temporary Directory exists.")
         else:
             logger.debug("Temporary directory not exists.")
-        ntf = mktemp(dir=str(tmp_dir), prefix="Dockerfile.")
-        df_name = Path(ntf)
-        df_content = self.s2i_create_df(
-            tmp_dir=tmp_dir,
-            app_path=app_path,
-            s2i_args=s2i_args,
-            src_image=src_image,
-            dst_image=dst_image,
-        )
-        with open(df_name, mode="w") as f:
-            f.write('\n'.join(df_content))
-        mount_options = get_mount_options_from_s2i_args(s2i_args=s2i_args)
-        # Run the build and tag the result
-        build_cmd = f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
-        print(build_cmd)
-        try:
-            PodmanCLIWrapper.run_docker_command(cmd=build_cmd)
-        except subprocess.CalledProcessError as cpe:
-            print(f"Building S2I Image failed: {cpe.stderr} with {cpe.output}")
-            return None
-        return S2IContainerImage(image_name=dst_image)
+        with cwd(tmp_dir) as _:
+            ntf = mktemp(dir=str(tmp_dir), prefix="Dockerfile.")
+            df_name = Path(ntf)
+            df_content = self.s2i_create_df(
+                tmp_dir=tmp_dir,
+                app_path=app_path,
+                s2i_args=s2i_args,
+                src_image=src_image,
+                dst_image=dst_image,
+            )
+            with open(df_name, mode="w") as f:
+                f.write(df_content)
+            mount_options = get_mount_options_from_s2i_args(s2i_args=s2i_args)
+            # Run the build and tag the result
+            build_cmd = f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
+            print(build_cmd)
+            try:
+                PodmanCLIWrapper.run_docker_command(cmd=build_cmd)
+            except subprocess.CalledProcessError as cpe:
+                print(f"Building S2I Image failed: {cpe.stderr} with {cpe.output}")
+                return None
+            return S2IContainerImage(image_name=dst_image)
 
     # Replacement for ct_s2i_build_as_df_build_args
     def s2i_create_df(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
-    ) -> List[str]:
-        real_app_path = app_path.replace("file://", "")
+    ) -> str:
+        real_app_path = app_path.replace("file://", "") + "/."
         df_content: List = []
-        local_scripts: str = "upload/scripts"
-        local_app: str = "upload/src"
-        os.chdir(tmp_dir)
+        local_scripts: Path = Path("upload/scripts")
+        local_app: Path = Path("upload/src")
+
         if not PodmanCLIWrapper.docker_image_exists(src_image):
             if "pull-policy=never" not in s2i_args:
                 PodmanCLIWrapper.run_docker_command(f"pull {src_image}")
 
-        user = PodmanCLIWrapper.docker_inspect(
-            field="{{.Config.User}}", src_image=src_image
-        )
+        user = PodmanCLIWrapper.docker_get_user(src_image)
+        print(f"User name from container {src_image} is {user}")
         if not user:
             user = "0"
 
@@ -131,10 +132,9 @@ class S2IContainerImage(object):
             logger.error(f"id of user {user} not found inside image {src_image}.")
             logger.error("Terminating s2i build.")
             return None
-        else:
-            user_id = user
 
         incremental: bool = "--incremental" in s2i_args
+        print(f"s2i_create_df: increamental is: {incremental}")
         if incremental:
             inc_tmp = Path(mktemp(dir=str(tmp_dir), prefix="incremental."))
             run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
@@ -152,11 +152,13 @@ class S2IContainerImage(object):
             )
             # Move the created content into the $tmpdir for the build to pick it up
             shutil.move(f"{inc_tmp}/artifacts.tar", tmp_dir.name)
+
         real_local_app = tmp_dir / local_app
-        real_local_scripts = tmp_dir / local_scripts
-        os.makedirs(real_local_app.parent)
+        print(f"Real local app is: {real_local_app} and app_path: {real_app_path}")
+        real_local_app.mkdir(parents=True, exist_ok=True)
         shutil.copytree(real_app_path, real_local_app)
-        bin_dir = real_local_app / ".s2i" / "bin"
+        real_local_scripts = tmp_dir / local_scripts
+        bin_dir = local_app / ".s2i" / "bin"
         if bin_dir.exists():
             shutil.move(bin_dir, real_local_scripts)
         df_content.extend(
@@ -213,46 +215,55 @@ class S2IContainerImage(object):
         else:
             df_content.append("CMD /usr/libexec/s2i/run")
 
-        logger.error(df_content)
-        return df_content
+        return '\n'.join(df_content)
 
     def scl_usage_old(self):
         pass
 
     # Replacement for ct_create_container
-    def create_container(self, cid_file: str, container_args: str = "", *args):
+    def create_container(self, cid_file: str, container_args: str = "", image_name: str = "", *args):
         self.cid_file_dir = Path(mkdtemp(suffix=".test_cid_files"))
         p = Path(self.cid_file_dir)
+        if not p.exists():
+            p.mkdir(parents=True)
         self.cid_file = p / cid_file
+        print(f"The CID file {self.cid_file}")
         args_to_run = ""
         cmd = ""
         if args != "":
             args_to_run = ' '.join(args)
         if container_args != "":
-            cmd = f"run --cidfile={self.cid_file} -d {args_to_run} {self.image_name} {args_to_run}"
+            cmd = f"run --cidfile={str(self.cid_file)} -d {container_args} {self.image_name} {args_to_run}"
         else:
-            cmd = f"run --cidfile={self.cid_file} -d {self.image_name}"
+            cmd = f"run --cidfile={str(self.cid_file)} -d {self.image_name} {args_to_run}"
+        print(f"Docker command to run: {cmd}")
+        image_to_build = self.image_name
+        if image_name != "":
+            image_to_build = image_name
         try:
             PodmanCLIWrapper.run_docker_command(
-                f"run --cidfile={self.cid_file} -d {container_args} {self.image_name} {args_to_run}"
+                f"run --cidfile={self.cid_file} -d {container_args} {image_to_build} {args_to_run}"
             )
+            print("Docker build finished ...")
         except subprocess.CalledProcessError as cpe:
             raise ContainerCIException(f"Run command {cmd} failed with %s" % cpe)
         if not self.wait_for_cid():
             return False
-        logger.info(f"Created container {self.get_cid_file()}")
+        print(f"Created container {self.get_cid_file()}")
+        return True
 
     # Replacement for ct_wait_for_cid
     def wait_for_cid(self):
         max_attempts: int = 10
         attempt: int = 1
+        print(f"Check if cif file {self.cid_file} is present")
         while attempt < max_attempts:
+            print(f"Is present {self.cid_file.exists()}")
             if self.cid_file.exists():
                 with open(self.cid_file) as f:
-                    logger.debug(f"{self.cid_file} contains:")
-                    logger.info(f.readlines())
+                    print(f"{self.cid_file} contains: {f.read()}")
                 return True
-            logger.info("Waiting for container to start.")
+            print("Waiting for container to start.")
             attempt += 1
             time.sleep(1)
         return False
@@ -260,9 +271,7 @@ class S2IContainerImage(object):
     # Replacement for get_cip
     def get_cip(self):
         container_id = self.get_cid_file()
-        return PodmanCLIWrapper.run_docker_command(
-            f"inspect --format='{{.NetworkSettings.IPAddress}}' {container_id}"
-        )
+        return PodmanCLIWrapper.docker_inspect_ip_address(container_id=container_id)
 
     def check_envs_set(self):
         pass
@@ -290,6 +299,8 @@ class S2IContainerImage(object):
         p = Path(self.cid_file_dir)
         cid_files = p.glob("*")
         for cid_file in cid_files:
+            if not cid_file.exists():
+                continue
             container_id = get_file_content(cid_file)
             logger.info("Stopping container")
             PodmanCLIWrapper.run_docker_command(f"stop {container_id}")
@@ -300,7 +311,7 @@ class S2IContainerImage(object):
                 logs = PodmanCLIWrapper.run_docker_command(f"logs {container_id}")
                 logger.info(logs)
             PodmanCLIWrapper.run_docker_command(f"rm -v {container_id}")
-            cid_file.unlink()
+            # cid_file.unlink()
         os.rmdir(self.cid_file_dir)
         logger.info(f"Cleanning CID_FILE_DIR {self.cid_file_dir} is DONE.")
 
@@ -452,8 +463,50 @@ RUN which {binary} | grep {binary_path}
     # : "  Success!"
     # }
 
-    def test_response(self):
-        pass
+    def test_response(
+            self, url: str = "",
+            expected_code: int = 200, port: int = 8080,
+            expected_output: str = "", max_tests: int = 20
+    ) -> bool:
+        url = f"{url}:{port}"
+        print(f"URL address to get response from container: {url}")
+        cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
+        # Check if application returns proper HTTP_CODE
+        print("Check if HTTP_CODE is valid.")
+        for count in range(max_tests):
+            try:
+                output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
+                return_code = output_code[-3:]
+                print(f"Output is: {output_code} and Return Code is: {return_code}")
+                try:
+                    int_ret_code = int(return_code)
+                    if int_ret_code == expected_code:
+                        print(f"HTTP_CODE is VALID {int_ret_code}")
+                        break
+                except ValueError:
+                    logger.info(return_code)
+                    time.sleep(1)
+                    continue
+                time.sleep(3)
+                continue
+            except subprocess.CalledProcessError as cpe:
+                print(f"Error from {cmd_to_run} is {cpe.stderr}, {cpe.stdout}")
+                time.sleep(3)
+
+        cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
+        # Check if application returns proper output
+        for count in range(max_tests):
+            output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
+            print(f"Check if expected output {expected_output} is in {cmd_to_run}.")
+            if expected_output in output_code:
+                print(f"Expected output '{expected_output}' is present.")
+                return True
+            print(
+                f"check_response_inside_cluster:"
+                f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
+            )
+            time.sleep(5)
+        return False
 
     # Replacement for ct_check_exec_env_vars
     def test_check_exec_env_vars(self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root"):
