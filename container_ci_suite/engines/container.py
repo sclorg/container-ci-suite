@@ -139,8 +139,7 @@ class ContainerImage(object):
             logger.error(f"id of user {user} not found inside image {src_image}.")
             logger.error("Terminating s2i build.")
             return None
-        else:
-            user_id = user
+        user_id = user
 
         incremental: bool = "--incremental" in s2i_args
         if incremental:
