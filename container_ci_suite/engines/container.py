@@ -37,11 +37,13 @@ from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 from container_ci_suite.utils import (
     run_command,
     get_file_content,
+    save_file_content,
     get_mount_ca_file,
     get_full_ca_file_path,
     get_os_environment,
     get_mount_options_from_s2i_args,
     get_env_commands_from_s2i_args,
+    cwd,
 )
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -54,7 +56,16 @@ class ContainerImage(object):
         self.container_args: str = ""
         self.cid_file: Path = None
         self.cid_file_dir: Path = None
+        self.app_image_name = "app_dockerfile"
+        self.temporary_app_dir: Path = None
         logger.info(f"Image name to test: {image_name}")
+
+    def rmi_app(self):
+        app_cip = self.get_cid_file(Path(self.temporary_app_dir) / self.app_image_name)
+        PodmanCLIWrapper.run_docker_command(cmd=f"kill {app_cip}")
+        PodmanCLIWrapper.run_docker_command(cmd=f"rmi {self.app_image_name}")
+        if self.temporary_app_dir.exists():
+            shutil.rmtree(self.temporary_app_dir)
 
     # Replacement for ct_s2i_usage
     def s2i_usage(self) -> str:
@@ -213,6 +224,18 @@ class ContainerImage(object):
         logger.error(df_content)
         return df_content
 
+    def build_image_parse_id(self, dockerfile: str = "", build_params: str = "") -> bool:
+        dockerfile_name = f"-f {dockerfile}" if dockerfile != "" else ""
+        podman_cmd = f"build --no-cache {dockerfile_name} {build_params}"
+        print(f"Command for building container: {podman_cmd}")
+        try:
+            output = PodmanCLIWrapper.run_docker_command(cmd=podman_cmd, ignore_error=True)
+            print(f"Output from build is:\n{output}")
+            return True
+        except subprocess.CalledProcessError as cpe:
+            print(f"Building container by command {podman_cmd} failed for reason '{cpe}' and {cpe.stderr}")
+            return False
+
     def scl_usage_old(self):
         pass
 
@@ -286,14 +309,15 @@ class ContainerImage(object):
         return True
 
     # Replacement for ct_wait_for_cid
-    def wait_for_cid(self):
+    def wait_for_cid(self, cid_file_name: str = ""):
         max_attempts: int = 10
         attempt: int = 1
+        cid_file_to_check = Path(cid_file_name) if cid_file_name != "" else self.cid_file
         while attempt < max_attempts:
-            if self.cid_file.exists():
-                with open(self.cid_file) as f:
-                    print(f"{self.cid_file} contains:")
-                    print(f.readlines())
+            if cid_file_to_check.exists():
+                with open(cid_file_to_check) as f:
+                    print(f"{cid_file_to_check} contains:")
+                    print(f.read())
                 return True
             print("Waiting for container to start.")
             attempt += 1
@@ -303,6 +327,11 @@ class ContainerImage(object):
     # Replacement for get_cip
     def get_cip(self) -> Any:
         container_id = self.get_cid_file()
+        logger.info(f"Container id file is: {container_id}")
+        return PodmanCLIWrapper.docker_inspect_ip_address(container_id=container_id)
+
+    def get_app_cip(self) -> Any:
+        container_id = self.get_cid_file(cid_file=Path(self.temporary_app_dir) / self.app_image_name)
         logger.info(f"Container id file is: {container_id}")
         return PodmanCLIWrapper.docker_inspect_ip_address(container_id=container_id)
 
@@ -332,6 +361,8 @@ class ContainerImage(object):
         p = Path(self.cid_file_dir)
         cid_files = p.glob("*")
         for cid_file in cid_files:
+            if not Path(cid_file).exists():
+                continue
             container_id = get_file_content(cid_file)
             logger.info("Stopping container")
             PodmanCLIWrapper.run_docker_command(f"stop {container_id}")
@@ -342,6 +373,8 @@ class ContainerImage(object):
                 logs = PodmanCLIWrapper.run_docker_command(f"logs {container_id}")
                 logger.info(logs)
             PodmanCLIWrapper.run_docker_command(f"rm -v {container_id}")
+            if not Path(cid_file).exists():
+                continue
             cid_file.unlink()
         os.rmdir(self.cid_file_dir)
         logger.info(f"Cleanning CID_FILE_DIR {self.cid_file_dir} is DONE.")
@@ -525,4 +558,67 @@ RUN which {binary} | grep {binary_path}
                     logger.error(f"Value {value} is missing from variable {var_name}")
                     logger.error(filtered_envs)
                     return False
+        return True
+
+    def build_test_container(
+            self,
+            dockerfile: str, app_url: str, build_args: str = "",
+            app_dir: str = "",
+            app_image_name: str = "app_dockerfile"
+    ) -> bool:
+        """
+        Function builds testing application container
+        param: dockerfile - path to a Dockerfile that will be used for building an image
+                         (must work with an application directory called 'app-src')
+        param: app_url - git or local URI with a testing application, supports "@" to indicate a different branch
+        param: expected_output - PCRE regular expression that must match the response body
+        param: app_dir - name of the application directory that is used in the Dockerfile
+        param: build_args - build args that will be used for building an image
+        param: app_image_name - how the container will be named in output `podman images`. Default app_dockerfile
+        """
+
+        self.temporary_app_dir = Path(mkdtemp(suffix="app_test_dir"))
+        self.app_image_name = app_image_name
+        if app_dir == "":
+            print("test_app_dockerfile: Parameter app_dir has to be set.")
+            return False
+        if not Path(dockerfile).exists():
+            print(f"test_app_dockerfile: Dockerfile {dockerfile} does not exist or is empty.")
+            return False
+        full_path = Path(dockerfile).resolve()
+        tempdir = self.temporary_app_dir
+        with cwd(tempdir) as _:
+            print(f"Copy Dockerfile from {full_path} to '{tempdir}/Dockerfile'")
+            shutil.copy(full_path, "Dockerfile")
+            docker_content = get_file_content(Path("Dockerfile")).split('\n')
+            for index, line in enumerate(docker_content):
+                docker_content[index] = re.sub("^FROM.*$", f"FROM  {self.image_name}", line)
+            save_file_content('\n'.join(docker_content), Path("Dockerfile"))
+            if Path(app_url).is_dir():
+                print(f"Copy local folder {app_url} to {app_dir}.")
+                shutil.copytree(app_url, app_dir, symlinks=True)
+            else:
+                run_command(f"git clone {app_url} {app_dir}")
+            print(f"Building '{app_image_name}' image using docker build")
+            if not self.build_image_parse_id(build_params=f"-t {self.app_image_name} . {build_args}"):
+                return False
+        output = PodmanCLIWrapper.run_docker_command(cmd="images", ignore_error=True)
+        print(f"Output from podman images is:\n{output}")
+        return True
+
+    def test_run_app_dockerfile(self) -> bool:
+        """
+            param: expected_output - PCRE regular expression that must match the response body
+        """
+        podman_cmd = f"run -d --cidfile={self.temporary_app_dir}/{self.app_image_name} --rm {self.app_image_name}"
+        print(f"Run container {self.app_image_name}: {podman_cmd}")
+        try:
+            output = PodmanCLIWrapper.run_docker_command(cmd=podman_cmd, ignore_error=True).strip()
+            print(f"Output from build is:\n{output}")
+        except subprocess.CalledProcessError as cpe:
+            print(f"Building container by command {podman_cmd} failed for reason '{cpe}' and '{cpe.stderr}'")
+            return False
+        if not self.wait_for_cid(cid_file_name=f"{self.temporary_app_dir}/{self.app_image_name}"):
+            print("Container did not create cidfile. See logs from container.")
+            return False
         return True
