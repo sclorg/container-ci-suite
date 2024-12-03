@@ -106,7 +106,7 @@ class ContainerImage(object):
             dst_image=dst_image,
         )
         with open(df_name, mode="w") as f:
-            f.writelines(df_content)
+            f.write('\n'.join(df_content))
         mount_options = get_mount_options_from_s2i_args(s2i_args=s2i_args)
         # Run the build and tag the result
         PodmanCLIWrapper.run_docker_command(
