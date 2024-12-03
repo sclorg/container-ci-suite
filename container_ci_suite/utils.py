@@ -48,6 +48,11 @@ def get_file_content(filename: Path) -> str:
         return f.read()
 
 
+def save_file_content(content: str, filename: Path):
+    with open(str(filename), "w") as f:
+        f.write(content)
+
+
 def get_full_ca_file_path() -> Path:
     return Path(CA_FILE_PATH)
 
