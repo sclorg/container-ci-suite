@@ -347,9 +347,6 @@ def get_service_image(image_name: str) -> Any:
 
 def check_variables() -> bool:
     ret_value: bool = True
-    if not os.getenv("IMAGE_NAME", None):
-        print("Make sure IMAGE_NAME is defined")
-        ret_value = False
     if not os.getenv("VERSION"):
         print("Make sure VERSION is defined")
         ret_value = False
@@ -357,6 +354,18 @@ def check_variables() -> bool:
         print("Make sure OS is defined")
         ret_value = False
     return ret_value
+
+
+def get_image_name() -> Any:
+    image_id_file = Path(".image-id")
+    if not image_id_file.exists():
+        return None
+    image_id = get_file_content(image_id_file).strip()
+    inspect_name = 'docker inspect -f "{{.Config.Labels.name}}" ' + image_id
+    name = run_command(cmd=inspect_name)
+    inspect_version = 'docker inspect -f "{{.Config.Labels.version}}" ' + image_id
+    version = run_command(cmd=inspect_version)
+    return f"{name}:{version}"
 
 
 def load_shared_credentials(credential: str) -> Any:
