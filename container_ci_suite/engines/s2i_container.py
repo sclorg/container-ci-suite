@@ -483,30 +483,44 @@ RUN which {binary} | grep {binary_path}
         """
 
         url = f"http://{url}:{port}"
-        print(f"URL address to get response from container: {url}")
+        logger.debug("URL address to get response from container: %s", url)
 
-        try:
-            response = requests.get(url, timeout=10)
-        except requests.exceptions.ConnectionError:
-            response = None
-
-        while (response is not None and
-               response.status_code != expected_code and
-               (response.text != expected_output or expected_output == "") and
-               max_tests > 0):
-            print(f"Unexpected code {response.status_code} or output \
-                  {response.text}, expecting \
-                  {expected_code} {expected_output}")
-            max_tests -= 1
+        response = None
+        checks_passed = False
+        while not checks_passed and max_tests > 0:
+            checks_passed = True
             try:
                 response = requests.get(url, timeout=10)
             except requests.exceptions.ConnectionError:
                 response = None
+
+            if response is None:
+                checks_passed = False
+
+                # This will very probably timeout first few times and it is
+                # expected to do so. Prevent spam and inform only when timeout
+                # is fatal.
+                if max_tests == 1:
+                    logger.error("Timeout on last retry")
+            else:
+                if response.status_code != expected_code:
+                    checks_passed = False
+                if (response.text != expected_output and
+                        expected_output != ""):
+                    checks_passed = False
+
+                # Log both code and text together as text can show error
+                # message
+                if not checks_passed:
+                    logger.error("Unexpected code %d or output %s, \
+                                  expecting %d %s",
+                                 response.status_code, response.text,
+                                 expected_code, expected_output)
+
+            max_tests -= 1
             time.sleep(3)
 
-        return response is not None and \
-            response.status_code != expected_code and \
-            (response.text != expected_output or expected_output == "")
+        return checks_passed
 
     # Replacement for ct_check_exec_env_vars
     def test_check_exec_env_vars(self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root"):
