@@ -28,6 +28,7 @@ import re
 import time
 import subprocess
 import shutil
+import requests
 
 from typing import List
 from os import getenv
@@ -464,49 +465,48 @@ RUN which {binary} | grep {binary_path}
     # }
 
     def test_response(
-            self, url: str = "",
-            expected_code: int = 200, port: int = 8080,
-            expected_output: str = "", max_tests: int = 20
+            self, url: str = "", port: int = 8080,
+            expected_code: int = 200, expected_output: str = "",
+            max_tests: int = 20
     ) -> bool:
-        url = f"{url}:{port}"
-        print(f"URL address to get response from container: {url}")
-        cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
-        # Check if application returns proper HTTP_CODE
-        print("Check if HTTP_CODE is valid.")
-        for count in range(max_tests):
-            try:
-                output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
-                return_code = output_code[-3:]
-                print(f"Output is: {output_code} and Return Code is: {return_code}")
-                try:
-                    int_ret_code = int(return_code)
-                    if int_ret_code == expected_code:
-                        print(f"HTTP_CODE is VALID {int_ret_code}")
-                        break
-                except ValueError:
-                    logger.info(return_code)
-                    time.sleep(1)
-                    continue
-                time.sleep(3)
-                continue
-            except subprocess.CalledProcessError as cpe:
-                print(f"Error from {cmd_to_run} is {cpe.stderr}, {cpe.stdout}")
-                time.sleep(3)
+        """
+        Test HTTP response of specified url
 
-        cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
-        # Check if application returns proper output
-        for count in range(max_tests):
-            output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
-            print(f"Check if expected output {expected_output} is in {cmd_to_run}.")
-            if expected_output in output_code:
-                print(f"Expected output '{expected_output}' is present.")
-                return True
-            print(
-                f"check_response_inside_cluster:"
-                f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
-            )
-            time.sleep(5)
-        return False
+        If expected output is empty, check will be skipped
+
+        Args:
+            url (str): URL where to send request
+            port (int): Port of the web service
+            expected_code (int): Check that response has this code
+            expected_output (str): Check that response has this text
+            max_tests (int): Stop after this many unsuccessful tries
+        """
+
+        url = f"http://{url}:{port}"
+        print(f"URL address to get response from container: {url}")
+
+        try:
+            response = requests.get(url, timeout=10)
+        except requests.exceptions.ConnectionError:
+            response = None
+
+        while (response is not None and
+               response.status_code != expected_code and
+               (response.text != expected_output or expected_output == "") and
+               max_tests > 0):
+            print(f"Unexpected code {response.status_code} or output \
+                  {response.text}, expecting \
+                  {expected_code} {expected_output}")
+            max_tests -= 1
+            try:
+                response = requests.get(url, timeout=10)
+            except requests.exceptions.ConnectionError:
+                response = None
+            time.sleep(3)
+
+        return response is not None and \
+            response.status_code != expected_code and \
+            (response.text != expected_output or expected_output == "")
 
     # Replacement for ct_check_exec_env_vars
     def test_check_exec_env_vars(self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root"):
