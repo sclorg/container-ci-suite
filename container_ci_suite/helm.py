@@ -240,7 +240,6 @@ class HelmChartsAPI:
             json_output = self.get_helm_json_output(
                 f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
             )
-            print(f"Output from installation '{json_output}'.")
             if json_output:
                 install_success = True
                 break
