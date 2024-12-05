@@ -54,7 +54,7 @@ class OpenShiftOperations:
                 return None
             cmd = f"login --token={token} --server={url}"
         else:
-            url = load_shared_credentials("LOCAL_CLUSTER_URL")
+            url = get_shared_variable("local_cluster_url")
             password = get_file_content(filename=Path("/root/.kube/ocp-kube"))
             cmd = f"login -u kubeadmin -p {password} --server={url}"
         output = run_oc_command(cmd, json_output=False)
