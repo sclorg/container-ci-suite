@@ -362,9 +362,9 @@ def get_image_name() -> Any:
         return None
     image_id = get_file_content(image_id_file).strip()
     inspect_name = 'docker inspect -f "{{.Config.Labels.name}}" ' + image_id
-    name = run_command(cmd=inspect_name)
+    name = run_command(cmd=inspect_name).strip()
     inspect_version = 'docker inspect -f "{{.Config.Labels.version}}" ' + image_id
-    version = run_command(cmd=inspect_version)
+    version = run_command(cmd=inspect_version).strip()
     return f"{name}:{version}"
 
 
