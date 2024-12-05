@@ -112,7 +112,7 @@ class S2IContainerImage(object):
     def s2i_create_df(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
     ) -> str:
-        real_app_path = app_path.replace("file://", "") + "/."
+        real_app_path = app_path.replace("file://", "")
         df_content: List = []
         local_scripts: Path = Path("upload/scripts")
         local_app: Path = Path("upload/src")
@@ -156,7 +156,7 @@ class S2IContainerImage(object):
         real_local_app = tmp_dir / local_app
         print(f"Real local app is: {real_local_app} and app_path: {real_app_path}")
         real_local_app.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(real_app_path, real_local_app)
+        shutil.copytree(real_app_path + "/.", real_local_app)
         real_local_scripts = tmp_dir / local_scripts
         bin_dir = local_app / ".s2i" / "bin"
         if bin_dir.exists():
