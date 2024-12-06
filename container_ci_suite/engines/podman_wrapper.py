@@ -30,7 +30,7 @@ from container_ci_suite.utils import run_command
 class PodmanCLIWrapper(object):
     @staticmethod
     def run_docker_command(
-        cmd, return_output: bool = True, ignore_error: bool = False, shell: bool = True
+        cmd, return_output: bool = True, ignore_error: bool = False, shell: bool = True, debug: bool = False
     ):
         """
         Run docker command:
@@ -40,6 +40,7 @@ class PodmanCLIWrapper(object):
             return_output=return_output,
             ignore_error=ignore_error,
             shell=shell,
+            debug=debug,
         )
 
     @staticmethod
