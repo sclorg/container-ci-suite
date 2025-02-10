@@ -374,7 +374,7 @@ def load_shared_credentials(credential: str) -> Any:
         return None
     cred = ""
     with open(cread_path) as f:
-        cred = f.read()
+        cred = f.read().strip()
     if cred == "":
         return None
     return cred
