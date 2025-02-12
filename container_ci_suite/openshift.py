@@ -51,7 +51,7 @@ class OpenShiftAPI:
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
-        if shared_cluster:
+        if not shared_cluster:
             self.shared_cluster = shared_cluster
         else:
             self.shared_cluster = utils.is_shared_cluster(test_type="ocp4")
