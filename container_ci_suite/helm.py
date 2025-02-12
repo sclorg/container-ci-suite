@@ -47,7 +47,7 @@ class HelmChartsAPI:
             package_name: str,
             tarball_dir: Path,
             delete_prj: bool = True,
-            shared_cluster: bool = True,
+            shared_cluster: bool = False,
             remote: bool = False
     ):
         self.path: Path = path
@@ -55,8 +55,8 @@ class HelmChartsAPI:
         self.package_name: str = package_name
         self.tarball_dir = tarball_dir
         self.delete_prj: bool = delete_prj
-        if shared_cluster:
-            self.shared_cluster = True
+        if not shared_cluster:
+            self.shared_cluster = shared_cluster
         else:
             self.shared_cluster = utils.is_shared_cluster(test_type="helm")
         self.create_prj: bool = True
