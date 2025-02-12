@@ -30,6 +30,8 @@ import subprocess
 from typing import Dict, List, Any
 from pathlib import Path
 
+import urllib3
+
 import container_ci_suite.utils as utils
 
 from container_ci_suite.openshift import OpenShiftAPI
@@ -225,15 +227,17 @@ class HelmChartsAPI:
         if self.is_helm_package_installed():
             self.helm_uninstallation()
         command_values = ""
-        if self.is_registry_in_values_yaml():
-            if values:
-                if utils.is_shared_cluster(test_type="helm"):
-                    command_values = ' '.join(
+        if values:
+            command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
+        if self.shared_cluster:
+            if self.is_registry_in_values_yaml():
+                if self.shared_cluster:
+                    command_values += " " + ' '.join(
                         [f"--set {key}={value}" for key, value in utils.shared_cluster_variables().items()]
                     )
-                command_values += " " + ' '.join([f"--set {key}={value}" for key, value in values.items()])
-        if self.is_pvc_in_values_yaml():
-            command_values += f" --set pvc.netapp_nfs=true --set pvc.app_code={utils.get_shared_variable('app_code')}"
+            if self.is_pvc_in_values_yaml():
+                command_values += (f" --set pvc.netapp_nfs=true "
+                                   f"--set pvc.app_code={utils.get_shared_variable('app_code')}")
         install_success: bool = False
         json_output: Dict = {}
         for count in range(3):
@@ -366,7 +370,11 @@ class HelmChartsAPI:
                 return True
             except requests.exceptions.HTTPError:
                 print("test_helm_curl_output: Service is not yet available. Let's wait some time")
-                time.sleep(1)
+                time.sleep(3)
+                pass
+            except urllib3.exceptions.MaxRetryError:
+                print("test_helm_curl_output: MaxRetryError. Let's wait some time")
+                time.sleep(3)
                 pass
         if not valid_request:
             print("test_helm_curl_output: Service was not available")
