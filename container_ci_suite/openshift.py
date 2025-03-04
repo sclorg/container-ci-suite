@@ -61,7 +61,7 @@ class OpenShiftAPI:
         self.shared_random_name = ""
         self.config_tenant_name = "core-services-ocp--config"
         self.openshift_ops = OpenShiftOperations(pod_name_prefix=pod_name_prefix)
-        print(f"Namespace is: {namespace}")
+        print(f"Namespace is: {namespace} and shared cluster is: {self.shared_cluster}")
         if namespace == "default":
             self.create_project()
         else:
@@ -399,11 +399,35 @@ class OpenShiftAPI:
 
         return True
 
+    def update_template_example_file(self, file_name: str) -> dict:
+        json_data = utils.get_json_data(file_name=Path(file_name))
+        for object in json_data["objects"]:
+            if object["kind"] != "PersistentVolumeClaim":
+                continue
+            if "annotations" not in object["metadata"]:
+                annotations: Dict = {}
+            else:
+                annotations = object["metadata"]["annotations"]
+            annotations["trident.netapp.io/reclaimPolicy"] = "Delete"
+            object["metadata"]["annotations"] = annotations
+            if "labels" not in object["metadata"]:
+                labels: Dict = {}
+            else:
+                labels = object["metadata"]["labels"]
+            labels["paas.redhat.com/appcode"] = utils.get_shared_variable("app_code")
+            object["metadata"]["labels"] = labels
+            object["spec"]["storageClassName"] = "netapp-nfs"
+            object["spec"]["volumeMode"] = "Filesystem"
+        utils.dump_json_data(json_data=json_data, file_name=Path(file_name))
+        return json_data
+
     def deploy_image_stream_template(
             self, imagestream_file: str, template_file: str, app_name: str, openshift_args=None
     ) -> bool:
         local_is_file = utils.download_template(template_name=imagestream_file)
         local_template = utils.download_template(template_name=template_file)
+        if self.shared_cluster:
+            self.update_template_example_file(file_name=local_template)
         json_output = self.import_is(local_is_file, name="", skip_check=True)
         if not json_output:
             print("deploy_image_stream_template: import_is failed")

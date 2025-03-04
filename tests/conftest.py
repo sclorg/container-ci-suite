@@ -121,3 +121,13 @@ def get_svc_ip():
 @pytest.fixture()
 def get_svc_ip_empty():
     return json.loads((DATA_DIR / "oc_get_svc_empty.json").read_text())
+
+
+@pytest.fixture()
+def get_ephemeral_template():
+    return json.loads((DATA_DIR / "example_ephemeral_template.json").read_text())
+
+
+@pytest.fixture()
+def get_persistent_template():
+    return json.loads((DATA_DIR / "example_persistent_template.json").read_text())

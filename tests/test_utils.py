@@ -217,6 +217,6 @@ class TestContainerCISuiteUtils(object):
         ],
     )
     def test_is_shared_cluster(self, json_data, expected_output):
-        flexmock(utils).should_receive("get_shared_json_data").and_return(json_data)
+        flexmock(utils).should_receive("get_json_data").and_return(json_data)
         test = json_data.keys()
         assert utils.is_shared_cluster(test_type=''.join(test)) == expected_output
