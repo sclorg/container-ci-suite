@@ -468,6 +468,9 @@ class OpenShiftAPI:
         local_template = utils.download_template(template_name=imagestream_file)
         if not local_template:
             return False
+        if self.shared_cluster:
+            self.update_template_example_file(file_name=local_template)
+
         self.import_is(local_template, name="", skip_check=True)
         return self.deploy_s2i_app(image_name=image_name, app=app, context=context)
 
@@ -510,6 +513,8 @@ class OpenShiftAPI:
         local_template = utils.download_template(template_name=template)
         if not local_template:
             return False
+        if self.shared_cluster:
+            self.update_template_example_file(file_name=local_template)
         oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
