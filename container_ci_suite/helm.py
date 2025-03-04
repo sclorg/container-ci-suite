@@ -50,7 +50,6 @@ class HelmChartsAPI:
             tarball_dir: Path,
             delete_prj: bool = True,
             shared_cluster: bool = False,
-            remote: bool = False
     ):
         self.path: Path = path
         self.version: str = ""
@@ -63,13 +62,12 @@ class HelmChartsAPI:
             self.shared_cluster = utils.is_shared_cluster(test_type="helm")
         self.create_prj: bool = True
         self.oc_api = OpenShiftAPI(
-            create_prj=self.create_prj, delete_prj=self.delete_prj, shared_cluster=self.shared_cluster
+            create_prj=self.create_prj, delete_prj=self.delete_prj, shared_cluster=self.shared_cluster, test_type="helm"
         )
         self.pod_json_data: dict = {}
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
         self.cloned_dir = ""
-        self.remote = remote
 
     @staticmethod
     def run_helm_command(
