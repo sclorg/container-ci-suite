@@ -48,13 +48,14 @@ class OpenShiftAPI:
             delete_prj: bool = True,
             shared_cluster: bool = False,
             version: str = "",
+            test_type: str = "ocp4"
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
         if not shared_cluster:
             self.shared_cluster = shared_cluster
         else:
-            self.shared_cluster = utils.is_shared_cluster(test_type="ocp4")
+            self.shared_cluster = utils.is_shared_cluster(test_type=test_type)
         self.pod_name_prefix = pod_name_prefix
         self.pod_json_data: Dict = {}
         self.version = version
