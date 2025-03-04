@@ -30,6 +30,7 @@ from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.engines.openshift import OpenShiftOperations
 from container_ci_suite.engines.container import PodmanCLIWrapper
 from container_ci_suite import utils
+from tests.spellbook import DATA_DIR
 
 
 class TestOpenShiftCISuite(object):
@@ -65,3 +66,25 @@ class TestOpenShiftCISuite(object):
         flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return("default_registry")
         flexmock(utils).should_receive("run_command").twice()
         assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+
+    def test_update_template_example_file_without_pvc(self, get_ephemeral_template):
+        flexmock(utils).should_receive("get_json_data").and_return(get_ephemeral_template)
+        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/example_ephemeral_template.json")
+        assert json_data
+        assert "PersistentVolumeClaim" not in json_data["objects"][0]["kind"]
+
+    def test_update_template_example_file_with_pvc(self, get_persistent_template):
+        flexmock(utils).should_receive("get_json_data").and_return(get_persistent_template)
+        flexmock(utils).should_receive("get_shared_variable").and_return("SOMETHING-001")
+        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/example_persistent_template.json")
+        assert json_data
+        assert json_data["objects"][0]["kind"] == "PersistentVolumeClaim"
+        metadata = json_data["objects"][0]["metadata"]
+        assert "annotations" in metadata
+        assert "trident.netapp.io/reclaimPolicy" in metadata["annotations"]
+        assert metadata["annotations"]["trident.netapp.io/reclaimPolicy"] == "Delete"
+        assert "labels" in metadata
+        assert "paas.redhat.com/appcode" in metadata["labels"]
+        assert metadata["labels"]["paas.redhat.com/appcode"] == "SOMETHING-001"
+        assert json_data["objects"][0]["spec"]["storageClassName"] == "netapp-nfs"
+        assert json_data["objects"][0]["spec"]["volumeMode"] == "Filesystem"

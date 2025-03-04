@@ -380,9 +380,9 @@ def load_shared_credentials(credential: str) -> Any:
     return cred
 
 
-def get_shared_json_data() -> dict:
-    file_name = Path("/root/shared_cluster.json")
+def get_json_data(file_name: Path = Path("/root/shared_cluster.json")) -> dict:
     if not file_name.exists():
+        print("File /root/shared_cluster.json does not exist.")
         return {}
     json_data: dict = {}
     with open(file_name) as fd:
@@ -390,8 +390,12 @@ def get_shared_json_data() -> dict:
     return json_data
 
 
+def dump_json_data(json_data: dict, file_name: Path = Path("/root/shared_cluster.json")):
+    with open(file_name, "w") as fd:
+        json.dump(json_data, fd)
+
+
 def get_yaml_data(filename_path: Path) -> dict:
-    print(filename_path)
     if not filename_path.exists():
         return {}
     with open(filename_path) as fd_chart:
@@ -400,8 +404,9 @@ def get_yaml_data(filename_path: Path) -> dict:
 
 
 def is_shared_cluster(test_type: str = "ocp4") -> bool:
-    json_data = get_shared_json_data()
+    json_data = get_json_data()
     if test_type not in json_data:
+        print(f"Variable {test_type} is not present in file /root/shared_cluster.json")
         return False
     value = json_data[test_type]
     if isinstance(value, bool) and value is True:
@@ -415,7 +420,7 @@ def is_shared_cluster(test_type: str = "ocp4") -> bool:
 
 
 def get_shared_variable(variable: str) -> Any:
-    json_data = get_shared_json_data()
+    json_data = get_json_data()
     if variable not in json_data:
         print(f"\nVariable {variable} is not present in file /root/shared_cluster.json")
         return None

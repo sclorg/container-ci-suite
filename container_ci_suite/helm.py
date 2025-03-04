@@ -342,7 +342,8 @@ class HelmChartsAPI:
         return False
 
     def test_helm_curl_output(
-            self, route_name: str, expected_str: str, port: int = None, schema: str = "http://"
+            self, route_name: str, expected_str: str, port: int = None, schema: str = "http://",
+            range_count: int = 10
     ) -> bool:
         # Let's get some time to start application
         time.sleep(3)
@@ -353,29 +354,32 @@ class HelmChartsAPI:
         url_address = f"{schema}{host_name}"
         if port:
             url_address = f"{url_address}:{port}"
-        print(f"test_helm_curl_output: to {url_address}")
         valid_request: bool = False
-        for count in range(60):
+        for count in range(range_count):
             try:
+                print(f"test_helm_curl_output: requests.get {url_address}")
                 resp = requests.get(url_address, verify=False)
                 resp.raise_for_status()
-                valid_request = True
                 if resp.status_code != 200:
-                    print(f"test_helm_curl_output: {resp.text}, {resp.status_code}")
-                    return False
-                print(f"test_helm_curl_output: {resp.text}")
+                    print(f"test_helm_curl_output response is different from 200: {resp.text}, {resp.status_code}")
+                    continue
+                print(f"test_helm_curl_output: text: {resp.text}")
                 if expected_str not in resp.text:
-                    print(resp.text)
-                    return False
+                    print(f"{expected_str} is not in the output")
+                    continue
                 return True
             except requests.exceptions.HTTPError:
                 print("test_helm_curl_output: Service is not yet available. Let's wait some time")
                 time.sleep(3)
-                pass
+                continue
+            except requests.exceptions.ConnectTimeout:
+                print("test_helm_curl_output: Service is not yet available. Connection Timeout")
+                time.sleep(3)
+                continue
             except urllib3.exceptions.MaxRetryError:
                 print("test_helm_curl_output: MaxRetryError. Let's wait some time")
                 time.sleep(3)
-                pass
+                continue
         if not valid_request:
             print("test_helm_curl_output: Service was not available")
             return False
