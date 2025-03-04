@@ -139,6 +139,9 @@ class OpenShiftOperations:
                     time.sleep(3)
                     return True
             time.sleep(3)
+        print("is_pod_running failed. See logs for debugging.")
+        self.print_get_status()
+        self.print_pod_logs()
         return False
 
     def is_build_pod_present(self) -> bool:
@@ -228,6 +231,9 @@ class OpenShiftOperations:
                 continue
             print("\nPod is running")
             return True
+        print("is_s2i_pod_running failed. See logs for debugging.")
+        self.print_get_status()
+        self.print_pod_logs()
         return False
 
     def oc_get_services(self, service_name):
