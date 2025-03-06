@@ -320,8 +320,8 @@ class OpenShiftAPI:
     def get_openshift_args(self, oc_args: List[str]) -> str:
         return " -p ".join(oc_args)
 
-    def template_deployed(self, name_in_template: str = "") -> bool:
-        if not self.openshift_ops.is_build_pod_finished():
+    def template_deployed(self, name_in_template: str = "", timeout: int = 180) -> bool:
+        if not self.openshift_ops.is_build_pod_finished(cycle_count=timeout):
             print("\nBuild pod does not finished in proper time")
             self.openshift_ops.print_get_status()
             return False
