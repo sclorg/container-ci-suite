@@ -88,3 +88,10 @@ class TestOpenShiftCISuite(object):
         assert metadata["labels"]["paas.redhat.com/appcode"] == "SOMETHING-001"
         assert json_data["objects"][0]["spec"]["storageClassName"] == "netapp-nfs"
         assert json_data["objects"][0]["spec"]["volumeMode"] == "Filesystem"
+
+    def test_update_template_without_modeification(self, postgresql_json):
+        flexmock(utils).should_receive("get_json_data").and_return(postgresql_json)
+        flexmock(utils).should_receive("get_shared_variable").and_return("SOMETHING-001")
+        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/postgresql_imagestreams.json")
+        assert json_data
+        assert "objects" not in json_data

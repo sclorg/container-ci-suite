@@ -402,6 +402,8 @@ class OpenShiftAPI:
 
     def update_template_example_file(self, file_name: str) -> dict:
         json_data = utils.get_json_data(file_name=Path(file_name))
+        if "objects" not in json_data:
+            return json_data
         for object in json_data["objects"]:
             if object["kind"] != "PersistentVolumeClaim":
                 continue
@@ -453,7 +455,7 @@ class OpenShiftAPI:
         return True
 
     def deploy_imagestream_s2i(
-            self, imagestream_file: str, image_name: str, app: str, context: str
+            self, imagestream_file: str, image_name: str, app: str, context: str, service_name: str
     ) -> bool:
         """
         Function deploys imagestreams as s2i application
@@ -473,12 +475,13 @@ class OpenShiftAPI:
             self.update_template_example_file(file_name=local_template)
 
         self.import_is(local_template, name="", skip_check=True)
-        return self.deploy_s2i_app(image_name=image_name, app=app, context=context)
+        return self.deploy_s2i_app(image_name=image_name, app=app, context=context, service_name=service_name)
 
     def deploy_template_with_image(
             self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
     ) -> bool:
         tagged_image = f"{name_in_template}:{self.version}"
+        print(f"deploy_template_with_image: {tagged_image} and {self.shared_cluster}")
         if self.shared_cluster:
             if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
                 return False
