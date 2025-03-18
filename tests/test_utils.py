@@ -184,15 +184,19 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load["spec"]["egress"][0]["to"]["dnsName"] == "github.com"
         check_address = False
         check_dnsName = False
+        check_deny = False
         for egress in yaml_load["spec"]["egress"]:
             if "cidrSelector" in egress["to"]:
                 if egress["to"]["cidrSelector"] == "52.92.128.0/17":
                     check_address = True
+                if egress["to"]["cidrSelector"] == "0.0.0.0/0" and egress["type"] == "Deny":
+                    check_deny = True
             if "dnsName" in egress["to"]:
                 if egress["to"]["dnsName"] == "registry.npmjs.org":
                     check_dnsName = True
         assert check_address
         assert check_dnsName
+        assert check_deny
 
     @pytest.mark.parametrize(
         "json_data,expected_output",
