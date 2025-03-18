@@ -180,6 +180,7 @@ def run_command(
             if return_output:
                 return cpe.output
             else:
+                print(f"failed with output {cpe.output}")
                 return cpe.returncode
         else:
             print(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
@@ -308,6 +309,12 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
             },
             "type": "Allow"
         })
+    generated_yaml.append({
+        "to": {
+            "cidrSelector": "0.0.0.0/0"
+        },
+        "type": "Deny"
+    })
     tenant_egress_yaml = {
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantEgress",
@@ -322,6 +329,7 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_egress_yaml, fp)
+        print(f"TenantNamespace yaml dict: {tenant_egress_yaml}")
     print(f"TenantNamespace yaml file: {temp_file.name}")
     return temp_file.name
 

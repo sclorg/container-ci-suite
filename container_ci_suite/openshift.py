@@ -62,12 +62,13 @@ class OpenShiftAPI:
         self.shared_random_name = ""
         self.config_tenant_name = "core-services-ocp--config"
         self.openshift_ops = OpenShiftOperations(pod_name_prefix=pod_name_prefix)
-        print(f"Namespace is: {namespace} and shared cluster is: {self.shared_cluster}")
+        self.project_created: bool = False
         if namespace == "default":
             self.create_project()
         else:
             self.namespace = namespace
             self.create_prj = False
+        print(f"Namespace is: {namespace} and shared cluster is: {self.shared_cluster}")
 
     def create_project(self):
         print(f"Create project {self.create_prj} and {self.shared_cluster}")
@@ -86,36 +87,48 @@ class OpenShiftAPI:
                 print(f"Project with the name '{self.namespace}' were created.")
         else:
             run_oc_command(f"project {self.namespace}", json_output=False)
+        self.project_created = True
         return self.openshift_ops.is_project_exits()
 
     def create_tenant_namespace(self) -> bool:
         tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
-        try:
-            tentant_output = run_oc_command(cmd=f"create -f {tenant_yaml_file}", json_output=False, return_output=True)
-            print(tentant_output)
-        except subprocess.CalledProcessError:
-            print(f"Create tenant namespace with the name '{self.shared_random_name}' was not successful.")
+        tentant_output = run_oc_command(
+            cmd=f"create -f {tenant_yaml_file}", json_output=False, ignore_error=True, return_output=False
+        )
+        if tentant_output != 0:
+            print(f"Create tenant namespace with the name '{self.shared_random_name}' was not successful."
+                  f"'{tentant_output}'")
             return False
         return True
 
     def create_egress_rules(self) -> bool:
         tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
-        try:
-            tentant_output = run_oc_command(cmd=f"apply -f {tenant_egress_file}", json_output=False, return_output=True)
-            print(tentant_output)
-        except subprocess.CalledProcessError as cpe:
-            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful. {cpe}")
+        tentant_output = run_oc_command(
+            cmd=f"apply -f {tenant_egress_file}", json_output=False, ignore_error=True, return_output=False
+        )
+        if tentant_output != 0:
+            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
+                  f"{tentant_output}")
             return False
         return True
 
     def prepare_tenant_namespace(self):
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
+        try:
+            namespace = run_oc_command(cmd="project -q", json_output=json_flag).strip()
+            print(f"The current namespace is '{namespace}'")
+            if namespace != self.config_tenant_name:
+                run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+        except subprocess.CalledProcessError:
+            run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
         if not self.create_tenant_namespace():
             return False
         # Let's wait 3 seconds till project is not up
         time.sleep(3)
-        self.create_egress_rules()
+        if not self.create_egress_rules():
+            return False
+        self.project_created = True
         run_oc_command(
             cmd=f"project {self.namespace}",
             json_output=json_flag,
@@ -295,7 +308,8 @@ class OpenShiftAPI:
         :param template_args: Dict - Arguments that will be passed to oc new-app
         :return json toutput
         """
-
+        if not self.project_created:
+            return False
         # Let's wait couple seconds till is fully loaded
         time.sleep(3)
         args = [""]
@@ -355,6 +369,8 @@ class OpenShiftAPI:
             self, imagestream_file: str, template_file: str,
             image_name: str, name_in_template: str, openshift_args=None
     ) -> bool:
+        if not self.project_created:
+            return False
         local_imagestream_file = utils.download_template(imagestream_file)
         self.import_is(local_imagestream_file, name="", skip_check=True)
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
@@ -370,6 +386,8 @@ class OpenShiftAPI:
         )
 
     def deploy_s2i_app(self, image_name: str, app: str, context: str, service_name: str = "") -> bool:
+        if not self.project_created:
+            return False
         tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
         print(f"Source image {image_name} was tagged as {tagged_image}")
         if self.shared_cluster:
@@ -427,6 +445,8 @@ class OpenShiftAPI:
     def deploy_image_stream_template(
             self, imagestream_file: str, template_file: str, app_name: str, openshift_args=None
     ) -> bool:
+        if not self.project_created:
+            return False
         local_is_file = utils.download_template(template_name=imagestream_file)
         local_template = utils.download_template(template_name=template_file)
         if self.shared_cluster:
@@ -467,6 +487,8 @@ class OpenShiftAPI:
         :return True: application was properly deployed
                 False: application was not properly deployed
         """
+        if not self.project_created:
+            return False
         imagestream_file = re.sub(r"[0-9]", "", imagestream_file)
         local_template = utils.download_template(template_name=imagestream_file)
         if not local_template:
@@ -480,6 +502,8 @@ class OpenShiftAPI:
     def deploy_template_with_image(
             self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
     ) -> bool:
+        if not self.project_created:
+            return False
         tagged_image = f"{name_in_template}:{self.version}"
         print(f"deploy_template_with_image: {tagged_image} and {self.shared_cluster}")
         if self.shared_cluster:
@@ -503,7 +527,8 @@ class OpenShiftAPI:
             openshift_args=None,
             other_images=None
     ) -> bool:
-
+        if not self.project_created:
+            return False
         if other_images is None:
             other_images = ""
         if openshift_args is None:
