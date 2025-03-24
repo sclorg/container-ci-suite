@@ -163,7 +163,7 @@ def run_command(
     :return: None or str
     """
     if debug:
-        logger.debug(f"command: {cmd}")
+        print(f"command: {cmd}")
     try:
         if return_output:
             return subprocess.check_output(
@@ -176,6 +176,7 @@ def run_command(
         else:
             return subprocess.check_call(cmd, shell=shell, **kwargs)
     except subprocess.CalledProcessError as cpe:
+        print(f"Exception: {cpe}")
         if ignore_error:
             if return_output:
                 return cpe.output
@@ -189,7 +190,7 @@ def run_command(
 
 def run_oc_command(
     cmd, json_output: bool = True, return_output: bool = True, ignore_error: bool = False, shell: bool = True,
-        namespace: str = ""
+        namespace: str = "", debug: bool = False
 ):
     """
     Run docker command:
@@ -201,7 +202,8 @@ def run_oc_command(
         f"oc {cmd} {namespace_cmd} {json_cmd}",
         return_output=return_output,
         ignore_error=ignore_error,
-        shell=shell
+        shell=shell,
+        debug=debug
     )
 
 
@@ -329,7 +331,6 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_egress_yaml, fp)
-        print(f"TenantNamespace yaml dict: {tenant_egress_yaml}")
     print(f"TenantNamespace yaml file: {temp_file.name}")
     return temp_file.name
 

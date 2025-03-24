@@ -27,6 +27,7 @@ import random
 import subprocess
 
 from pathlib import Path
+from time import sleep
 from typing import Dict, Any, List
 
 from container_ci_suite.engines.container import PodmanCLIWrapper
@@ -93,7 +94,8 @@ class OpenShiftAPI:
     def create_tenant_namespace(self) -> bool:
         tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
         tentant_output = run_oc_command(
-            cmd=f"create -f {tenant_yaml_file}", json_output=False, ignore_error=True, return_output=False
+            cmd=f"create -f {tenant_yaml_file}", json_output=False,
+            ignore_error=True, return_output=False, debug=True
         )
         if tentant_output != 0:
             print(f"Create tenant namespace with the name '{self.shared_random_name}' was not successful."
@@ -101,16 +103,36 @@ class OpenShiftAPI:
             return False
         return True
 
-    def create_egress_rules(self) -> bool:
+    def is_tenant_namespace_created(self) -> bool:
+        is_tenant_namespace_created = False
+        print(f"Check if TenantNamespace {self.shared_random_name} really exists")
+        for count in range(50):
+            print(".", sep="", end="")
+            if not self.openshift_ops.is_project_exits():
+                sleep(10)
+                continue
+            is_tenant_namespace_created = True
+            break
+        if not is_tenant_namespace_created:
+            print(f"\nTenantNamespace {self.shared_random_name} was not created properly.")
+        return is_tenant_namespace_created
+
+    def apply_tenant_egress_rules(self) -> bool:
         tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
-        tentant_output = run_oc_command(
-            cmd=f"apply -f {tenant_egress_file}", json_output=False, ignore_error=True, return_output=False
-        )
-        if tentant_output != 0:
-            print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
-                  f"{tentant_output}")
-            return False
-        return True
+        is_applied = False
+        for count in range(30):
+            tentant_output = run_oc_command(
+                cmd=f"apply -f {tenant_egress_file}", json_output=False,
+                ignore_error=True, return_output=False, debug=True
+            )
+            if tentant_output != 0:
+                print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
+                      f"{tentant_output}. Let's try one more tine")
+                sleep(10)
+                continue
+            is_applied = True
+            break
+        return is_applied
 
     def prepare_tenant_namespace(self):
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
@@ -124,9 +146,11 @@ class OpenShiftAPI:
             run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
         if not self.create_tenant_namespace():
             return False
-        # Let's wait 3 seconds till project is not up
-        time.sleep(3)
-        if not self.create_egress_rules():
+        # Let's wait 5 seconds till project is not up
+        time.sleep(30)
+        if not self.is_tenant_namespace_created():
+            return False
+        if not self.apply_tenant_egress_rules():
             return False
         self.project_created = True
         run_oc_command(
