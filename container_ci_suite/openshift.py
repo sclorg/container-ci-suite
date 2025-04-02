@@ -175,8 +175,8 @@ class OpenShiftAPI:
             json_output=json_flag,
             return_output=True
         )
-        if not self.create_limit_ranges():
-            return False
+        # if not self.create_limit_ranges():
+        #     return False
         print("Tenant Namespace were created")
 
     def delete_tenant_namespace(self):
