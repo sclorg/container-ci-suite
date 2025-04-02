@@ -71,9 +71,18 @@ class OpenShiftOperations:
 
     def print_get_status(self):
         print("Print get all and status:")
-        print(run_oc_command("get all", namespace=self.namespace, json_output=False))
-        print(run_oc_command("status", namespace=self.namespace, json_output=False))
-        print(run_oc_command("status --suggest", namespace=self.namespace, json_output=False))
+        try:
+            print(run_oc_command("get all", namespace=self.namespace, return_output=True, json_output=False))
+        except CalledProcessError:
+            pass
+        try:
+            print(run_oc_command("status", namespace=self.namespace, return_output=True, json_output=False))
+        except CalledProcessError:
+            pass
+        try:
+            print(run_oc_command("status --suggest", namespace=self.namespace, return_output=True, json_output=False))
+        except CalledProcessError:
+            pass
 
     def print_pod_logs(self):
         self.pod_json_data = self.get_pod_status()

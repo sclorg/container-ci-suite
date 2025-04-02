@@ -331,7 +331,48 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_egress_yaml, fp)
-    print(f"TenantNamespace yaml file: {temp_file.name}")
+    print(f"TenantNamespaceEgress yaml file: {temp_file.name}")
+    return temp_file.name
+
+
+def save_tenant_limit_yaml() -> str:
+    tenant_limit_yaml = {
+        "apiVersion": "v1",
+        "kind": "LimitRange",
+        "metadata": {
+            "name": "limits",
+        },
+        "spec": {
+            "limits": [
+                {
+                    "type": "Pod",
+                    "max": {
+                        "cpu": "8",
+                        "memory": "8Gi"
+                    },
+                    "min": {
+                        "cpu": "4",
+                        "memory": "2Gi"
+                    }
+                },
+                {
+                    "type": "Container",
+                    "max": {
+                        "cpu": "8",
+                        "memory": "8Gi"
+                    },
+                    "min": {
+                        "cpu": "2",
+                        "memory": "2Gi"
+                    }
+                }
+            ]
+        }
+    }
+    temp_file = tempfile.NamedTemporaryFile(prefix="tenant-limit-yml", delete=False)
+    with open(temp_file.name, "w") as fp:
+        yaml.dump(tenant_limit_yaml, fp)
+    print(f"TenantNamespaceLimits yaml file: {temp_file.name}")
     return temp_file.name
 
 

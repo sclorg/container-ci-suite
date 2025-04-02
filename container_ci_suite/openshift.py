@@ -134,6 +134,23 @@ class OpenShiftAPI:
             break
         return is_applied
 
+    def create_limit_ranges(self) -> bool:
+        tenant_limit_file = utils.save_tenant_limit_yaml()
+        is_applied = False
+        for count in range(30):
+            tentant_output = run_oc_command(
+                cmd=f"apply -f {tenant_limit_file}", json_output=False,
+                ignore_error=True, return_output=False, debug=True
+            )
+            if tentant_output != 0:
+                print(f"create limit ranges to tenant namespace '{self.shared_random_name}' was not successful."
+                      f"{tentant_output}. Let's try one more tine")
+                sleep(10)
+                continue
+            is_applied = True
+            break
+        return is_applied
+
     def prepare_tenant_namespace(self):
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
@@ -158,6 +175,8 @@ class OpenShiftAPI:
             json_output=json_flag,
             return_output=True
         )
+        if not self.create_limit_ranges():
+            return False
         print("Tenant Namespace were created")
 
     def delete_tenant_namespace(self):
@@ -179,8 +198,8 @@ class OpenShiftAPI:
     def get_raw_url_for_json(self, container: str, dir: str, filename: str, branch: str = "master"):
         return utils.get_raw_url_for_json(container=container, dir=dir, filename=filename, branch=branch)
 
-    def is_s2i_pod_running(self, pod_name_prefix: str):
-        return self.openshift_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix)
+    def is_s2i_pod_running(self, pod_name_prefix: str, cycle_count: int = 180):
+        return self.openshift_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix, cycle_count=cycle_count)
 
     def is_pod_running(self, pod_name_prefix: str):
         return self.openshift_ops.is_pod_running(pod_name_prefix=pod_name_prefix)
@@ -358,7 +377,7 @@ class OpenShiftAPI:
     def get_openshift_args(self, oc_args: List[str]) -> str:
         return " -p ".join(oc_args)
 
-    def template_deployed(self, name_in_template: str = "", timeout: int = 180) -> bool:
+    def is_template_deployed(self, name_in_template: str = "", timeout: int = 180) -> bool:
         if not self.openshift_ops.is_build_pod_finished(cycle_count=timeout):
             print("\nBuild pod does not finished in proper time")
             self.openshift_ops.print_get_status()
@@ -428,6 +447,7 @@ class OpenShiftAPI:
         if Path(app).is_dir():
             app_param = utils.download_template(template_name=app)
         oc_cmd = f"new-app {tagged_image}~{app_param} --strategy=source --context-dir={context} --name={service_name}"
+        print(f"Command for deploying application is: {oc_cmd}")
         try:
             output = run_oc_command(f"{oc_cmd}", json_output=False)
             print(output)
@@ -508,6 +528,7 @@ class OpenShiftAPI:
         :param image_name: image name that is used for testing
         :param app: the app reference that is used in template like https://github.com/sclorg/httpd-ex.git
         :param context: specify context of in source git repository
+        :param service_name: specify service name to check in pods
         :return True: application was properly deployed
                 False: application was not properly deployed
         """
