@@ -198,6 +198,33 @@ class TestContainerCISuiteUtils(object):
         assert check_dnsName
         assert check_deny
 
+    def test_tenantlimites_yaml(self):
+        tenant_limits_yaml = utils.save_tenant_egress_yaml(project_name="123456")
+        with open(tenant_limits_yaml) as fd:
+            yaml_load = yaml.safe_load(fd.read())
+        assert yaml_load
+        assert yaml_load["metadata"]["name"] == "123456"
+        assert len(yaml_load["spec"]["limits"]) == 2
+        check_pod_max = False
+        check_pod_min = False
+        check_container_max = False
+        check_container_min = False
+        for limits in yaml_load["spec"]["limits"]:
+            if "Pod" in limits["type"]:
+                if limits["max"]["cpu"] == "6" and limits["max"]["memory"] == "4Gi":
+                    check_pod_max = True
+                if limits["min"]["cpu"] == "2" and limits["min"]["memory"] == "500Mi":
+                    check_pod_min = True
+            if "Pod" in limits["type"]:
+                if limits["max"]["cpu"] == "4" and limits["max"]["memory"] == "2Gi":
+                    check_container_max = True
+                if limits["min"]["cpu"] == "1" and limits["min"]["memory"] == "250Mi":
+                    check_container_min = True
+        assert check_pod_max
+        assert check_pod_min
+        assert check_container_max
+        assert check_container_min
+
     @pytest.mark.parametrize(
         "json_data,expected_output",
         [
