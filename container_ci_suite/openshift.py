@@ -109,7 +109,7 @@ class OpenShiftAPI:
         for count in range(50):
             print(".", sep="", end="")
             if not self.openshift_ops.is_project_exits():
-                sleep(10)
+                sleep(5)
                 continue
             is_tenant_namespace_created = True
             break
@@ -128,7 +128,7 @@ class OpenShiftAPI:
             if tentant_output != 0:
                 print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
                       f"{tentant_output}. Let's try one more tine")
-                sleep(10)
+                sleep(5)
                 continue
             is_applied = True
             break
@@ -145,7 +145,7 @@ class OpenShiftAPI:
             if tentant_output != 0:
                 print(f"create limit ranges to tenant namespace '{self.shared_random_name}' was not successful."
                       f"{tentant_output}. Let's try one more tine")
-                sleep(10)
+                sleep(5)
                 continue
             is_applied = True
             break
@@ -164,7 +164,7 @@ class OpenShiftAPI:
         if not self.create_tenant_namespace():
             return False
         # Let's wait 5 seconds till project is not up
-        time.sleep(30)
+        time.sleep(10)
         if not self.is_tenant_namespace_created():
             return False
         if not self.apply_tenant_egress_rules():
@@ -378,6 +378,7 @@ class OpenShiftAPI:
         return " -p ".join(oc_args)
 
     def is_template_deployed(self, name_in_template: str = "", timeout: int = 180) -> bool:
+        print("Check if template was deployed properly")
         if not self.openshift_ops.is_build_pod_finished(cycle_count=timeout):
             print("\nBuild pod does not finished in proper time")
             self.openshift_ops.print_get_status()
