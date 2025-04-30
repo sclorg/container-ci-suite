@@ -72,15 +72,11 @@ class OpenShiftOperations:
     def print_get_status(self):
         print("Print get all and status:")
         try:
-            print(run_oc_command("get all", namespace=self.namespace, return_output=True, json_output=False))
+            print(run_oc_command("get all", namespace=self.namespace, json_output=False, ignore_error=True))
         except CalledProcessError:
             pass
         try:
-            print(run_oc_command("status", namespace=self.namespace, return_output=True, json_output=False))
-        except CalledProcessError:
-            pass
-        try:
-            print(run_oc_command("status --suggest", namespace=self.namespace, return_output=True, json_output=False))
+            print(run_oc_command("status --suggest", namespace=self.namespace, json_output=False, ignore_error=True))
         except CalledProcessError:
             pass
 
@@ -90,7 +86,7 @@ class OpenShiftOperations:
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             print(f"Logs from pod name {pod_name}:")
-            oc_logs = run_oc_command(f"logs pod/{pod_name}", json_output=False)
+            oc_logs = run_oc_command(f"logs pod/{pod_name}", json_output=False, ignore_error=True)
             print(oc_logs)
 
     def is_project_exits(self) -> bool:
