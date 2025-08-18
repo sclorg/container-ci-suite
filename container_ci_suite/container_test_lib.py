@@ -59,12 +59,29 @@ except ImportError:
     # Fallback imports for standalone usage
     PodmanCLIWrapper = None
 
-    def run_command(cmd, return_output=True, ignore_error=False, shell=True, **kwargs):
+    def run_command(cmd, return_output=True, ignore_error=False, shell=True, debug=False, **kwargs):
         """Fallback run_command implementation."""
-        if return_output:
-            return subprocess.check_output(cmd, shell=shell, text=True, **kwargs)
-        else:
-            return subprocess.check_call(cmd, shell=shell, **kwargs)
+        if debug:
+            print(f"command: {cmd}")
+        try:
+            if return_output:
+                return subprocess.check_output(
+                    cmd, 
+                    shell=shell, 
+                    text=True, 
+                    stderr=subprocess.STDOUT,
+                    **kwargs
+                )
+            else:
+                return subprocess.check_call(cmd, shell=shell, **kwargs)
+        except subprocess.CalledProcessError as cpe:
+            if ignore_error:
+                if return_output:
+                    return cpe.output if hasattr(cpe, 'output') else ""
+                else:
+                    return cpe.returncode
+            else:
+                raise cpe
 
     def get_file_content(filename):
         """Fallback get_file_content implementation."""
@@ -176,29 +193,20 @@ class ContainerTestLib:
 
             # Run build command with timeout
             timeout_cmd = f"timeout {sleep_time} {command}"
-
-            with open(log_file, 'w') as f:
-                result = subprocess.run(
-                    timeout_cmd,
-                    shell=True,
-                    stdout=f,
-                    stderr=subprocess.STDOUT,
-                    text=True
-                )
-
-            # Read and display the log
-            with open(log_file, 'r') as f:
-                log_content = f.read()
+            
+            try:
+                log_content = run_command(timeout_cmd, return_output=True)
                 print(log_content)
-
-            if result.returncode == 0:
+                
                 # Extract image ID from last line
                 lines = log_content.strip().split('\n')
                 if lines:
                     self.app_image_id = lines[-1].strip()
-
-            log_file.unlink()  # Remove log file
-            return result.returncode == 0
+                
+                return True
+                
+            except subprocess.CalledProcessError:
+                return False
 
         except Exception as e:
             logger.error(f"Build failed: {e}")
