@@ -32,7 +32,7 @@ This package provides comprehensive container testing functionality including:
 - Documentation validation
 """
 
-from .container_test_lib import ContainerTestLib
+from .container_lib import ContainerTestLib
 
 __version__ = "1.0.0"
 __all__ = ["ContainerTestLib"]

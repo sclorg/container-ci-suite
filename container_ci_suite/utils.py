@@ -146,67 +146,69 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
         return None
 
 
-def run_command(
-    cmd,
-    return_output: bool = True,
-    ignore_error: bool = False,
-    shell: bool = True,
-    debug: bool = False,
-    **kwargs,
-):
-    """
-    Run provided command on host system using the same user as invoked this code.
-    Raises subprocess.CalledProcessError if it fails.
-    :param cmd: list or str
-    :param return_output: bool, return output of the command
-    :param ignore_error: bool, do not fail in case nonzero return code
-    :param shell: bool, run command in shell
-    :param debug: bool, print command in shell, default is suppressed
-    :return: None or str
-    """
-    if debug:
-        print(f"command: {cmd}")
-    try:
-        if return_output:
-            return subprocess.check_output(
-                cmd,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                shell=shell,
-                **kwargs,
-            )
-        else:
-            return subprocess.check_call(cmd, shell=shell, **kwargs)
-    except subprocess.CalledProcessError as cpe:
-        print(f"Exception: {cpe}")
-        if ignore_error:
+class ContainerTestLibUtils:
+    @staticmethod
+    def run_command(
+        cmd,
+        return_output: bool = True,
+        ignore_error: bool = False,
+        shell: bool = True,
+        debug: bool = False,
+        **kwargs,
+    ):
+        """
+        Run provided command on host system using the same user as invoked this code.
+        Raises subprocess.CalledProcessError if it fails.
+        :param cmd: list or str
+        :param return_output: bool, return output of the command
+        :param ignore_error: bool, do not fail in case nonzero return code
+        :param shell: bool, run command in shell
+        :param debug: bool, print command in shell, default is suppressed
+        :return: None or str
+        """
+        if debug:
+            print(f"command: {cmd}")
+        try:
             if return_output:
-                return cpe.output
+                return subprocess.check_output(
+                    cmd,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    shell=shell,
+                    **kwargs,
+                )
             else:
-                print(f"failed with output {cpe.output}")
-                return cpe.returncode
-        else:
-            print(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
-            raise cpe
+                return subprocess.check_call(cmd, shell=shell, **kwargs)
+        except subprocess.CalledProcessError as cpe:
+            print(f"Exception: {cpe}")
+            if ignore_error:
+                if return_output:
+                    return cpe.output
+                else:
+                    print(f"failed with output {cpe.output}")
+                    return cpe.returncode
+            else:
+                print(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
+                raise cpe
 
+    @staticmethod
+    def run_oc_command(
+        cmd, json_output: bool = True, return_output: bool = True, ignore_error: bool = False, shell: bool = True,
+            namespace: str = "", debug: bool = False
+    ):
+        """
+        Run docker command:
+        """
+        json_cmd = "-o json" if json_output else ""
+        namespace_cmd = f"-n {namespace}" if namespace != "" else ""
 
-def run_oc_command(
-    cmd, json_output: bool = True, return_output: bool = True, ignore_error: bool = False, shell: bool = True,
-        namespace: str = "", debug: bool = False
-):
-    """
-    Run docker command:
-    """
-    json_cmd = "-o json" if json_output else ""
-    namespace_cmd = f"-n {namespace}" if namespace != "" else ""
-
-    return run_command(
-        f"oc {cmd} {namespace_cmd} {json_cmd}",
-        return_output=return_output,
-        ignore_error=ignore_error,
-        shell=shell,
-        debug=debug
-    )
+        return ContainerTestLibUtils.run_command(
+            f"oc {cmd} {namespace_cmd} {json_cmd}",
+            return_output=return_output,
+            ignore_error=ignore_error,
+            shell=shell,
+            debug=debug
+        )
 
 
 def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:
@@ -414,9 +416,9 @@ def get_image_name() -> Any:
         return None
     image_id = get_file_content(image_id_file).strip()
     inspect_name = 'docker inspect -f "{{.Config.Labels.name}}" ' + image_id
-    name = run_command(cmd=inspect_name).strip()
+    name = ContainerTestLibUtils.run_command(cmd=inspect_name).strip()
     inspect_version = 'docker inspect -f "{{.Config.Labels.version}}" ' + image_id
-    version = run_command(cmd=inspect_version).strip()
+    version = ContainerTestLibUtils.run_command(cmd=inspect_version).strip()
     return f"{name}:{version}"
 
 
@@ -455,7 +457,7 @@ def get_yaml_data(filename_path: Path) -> dict:
     return yaml.safe_load(lines)
 
 
-def is_shared_cluster(test_type: str = "ocp4") -> bool:
+def is_shared_cluster(test_type: str = "ocp4"):
     json_data = get_json_data()
     if test_type not in json_data:
         print(f"Variable {test_type} is not present in file /root/shared_cluster.json")

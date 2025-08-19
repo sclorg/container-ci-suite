@@ -32,7 +32,7 @@ from typing import Dict, Any, List
 
 from container_ci_suite.engines.container import PodmanCLIWrapper
 from container_ci_suite.engines.openshift import OpenShiftOperations
-from container_ci_suite.utils import run_oc_command
+from container_ci_suite.utils import ContainerTestLibUtils
 
 
 import container_ci_suite.utils as utils
@@ -84,16 +84,18 @@ class OpenShiftAPI:
             else:
                 self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
                 self.openshift_ops.set_namespace(self.namespace)
-                run_oc_command(f"new-project {self.namespace}", json_output=False, return_output=True)
+                ContainerTestLibUtils.run_oc_command(
+                    f"new-project {self.namespace}", json_output=False, return_output=True
+                )
                 print(f"Project with the name '{self.namespace}' were created.")
         else:
-            run_oc_command(f"project {self.namespace}", json_output=False)
+            ContainerTestLibUtils.run_oc_command(f"project {self.namespace}", json_output=False)
         self.project_created = True
         return self.openshift_ops.is_project_exits()
 
     def create_tenant_namespace(self) -> bool:
         tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
-        tentant_output = run_oc_command(
+        tentant_output = ContainerTestLibUtils.run_oc_command(
             cmd=f"create -f {tenant_yaml_file}", json_output=False,
             ignore_error=True, return_output=False, debug=True
         )
@@ -121,7 +123,7 @@ class OpenShiftAPI:
         tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
         is_applied = False
         for count in range(30):
-            tentant_output = run_oc_command(
+            tentant_output = ContainerTestLibUtils.run_oc_command(
                 cmd=f"apply -f {tenant_egress_file}", json_output=False,
                 ignore_error=True, return_output=False, debug=True
             )
@@ -138,7 +140,7 @@ class OpenShiftAPI:
         tenant_limit_file = utils.save_tenant_limit_yaml()
         is_applied = False
         for count in range(30):
-            tentant_output = run_oc_command(
+            tentant_output = ContainerTestLibUtils.run_oc_command(
                 cmd=f"apply -f {tenant_limit_file}", json_output=False,
                 ignore_error=True, return_output=False, debug=True
             )
@@ -155,12 +157,12 @@ class OpenShiftAPI:
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
         try:
-            namespace = run_oc_command(cmd="project -q", json_output=json_flag).strip()
+            namespace = ContainerTestLibUtils.run_oc_command(cmd="project -q", json_output=json_flag).strip()
             print(f"The current namespace is '{namespace}'")
             if namespace != self.config_tenant_name:
-                run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+                ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
         except subprocess.CalledProcessError:
-            run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+            ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
         if not self.create_tenant_namespace():
             return False
         # Let's wait 5 seconds till project is not up
@@ -170,7 +172,7 @@ class OpenShiftAPI:
         if not self.apply_tenant_egress_rules():
             return False
         self.project_created = True
-        run_oc_command(
+        ContainerTestLibUtils.run_oc_command(
             cmd=f"project {self.namespace}",
             json_output=json_flag,
             return_output=True
@@ -181,12 +183,12 @@ class OpenShiftAPI:
 
     def delete_tenant_namespace(self):
         json_flag = False
-        namespace = run_oc_command(cmd="project -q", json_output=json_flag)
+        namespace = ContainerTestLibUtils.run_oc_command(cmd="project -q", json_output=json_flag)
         if namespace == self.config_tenant_name:
             print(f"Deleting tenant '{self.config_tenant_name}' is not allowed.")
             return
-        run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
-        if run_oc_command(
+        ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+        if ContainerTestLibUtils.run_oc_command(
                 f"delete tenantnamespace {self.shared_random_name}",
                 json_output=json_flag
         ):
@@ -214,13 +216,13 @@ class OpenShiftAPI:
                 self.delete_tenant_namespace()
             else:
                 print(f"Deleting project {self.namespace}")
-                run_oc_command("project default", json_output=False)
-                run_oc_command(
+                ContainerTestLibUtils.run_oc_command("project default", json_output=False)
+                ContainerTestLibUtils.run_oc_command(
                     f"delete project {self.namespace} --grace-period=0 --force", json_output=False
                 )
 
     def run_command_in_pod(self, pod_name, command: str = "") -> str:
-        output = run_oc_command(f"exec {pod_name} -- \"{command}\"")
+        output = ContainerTestLibUtils.run_oc_command(f"exec {pod_name} -- \"{command}\"")
         print(output)
         return output
 
@@ -229,27 +231,31 @@ class OpenShiftAPI:
             is_exists = self.openshift_ops.is_imagestream_exist(name=name)
             if is_exists:
                 return is_exists
-        output = run_oc_command(f"create -f {path}", namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(f"create -f {path}", namespace=self.namespace)
         # Let's wait 3 seconds till imagestreams are not uploaded
         time.sleep(3)
         return json.loads(output)
 
     def process_file(self, path: str):
-        output = run_oc_command(f"process -f {path}", namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(f"process -f {path}", namespace=self.namespace)
         json_output = json.loads(output)
         print(json_output)
         return json_output
 
     def start_build(self, service_name: str, app_name: str = "") -> str:
         from_dir = utils.download_template(template_name=app_name)
-        output = run_oc_command(f"start-build {service_name} --from-dir={from_dir}", json_output=False)
+        output = ContainerTestLibUtils.run_oc_command(
+            f"start-build {service_name} --from-dir={from_dir}", json_output=False
+        )
         return output
 
     def login_to_shared_cluster(self):
         self.openshift_ops.login_to_cluster(shared_cluster=True)
-        output = run_oc_command("version", json_output=False)
+        output = ContainerTestLibUtils.run_oc_command("version", json_output=False)
         print(output)
-        output = run_oc_command(f"project {self.config_tenant_name}", json_output=False)
+        output = ContainerTestLibUtils.run_oc_command(
+            f"project {self.config_tenant_name}", json_output=False
+        )
         print(output)
 
     @staticmethod
@@ -264,7 +270,7 @@ class OpenShiftAPI:
             )
             return None
         cmd = f"podman login -u \"{robot_name}\" -p \"{robot_token}\" {registry_url}"
-        output = utils.run_command(
+        output = ContainerTestLibUtils.run_command(
             cmd=cmd,
             ignore_error=False,
             return_output=True
@@ -278,14 +284,14 @@ class OpenShiftAPI:
         if not register_url:
             return None
         output_name = f"{register_url}/core-services-ocp/{tagged_image}"
-        print(utils.run_command("podman images"))
+        print(ContainerTestLibUtils.run_command("podman images"))
         cmd = f"podman tag {source_image} {output_name}"
-        output = utils.run_command(cmd, ignore_error=False, return_output=True)
+        output = ContainerTestLibUtils.run_command(cmd, ignore_error=False, return_output=True)
         print(f"Output from podman tag command {output}")
         cmd = f"podman push {output_name}"
-        output = utils.run_command(cmd, ignore_error=False, return_output=True)
+        output = ContainerTestLibUtils.run_command(cmd, ignore_error=False, return_output=True)
         print(f"Output from podman push command {output}")
-        ret = run_oc_command(
+        ret = ContainerTestLibUtils.run_oc_command(
             f"import-image {tagged_image} --from={output_name} --confirm", json_output=False, return_output=True
         )
         print(ret)
@@ -294,16 +300,16 @@ class OpenShiftAPI:
         return True
 
     def docker_login_to_openshift(self) -> Any:
-        output = run_oc_command(cmd="get route default-route -n openshift-image-registry")
+        output = ContainerTestLibUtils.run_oc_command(cmd="get route default-route -n openshift-image-registry")
         jsou_output = json.loads(output)
         print(jsou_output["spec"]["host"])
         if not jsou_output["spec"]["host"]:
             print("Default route does not exist. Install OpenShift 4 cluster properly and expose default route.")
             return None
         ocp4_register = jsou_output["spec"]["host"]
-        token_output = run_oc_command(cmd="whoami -t", json_output=False).strip()
+        token_output = ContainerTestLibUtils.run_oc_command(cmd="whoami -t", json_output=False).strip()
         cmd = f"docker login -u kubeadmin -p {token_output} {ocp4_register}"
-        output = utils.run_command(
+        output = ContainerTestLibUtils.run_command(
             cmd=cmd,
             ignore_error=False,
             return_output=True
@@ -331,12 +337,12 @@ class OpenShiftAPI:
         output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
         cmd = f"docker tag {source_image} {output_name}"
         print(f"Tag docker image {cmd}")
-        output = utils.run_command(
+        output = ContainerTestLibUtils.run_command(
             cmd=cmd,
             ignore_error=False
         )
         print(f"Upload_image tagged {output}")
-        output = utils.run_command(
+        output = ContainerTestLibUtils.run_command(
             cmd=f"docker push {output_name}",
             ignore_error=False
         )
@@ -358,7 +364,7 @@ class OpenShiftAPI:
         args = [""]
         if template_args:
             args = [f"-p {key}={val}" for key, val in template_args]
-        output = run_oc_command(
+        output = ContainerTestLibUtils.run_oc_command(
             f"new-app {template_json} --name {name} -p NAMESPACE={self.namespace} {args}",
             json_output=False
         )
@@ -366,7 +372,7 @@ class OpenShiftAPI:
         return output
 
     def get_route_url(self, routes_name: str) -> Any:
-        output = run_oc_command(f"get routes/{routes_name}")
+        output = ContainerTestLibUtils.run_oc_command(f"get routes/{routes_name}")
         json_output = json.loads(output)
         if not json_output["spec"]["host"]:
             return None
@@ -392,14 +398,16 @@ class OpenShiftAPI:
     def command_app_run(self, cmd: str, return_output: bool = True) -> str:
         cmd = f"exec command-app -- bash -c \"{cmd}\""
         print(f"command_app_run: {cmd}")
-        cmd_out = run_oc_command(
+        cmd_out = ContainerTestLibUtils.run_oc_command(
             cmd=cmd, ignore_error=True, return_output=return_output, json_output=False
         )
         return cmd_out
 
-    def create_deploy_command_app(self, image_name: str = "registry.access.redhat.com/ubi8/ubi") -> bool:
+    def create_deploy_command_app(
+            self, image_name: str = "registry.access.redhat.com/ubi8/ubi"
+    ) -> bool:
         cmd_file = utils.save_command_yaml(image_name=image_name)
-        run_oc_command(f"create -f {cmd_file}")
+        ContainerTestLibUtils.run_oc_command(f"create -f {cmd_file}")
         if not self.openshift_ops.is_pod_running(pod_name_prefix="command-app"):
             print("create_deploy_command_app: command-app pod is not running after time.")
             self.openshift_ops.print_get_status()
@@ -450,7 +458,7 @@ class OpenShiftAPI:
         oc_cmd = f"new-app {tagged_image}~{app_param} --strategy=source --context-dir={context} --name={service_name}"
         print(f"Command for deploying application is: {oc_cmd}")
         try:
-            output = run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
             print(output)
         except subprocess.CalledProcessError as cpe:
             print(cpe.output)
@@ -511,7 +519,7 @@ class OpenShiftAPI:
         oc_cmd = f"new-app -f {local_template} --name={app_name} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
-            output = run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
             print(output)
         except subprocess.CalledProcessError:
             return False
@@ -593,7 +601,7 @@ class OpenShiftAPI:
         oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
-            output = run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
             print(output)
         except subprocess.CalledProcessError:
             return False
@@ -663,7 +671,8 @@ class OpenShiftAPI:
                 return True
             print(
                 f"check_response_inside_cluster:"
-                f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
+                f"expected_output {expected_output} not found"
+                f"in output of {cmd_to_run} command. See {output_code}"
             )
             time.sleep(5)
         return False

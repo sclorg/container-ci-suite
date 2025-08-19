@@ -31,7 +31,7 @@ from unittest.mock import patch
 
 import pytest
 
-from container_ci_suite.container_test_lib import ContainerTestLib
+from container_ci_suite.container_lib import ContainerTestLib
 
 from tests.spellbook import DATA_DIR
 
@@ -152,7 +152,7 @@ def initialized_container_test_lib():
     yield ct_lib
     # Cleanup after test
     try:
-        ct_lib.ct_cleanup()
+        ct_lib.cleanup()
     except Exception:
         pass  # Ignore cleanup errors in tests
 
@@ -169,14 +169,14 @@ def temp_dir():
 @pytest.fixture
 def mock_run_command():
     """Mock the run_command function."""
-    with patch('container_test_lib.run_command') as mock:
+    with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_podman_wrapper():
     """Mock the PodmanCLIWrapper."""
-    with patch('container_test_lib.PodmanCLIWrapper') as mock:
+    with patch('container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper') as mock:
         yield mock
 
 
@@ -206,23 +206,23 @@ def sample_environment_vars():
 def mock_docker_commands():
     """Mock common docker commands."""
     def mock_command(cmd, return_output=True, ignore_error=False, **kwargs):
-        if 'docker images -q' in cmd:
+        if 'podman images -q' in cmd:
             return "sha256:abc123" if return_output else 0
-        elif 'docker inspect' in cmd and 'State.Running' in cmd:
+        elif 'podman inspect' in cmd and 'State.Running' in cmd:
             return "true" if return_output else 0
-        elif 'docker inspect' in cmd and 'State.ExitCode' in cmd:
+        elif 'podman inspect' in cmd and 'State.ExitCode' in cmd:
             return "0" if return_output else 0
-        elif 'docker inspect' in cmd and 'NetworkSettings.IPAddress' in cmd:
-            return "172.17.0.2" if return_output else 0
-        elif 'docker ps -q -a' in cmd:
+        elif 'podman inspect' in cmd and 'NetworkSettings.IPAddress' in cmd:
+            return "172.27.0.2" if return_output else 0
+        elif 'podman ps -q -a' in cmd:
             return "container123" if return_output else 0
-        elif 'docker pull' in cmd:
+        elif 'podman pull' in cmd:
             return "Successfully pulled" if return_output else 0
-        elif 'docker build' in cmd:
+        elif 'podman build' in cmd:
             return "Successfully built abc123\nabc123" if return_output else 0
-        elif 'docker run' in cmd and 'env' in cmd:
+        elif 'podman run' in cmd and 'env' in cmd:
             return "PATH=/usr/bin\nX_SCLS=nodejs16" if return_output else 0
-        elif 'docker run' in cmd and 'npm --version' in cmd:
+        elif 'podman run' in cmd and 'npm --version' in cmd:
             return "8.19.2" if return_output else 0
         elif 'curl' in cmd:
             return "Welcome to the app200" if return_output else 0
@@ -237,7 +237,7 @@ def mock_docker_commands():
         else:
             return "" if return_output else 0
 
-    with patch('container_test_lib.run_command', side_effect=mock_command) as mock:
+    with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command', side_effect=mock_command) as mock:
         yield mock
 
 
@@ -258,7 +258,7 @@ def mock_file_operations():
     def mock_file_exists(self):
         return str(self) in mock_files or 'test' in str(self)
 
-    with patch('container_test_lib.get_file_content', side_effect=mock_get_file_content), \
+    with patch('container_ci_suite.utils.get_file_content', side_effect=mock_get_file_content), \
          patch('pathlib.Path.exists', mock_file_exists), \
          patch('pathlib.Path.is_file', lambda self: True), \
          patch('pathlib.Path.is_dir', lambda self: False):
@@ -270,7 +270,7 @@ def clean_environment():
     """Clean environment variables for testing."""
     original_env = os.environ.copy()
     # Remove test-related environment variables
-    test_vars = ['UNSTABLE_TESTS', 'NPM_REGISTRY', 'DEBUG', 'IGNORE_UNSTABLE_TESTS']
+    test_vars = ['NPM_REGISTRY', 'DEBUG', 'IGNORE_UNSTABLE_TESTS']
     for var in test_vars:
         if var in os.environ:
             del os.environ[var]

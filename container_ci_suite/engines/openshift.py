@@ -27,7 +27,8 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import Dict, Any
 
-from container_ci_suite.utils import run_oc_command, get_file_content, load_shared_credentials, get_shared_variable
+from container_ci_suite.utils import ContainerTestLibUtils
+from container_ci_suite.utils import get_file_content, load_shared_credentials, get_shared_variable
 
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -57,26 +58,34 @@ class OpenShiftOperations:
             url = get_shared_variable("local_cluster_url")
             password = get_file_content(filename=Path("/root/.kube/ocp-kube")).strip()
             cmd = f"login -u kubeadmin -p {password} --server={url}"
-        output = run_oc_command(cmd, json_output=False)
+        output = ContainerTestLibUtils.run_oc_command(cmd, json_output=False)
         print(output)
-        output = run_oc_command("version", json_output=False)
+        output = ContainerTestLibUtils.run_oc_command("version", json_output=False)
         print(output)
 
     def get_pod_status(self) -> Dict:
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
-        output = run_oc_command("get pods", json_output=True, namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command("get pods", json_output=True, namespace=self.namespace)
         # print(f" oc get pods: {output}")
         return json.loads(output)
 
     def print_get_status(self):
         print("Print get all and status:")
         try:
-            print(run_oc_command("get all", namespace=self.namespace, json_output=False, ignore_error=True))
+            print(
+                ContainerTestLibUtils.run_oc_command(
+                    "get all", namespace=self.namespace, json_output=False, ignore_error=True
+                )
+            )
         except CalledProcessError:
             pass
         try:
-            print(run_oc_command("status --suggest", namespace=self.namespace, json_output=False, ignore_error=True))
+            print(
+                ContainerTestLibUtils.run_oc_command(
+                    "status --suggest", namespace=self.namespace, json_output=False, ignore_error=True
+                )
+            )
         except CalledProcessError:
             pass
 
@@ -86,11 +95,13 @@ class OpenShiftOperations:
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             print(f"Logs from pod name {pod_name}:")
-            oc_logs = run_oc_command(f"logs pod/{pod_name}", json_output=False, ignore_error=True)
+            oc_logs = ContainerTestLibUtils.run_oc_command(
+                f"logs pod/{pod_name}", json_output=False, ignore_error=True
+            )
             print(oc_logs)
 
     def is_project_exits(self) -> bool:
-        output = run_oc_command("projects", json_output=False)
+        output = ContainerTestLibUtils.run_oc_command("projects", json_output=False)
         if self.namespace in output:
             return True
         return False
@@ -109,7 +120,7 @@ class OpenShiftOperations:
         return count
 
     def get_logs(self, pod_name) -> str:
-        return run_oc_command(
+        return ContainerTestLibUtils.run_oc_command(
             f"logs {pod_name}", namespace=self.namespace, json_output=False
         )
 
@@ -119,7 +130,10 @@ class OpenShiftOperations:
             print(".", sep="", end="")
             self.pod_json_data = self.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
-                print("\nApplication pod name is not specified. Call: is_pod_running(pod_name_prefix=\"something\").")
+                print(
+                    "\nApplication pod name is not specified."
+                    "Call: is_pod_running(pod_name_prefix=\"something\")."
+                )
                 return False
             if pod_name_prefix != "":
                 self.pod_name_prefix = pod_name_prefix
@@ -206,7 +220,9 @@ class OpenShiftOperations:
             return True
         return False
 
-    def is_s2i_pod_running(self, pod_name_prefix: str = "", cycle_count: int = 180) -> bool:
+    def is_s2i_pod_running(
+            self, pod_name_prefix: str = "", cycle_count: int = 180
+    ) -> bool:
         self.pod_name_prefix = pod_name_prefix
         build_pod_finished = False
         print("Check if S2I build pod is running")
@@ -242,7 +258,9 @@ class OpenShiftOperations:
         return False
 
     def oc_get_services(self, service_name):
-        output = run_oc_command(f"get svc/{service_name}", json_output=True, namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(
+            f"get svc/{service_name}", json_output=True, namespace=self.namespace
+        )
         json_output = json.loads(output)
         print(json_output)
         return json_output
@@ -267,18 +285,18 @@ class OpenShiftOperations:
         return None
 
     def get_routes(self):
-        output = run_oc_command(
+        output = ContainerTestLibUtils.run_oc_command(
             "get route",
             namespace=self.namespace, return_output=True, ignore_error=True, shell=True
         )
         return json.loads(output)
 
     def oc_gel_all_is(self):
-        output = run_oc_command("get is", namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command("get is", namespace=self.namespace)
         return json.loads(output)
 
     def oc_get_is(self, name: str):
-        output = run_oc_command(f"get is/{name}", namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(f"get is/{name}", namespace=self.namespace)
         return json.loads(output)
 
     def check_is_exists(self, is_name, version_to_check: str) -> bool:
@@ -321,7 +339,7 @@ class OpenShiftOperations:
                     continue
                 if item["status"]["phase"] == "Running":
                     print(f"\nPod with name {pod_name} is running {status}.")
-                    output = run_oc_command(
+                    output = ContainerTestLibUtils.run_oc_command(
                         f"logs {pod_name}", namespace=self.namespace, json_output=False
                     )
                     print(output)
