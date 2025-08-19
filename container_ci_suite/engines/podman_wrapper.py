@@ -24,7 +24,7 @@ import json
 
 from typing import Any
 
-from container_ci_suite.utils import run_command
+from container_ci_suite.utils import ContainerTestLibUtils
 
 
 class PodmanCLIWrapper(object):
@@ -35,8 +35,8 @@ class PodmanCLIWrapper(object):
         """
         Run docker command:
         """
-        return run_command(
-            f"docker {cmd}",
+        return ContainerTestLibUtils.run_command(
+            f"podman {cmd}",
             return_output=return_output,
             ignore_error=ignore_error,
             shell=shell,

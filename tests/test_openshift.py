@@ -29,6 +29,7 @@ from flexmock import flexmock
 from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.engines.openshift import OpenShiftOperations
 from container_ci_suite.engines.container import PodmanCLIWrapper
+from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite import utils
 from tests.spellbook import DATA_DIR
 
@@ -64,7 +65,7 @@ class TestOpenShiftCISuite(object):
     def test_upload_image_success(self):
         flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(True)
         flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return("default_registry")
-        flexmock(utils).should_receive("run_command").twice()
+        flexmock(ContainerTestLibUtils).should_receive("run_command").twice()
         assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_update_template_example_file_without_pvc(self, get_ephemeral_template):

@@ -43,9 +43,9 @@ from typing import List, Optional, Union
 from datetime import datetime
 
 from container_ci_suite.engines.container import PodmanCLIWrapper
+from container_ci_suite import utils
+from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
-    run_command,
-    get_file_content,
     get_full_ca_file_path,
     get_os_environment,
     get_mount_ca_file,
@@ -67,15 +67,13 @@ class ContainerTestLib:
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
-        self.unstable_tests: List[str] = []
-        self.cleanup_enabled: bool = False
 
         # Set up unstable tests from environment
         unstable_env = get_os_environment("UNSTABLE_TESTS")
         if unstable_env:
             self.unstable_tests = unstable_env.split()
 
-    def ct_cleanup(self) -> None:
+    def cleanup(self) -> None:
         """
         Clean up containers and images used during tests.
         Stops and removes all containers and cleans up temporary directories.
@@ -110,7 +108,7 @@ class ContainerTestLib:
             timeout_cmd = f"timeout {sleep_time} {command}"
 
             try:
-                log_content = run_command(timeout_cmd, return_output=True)
+                log_content = ContainerTestLibUtils.run_command(timeout_cmd, return_output=True)
                 print(log_content)
                 with open(log_file, 'w') as f:
                     f.write(log_content)
@@ -181,7 +179,7 @@ class ContainerTestLib:
                 continue
 
             try:
-                image_id = get_file_content(file_path).strip()
+                image_id = utils.get_file_content(file_path).strip()
 
                 # Check if image exists
                 try:
@@ -225,7 +223,7 @@ class ContainerTestLib:
                 continue
 
             try:
-                container_id = get_file_content(cid_file).strip()
+                container_id = utils.get_file_content(cid_file).strip()
 
                 if not ContainerTestLib.is_container_exists(container_id):
                     continue
@@ -335,16 +333,13 @@ class ContainerTestLib:
                 continue
 
             var_name, stripped = line.split('=', 1)
-
             # Find matching environment variable in check_envs
             filtered_envs = [env for env in check_envs.split('\n') if env.startswith(f"{var_name}=")]
-
             if not filtered_envs:
                 print(f"{var_name} not found during 'docker exec'")
                 return False
 
             filtered_env = filtered_envs[0]
-
             # Check each value in the colon-separated list
             for value in stripped.split(':'):
                 if not re.search(env_filter, value):
@@ -353,7 +348,6 @@ class ContainerTestLib:
                 # Replace VALUE in env_format with actual value
                 pattern = env_format.replace("VALUE", re.escape(value))
                 pattern = pattern.replace("*", ".*")
-
                 if not re.search(pattern, filtered_env):
                     print(f"Value {value} is missing from variable {var_name}")
                     print(filtered_env)
@@ -372,7 +366,7 @@ class ContainerTestLib:
             Container ID
         """
         cid_file = self.cid_file_dir / name
-        return get_file_content(cid_file).strip()
+        return utils.get_file_content(cid_file).strip()
 
     def get_cip(self, cid_name: str) -> str:
         """
@@ -508,7 +502,7 @@ class ContainerTestLib:
             if not self.wait_for_cid(cid_file):
                 return False
 
-            container_id = get_file_content(cid_file).strip()
+            container_id = utils.get_file_content(cid_file).strip()
             print(f"Created container {container_id}")
             return True
 
@@ -712,7 +706,7 @@ class ContainerTestLib:
             if not self.wait_for_cid(cid_file):
                 return False
 
-            container_id = get_file_content(cid_file).strip()
+            container_id = utils.get_file_content(cid_file).strip()
 
             # Test npm install
             try:
@@ -818,11 +812,10 @@ class ContainerTestLib:
 
         try:
             # Get environment variables from docker run
-            run_envs = run_command(
-                f"docker run --rm {image_name} /bin/bash -c env",
+            run_envs = PodmanCLIWrapper.run_docker_command(
+                cmd=f"run --rm {image_name} /bin/bash -c env",
                 return_output=True
             )
-
             # Create container for exec test
             if not self.create_container("test_exec_envs", "bash -c 'sleep 1000'", image_name):
                 return False
@@ -831,7 +824,6 @@ class ContainerTestLib:
 
             # Get environment variables from docker exec
             exec_envs = PodmanCLIWrapper.run_docker_command(cmd=f"exec {container_id} env", return_output=True)
-
             # Check environment variables
             result = self.check_envs_set(env_filter, exec_envs, run_envs)
             if result:
@@ -927,14 +919,14 @@ class ContainerTestLib:
             cert_file = output_path / f"{base_name}-cert-selfsigned.pem"
 
             # Generate key and request
-            run_command(
+            ContainerTestLibUtils.run_command(
                 f"openssl req -newkey rsa:2048 -nodes -keyout {key_file} "
                 f"-subj '/C=GB/ST=Berkshire/L=Newbury/O=My Server Company' > {req_file}",
                 return_output=False
             )
 
             # Generate self-signed certificate
-            run_command(
+            ContainerTestLibUtils.run_command(
                 f"openssl req -new -x509 -nodes -key {key_file} -batch > {cert_file}",
                 return_output=False
             )
@@ -1017,7 +1009,7 @@ class ContainerTestLib:
                 # Create temporary file for response
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
-                result = run_command(
+                result = ContainerTestLibUtils.run_command(
                     f"curl --connect-timeout 10 -s -w '%{{http_code}}' '{url}'",
                     return_output=True
                 )
@@ -1107,7 +1099,7 @@ class ContainerTestLib:
         print(f"Checking '{cmd_str}' for success ...")
 
         try:
-            run_command(cmd_str, return_output=False)
+            ContainerTestLibUtils.run_command(cmd_str, return_output=False)
             print(" PASS")
             return True
         except subprocess.CalledProcessError:
@@ -1129,7 +1121,7 @@ class ContainerTestLib:
         print(f"Checking '{cmd_str}' for failure ...")
 
         try:
-            run_command(cmd_str, return_output=False)
+            ContainerTestLibUtils.run_command(cmd_str, return_output=False)
             print(" FAIL")
             return False
         except subprocess.CalledProcessError:
@@ -1179,19 +1171,19 @@ class ContainerTestLib:
         print("Resources info:")
         print("Memory:")
         try:
-            run_command("free -h", return_output=False)
+            ContainerTestLibUtils.run_command("free -h", return_output=False)
         except subprocess.CalledProcessError:
             print("Memory info not available")
 
         print("Storage:")
         try:
-            run_command("df -h", return_output=False)
+            ContainerTestLibUtils.run_command("df -h", return_output=False)
         except subprocess.CalledProcessError:
             print("Storage info not available")
 
         print("CPU")
         try:
-            run_command("lscpu", return_output=False)
+            ContainerTestLibUtils.run_command("lscpu", return_output=False)
         except subprocess.CalledProcessError:
             print("CPU info not available")
 

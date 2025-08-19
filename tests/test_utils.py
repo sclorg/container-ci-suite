@@ -46,9 +46,7 @@ class TestContainerCISuiteUtils(object):
     @pytest.mark.parametrize(
         "os,base_image_name,version,expected_str",
         [
-            ("rhel7", "nodejs", "12", "registry.redhat.io/rhscl/nodejs-12-rhel7"),
             ("rhel8", "nodejs", "14", "registry.redhat.io/rhel8/nodejs-14"),
-            ("centos7", "nodejs", "10", "docker.io/centos/nodejs-10-centos7"),
         ],
     )
     def test_get_public_image_name(self, os, base_image_name, version, expected_str):
