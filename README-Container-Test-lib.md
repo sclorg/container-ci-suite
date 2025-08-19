@@ -173,10 +173,10 @@ def test_new_functionality(container_test_lib, mock_run_command):
     """Test description."""
     # Arrange
     mock_run_command.return_value = "expected_output"
-    
+
     # Act
     result = container_test_lib.new_method("input")
-    
+
     # Assert
     assert result == "expected_result"
     mock_run_command.assert_called_once_with("expected_command")
@@ -189,7 +189,7 @@ def test_new_functionality(container_test_lib, mock_run_command):
 def test_real_docker_operation(initialized_container_test_lib):
     """Test real Docker operation."""
     ct_lib = initialized_container_test_lib
-    
+
     # This test will only run if Docker is available
     result = ct_lib.ct_pull_image("hello-world:latest")
     assert result is True

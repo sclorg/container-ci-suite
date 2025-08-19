@@ -107,10 +107,12 @@ def get_env_commands_from_s2i_args(s2i_args: str) -> List:
 
 def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
     registry = get_registry_name(os)
-    if os == "rhel7":
-        return f"{registry}/rhscl/{base_image_name}-{version}-rhel7"
-    elif os == "rhel8":
+    if os == "rhel8":
         return f"{registry}/rhel8/{base_image_name}-{version}"
+    if os == "rhel9":
+        return f"{registry}/rhel9/{base_image_name}-{version}"
+    if os == "rhel10":
+        return f"{registry}/rhel10/{base_image_name}-{version}"
     else:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
 

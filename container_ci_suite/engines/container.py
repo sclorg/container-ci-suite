@@ -98,7 +98,7 @@ class ContainerImage(object):
             logger.debug("Temporary directory not exists.")
         ntf = mktemp(dir=str(tmp_dir), prefix="Dockerfile.")
         df_name = Path(ntf)
-        df_content = self.s2i_create_df(
+        df_content = self.create_dockerfile(
             tmp_dir=tmp_dir,
             app_path=app_path,
             s2i_args=s2i_args,
@@ -115,7 +115,7 @@ class ContainerImage(object):
         return ContainerImage(image_name=dst_image)
 
     # Replacement for ct_s2i_build_as_df_build_args
-    def s2i_create_df(
+    def create_dockerfile(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
     ) -> List[str]:
         real_app_path = app_path.replace("file://", "")
@@ -301,6 +301,7 @@ class ContainerImage(object):
             PodmanCLIWrapper.run_docker_command(cmd=cmd)
         except subprocess.CalledProcessError as cpe:
             print(f"The command '{cmd}' failed with {cpe.output} and error: {cpe.stderr}")
+            print(f"Failed to create container: {cpe}")
             return False
         if not self.wait_for_cid():
             return False
@@ -407,49 +408,53 @@ class ContainerImage(object):
     # Replacement for ct_npm_works
     def npm_works(self):
         tempdir = mkdtemp(suffix="npm_test")
-        self.cid_file = Path(tempdir) / "cid_npm_test"
+        self.cid_file = Path(tempdir) / "npm_test_cid"
         try:
-            PodmanCLIWrapper.run_docker_command(
-                f'run --rm {self.image_name} /bin/bash -c "npm --version"'
-            )
-        except subprocess.CalledProcessError:
-            logger.error(
-                f"'npm --version' does not work inside the image {self.image_name}."
-            )
-            return False
-
-        # TODO
-        # Add {self.image_name}-testapp as soon as function `s2i_create_df` is ready.
-        PodmanCLIWrapper.run_docker_command(
-            f"run -d {get_mount_ca_file()} --rm --cidfile={self.cid_file} {self.image_name}"
-        )
-        if not self.wait_for_cid():
-            logger.error("Container did not create cidfile.")
-            return False
-
-        try:
-            jquery_output = PodmanCLIWrapper.run_docker_command(
-                f"exec {self.get_cid_file(self.cid_file)} "
-                f"/bin/bash -c "
-                f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'"
-            )
-        except subprocess.CalledProcessError:
-            logger.error(
-                f"npm could not install jquery inside the image ${self.image_name}."
-            )
-            return False
-        if getenv("NPM_REGISTRY") and get_full_ca_file_path().exists():
-            if get_os_environment("NPM_REGISTRY") in jquery_output:
-                logger.error("Internal repository is NOT set. Even it is requested.")
+            try:
+                PodmanCLIWrapper.run_docker_command(
+                    f'run --rm {self.image_name} /bin/bash -c "npm --version"'
+                )
+            except subprocess.CalledProcessError:
+                logger.error(
+                    f"ERROR: 'npm --version' does not work inside the image {self.image_name}."
+                )
                 return False
 
-        if self.cid_file.exists():
+            # TODO
+            # Add {self.image_name}-testapp as soon as function `s2i_create_df` is ready.
             PodmanCLIWrapper.run_docker_command(
-                f"stop {self.get_cid_file(self.cid_file)}"
+                f"run -d {get_mount_ca_file()} --rm --cidfile={self.cid_file} {self.image_name}"
             )
-            self.cid_file.unlink()
-        logger.info("Npm works.")
-        return True
+            if not self.wait_for_cid():
+                logger.error("Container did not create cidfile.")
+                return False
+
+            try:
+                jquery_output = PodmanCLIWrapper.run_docker_command(
+                    f"exec {self.get_cid_file(self.cid_file)} "
+                    f"/bin/bash -c "
+                    f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'"
+                )
+            except subprocess.CalledProcessError:
+                logger.error(
+                    f"npm could not install jquery inside the image ${self.image_name}."
+                )
+                return False
+            if getenv("NPM_REGISTRY") and get_full_ca_file_path().exists():
+                if get_os_environment("NPM_REGISTRY") in jquery_output:
+                    logger.error("Internal repository is NOT set. Even it is requested.")
+                    return False
+
+            if self.cid_file.exists():
+                PodmanCLIWrapper.run_docker_command(
+                    f"stop {self.get_cid_file(self.cid_file)}"
+                )
+                self.cid_file.unlink()
+            print("Success!")
+            logger.info("Npm works.")
+            return True
+        finally:
+            shutil.rmtree(tempdir)
 
     # Replacement for ct_binary_found_from_df
     def binary_found_from_df(self, binary: str = "", binary_path: str = "^/opt/rh"):
