@@ -13,7 +13,6 @@ This script provides different ways to run the test suite:
 import sys
 import subprocess
 import argparse
-from pathlib import Path
 
 
 def run_command(cmd, description=""):
@@ -21,7 +20,7 @@ def run_command(cmd, description=""):
     print(f"Running: {' '.join(cmd)}")
     if description:
         print(f"Description: {description}")
-    
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("✅ Success")
@@ -58,13 +57,13 @@ def check_docker_available():
 def main():
     parser = argparse.ArgumentParser(description="Run Container Test Library tests")
     parser.add_argument(
-        "--type", 
+        "--type",
         choices=["unit", "integration", "all", "fast"],
         default="unit",
         help="Type of tests to run (default: unit)"
     )
     parser.add_argument(
-        "--coverage", 
+        "--coverage",
         action="store_true",
         help="Run tests with coverage reporting"
     )
@@ -86,22 +85,22 @@ def main():
         "--function",
         help="Run specific test function"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Check prerequisites
     if not check_pytest_available():
         print("❌ pytest is not available. Install it with: pip install pytest")
         sys.exit(1)
-    
+
     if args.type in ["integration", "all"] and not check_docker_available():
         print("❌ Docker is not available but required for integration tests")
         print("Either install Docker or run with --type unit")
         sys.exit(1)
-    
+
     # Build pytest command
     cmd = ["pytest"]
-    
+
     # Test selection
     if args.type == "unit":
         cmd.extend(["-m", "not integration"])
@@ -110,7 +109,7 @@ def main():
     elif args.type == "fast":
         cmd.extend(["-m", "not slow and not integration"])
     # "all" runs everything, no marker filter needed
-    
+
     # Coverage
     if args.coverage:
         cmd.extend([
@@ -118,15 +117,15 @@ def main():
             "--cov-report=html",
             "--cov-report=term-missing"
         ])
-    
+
     # Verbosity
     if args.verbose:
         cmd.append("-vv")
-    
+
     # Parallel execution
     if args.parallel:
         cmd.extend(["-n", str(args.parallel)])
-    
+
     # Specific file or function
     if args.file:
         if args.function:
@@ -135,14 +134,14 @@ def main():
             cmd.append(args.file)
     elif args.function:
         cmd.extend(["-k", args.function])
-    
+
     # Run the tests
     description = f"Running {args.type} tests"
     if args.coverage:
         description += " with coverage"
-    
+
     success = run_command(cmd, description)
-    
+
     if success:
         print("\n🎉 All tests passed!")
         if args.coverage:
