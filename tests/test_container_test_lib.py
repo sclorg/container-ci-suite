@@ -234,7 +234,6 @@ class TestFileOperations:
         """Test obtaining input from local file."""
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
-
         result = self.lib.obtain_input(str(test_file))
         assert result is not None
         assert Path(result).exists()
@@ -280,7 +279,7 @@ class TestWaitFunctions:
         """Test failed wait for CID file."""
         cid_file = temp_dir / "nonexistent.cid"
 
-        result = self.lib.wait_for_cid(cid_file, max_attempts=1, sleep_time=0.1)
+        result = ContainerTestLib.wait_for_cid(cid_file, max_attempts=1, sleep_time=1)
         assert result is False
 
     def test_wait_for_cid_empty_file(self, temp_dir):

@@ -31,7 +31,6 @@ It contains all the functionality needed for testing container images.
 
 import os
 import re
-import sys
 import time
 import shutil
 import tempfile
@@ -42,13 +41,16 @@ from pathlib import Path
 from typing import List, Optional, Union
 from datetime import datetime
 
-from container_ci_suite.engines.container import PodmanCLIWrapper
+from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 from container_ci_suite import utils
+from container_ci_suite.engines.container import ContainerImage
 from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
     get_full_ca_file_path,
     get_os_environment,
     get_mount_ca_file,
+    get_env_commands_from_s2i_args,
+    get_mount_options_from_s2i_args,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,11 +69,9 @@ class ContainerTestLib:
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
-
-        # Set up unstable tests from environment
-        unstable_env = get_os_environment("UNSTABLE_TESTS")
-        if unstable_env:
-            self.unstable_tests = unstable_env.split()
+        self.lib = ContainerImage(
+            image_name=os.getenv("IMAGE_NAME"), cid_file_dir=self.cid_file_dir, cid_file=self.app_id_file_dir
+        )
 
     def cleanup(self) -> None:
         """
@@ -116,7 +116,6 @@ class ContainerTestLib:
                 lines = log_content.strip().split('\n')
                 if lines:
                     self.app_image_id = lines[-1].strip()
-
                 return True
 
             except subprocess.CalledProcessError:
@@ -130,63 +129,40 @@ class ContainerTestLib:
     def is_container_running(container_id: str) -> bool:
         """
         Check if container is in running state.
-
         Args:
             container_id: Container ID to check
-
         Returns:
             True if container is running, False otherwise
         """
-        try:
-            result = PodmanCLIWrapper.run_docker_command(
-                cmd=f"inspect -f '{{{{.State.Running}}}}' {container_id}",
-                return_output=True
-            )
-            return result.strip() == "true"
-        except subprocess.CalledProcessError:
-            return False
+        return ContainerImage.is_container_running(container_id=container_id)
 
     @staticmethod
     def is_container_exists(container_id: str) -> bool:
         """
         Check if container exists.
-
         Args:
             container_id: Container ID to check
-
         Returns:
             True if container exists, False otherwise
         """
-        try:
-            result = PodmanCLIWrapper.run_docker_command(
-                cmd=f"ps -q -a -f 'id={container_id}'",
-                return_output=True
-            )
-            return bool(result.strip())
-        except subprocess.CalledProcessError:
-            return False
+        return ContainerImage.is_container_exists(container_id=container_id)
 
     def clean_app_images(self) -> None:
         """Clean up application images referenced by APP_ID_FILE_DIR."""
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
             print(f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped.")
             return
-
         print(f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}")
-
         for file_path in self.app_id_file_dir.glob("*"):
             if not file_path.is_file():
                 continue
-
             try:
                 image_id = utils.get_file_content(file_path).strip()
-
                 # Check if image exists
                 try:
                     PodmanCLIWrapper.run_docker_command(cmd=f"inspect {image_id}", return_output=False)
                 except subprocess.CalledProcessError:
                     continue
-
                 # Remove containers using this image
                 try:
                     containers = PodmanCLIWrapper.run_docker_command(
@@ -197,13 +173,11 @@ class ContainerTestLib:
                         PodmanCLIWrapper.run_docker_command(cmd=" rm -f {containers}", ignore_error=True)
                 except subprocess.CalledProcessError:
                     pass
-
                 # Remove the image
                 try:
                     PodmanCLIWrapper.run_docker_command(f"rmi -f {image_id}", ignore_error=True)
                 except subprocess.CalledProcessError:
                     pass
-
             except Exception as e:
                 logger.warning(f"Error cleaning image from {file_path}: {e}")
 
@@ -263,47 +237,11 @@ class ContainerTestLib:
             shutil.rmtree(self.cid_file_dir)
 
     def pull_image(self, image_name: str, exit_on_fail: bool = False, loops: int = 10) -> bool:
-        """
-        Pull an image before test execution.
-
-        Args:
-            image_name: Name of the image to pull
-            exit_on_fail: Exit if pull fails
-            loops: Number of retry attempts
-
-        Returns:
-            True if pull successful, False otherwise
-        """
-        print(f"-> Pulling image {image_name} ...")
-
-        # Check if image is already available locally
-        try:
-            result = PodmanCLIWrapper.run_docker_command(cmd=f"images -q {image_name}", return_output=True)
-            if result.strip():
-                print(f"The image {image_name} is already pulled.")
-                return True
-        except subprocess.CalledProcessError:
-            pass
-
-        # Try pulling the image
-        for loop in range(1, loops + 1):
-            try:
-                PodmanCLIWrapper.run_docker_command(cmd=f"pull {image_name}", return_output=False)
-                return True
-            except subprocess.CalledProcessError:
-                print(f"Pulling image {image_name} failed.")
-                if loop > loops:
-                    print(f"Pulling of image {image_name} failed {loops} times in a row. Giving up.")
-                    print(f"!!! ERROR with pulling image {image_name} !!!!")
-                    if exit_on_fail:
-                        sys.exit(1)
-                    return False
-
-                wait_time = loop * 5
-                print(f"Let's wait {wait_time} seconds and try again.")
-                time.sleep(wait_time)
-
-        return False
+        return self.lib.pull_image(
+            image_name=image_name,
+            exit_on_fail=exit_on_fail,
+            loops=loops
+        )
 
     @staticmethod
     def check_envs_set(
@@ -356,37 +294,10 @@ class ContainerTestLib:
         return True
 
     def get_cid(self, name: str) -> str:
-        """
-        Get container ID from cid_file.
-
-        Args:
-            name: Name of the cid_file
-
-        Returns:
-            Container ID
-        """
-        cid_file = self.cid_file_dir / name
-        return utils.get_file_content(cid_file).strip()
+        return self.lib.get_cid(name=name)
 
     def get_cip(self, cid_name: str) -> str:
-        """
-        Get container IP address.
-
-        Args:
-            cid_name: Name of the cid_file
-
-        Returns:
-            Container IP address
-        """
-        container_id = self.get_cid(cid_name)
-        try:
-            result = PodmanCLIWrapper.run_docker_command(
-                cmd=f"inspect --format='{{{{.NetworkSettings.IPAddress}}}}' {container_id}",
-                return_output=True
-            )
-            return result.strip()
-        except subprocess.CalledProcessError:
-            return ""
+        return self.lib.get_cip(cid_name=cid_name)
 
     @staticmethod
     def wait_for_cid(
@@ -394,26 +305,7 @@ class ContainerTestLib:
         max_attempts: int = 10,
         sleep_time: int = 1
     ) -> bool:
-        """
-        Wait for cid_file to be created.
-
-        Args:
-            cid_file: Path to cid_file
-            max_attempts: Maximum number of attempts
-            sleep_time: Sleep time between attempts
-
-        Returns:
-            True if cid_file created, False otherwise
-        """
-        cid_path = Path(cid_file)
-
-        for attempt in range(1, max_attempts + 1):
-            if cid_path.exists() and cid_path.stat().st_size > 0:
-                return True
-            print(f"Waiting for container start... {attempt}")
-            time.sleep(sleep_time)
-
-        return False
+        return ContainerImage.wait_for_cid(cid_file=cid_file, max_attempts=max_attempts, sleep_time=sleep_time)
 
     def assert_container_creation_fails(self, container_args: str) -> bool:
         """
@@ -1261,3 +1153,407 @@ class ContainerTestLib:
         hours, remainder = divmod(diff_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def get_uid_from_image(self, user: str, src_image: str) -> Optional[str]:
+        """
+        Get user ID from image.
+        This is the Python equivalent of ct_get_uid_from_image.
+        Args:
+            user: User to get UID for
+            src_image: Image to check
+        Returns:
+            User ID string or None if not found
+        """
+        # Check if user is numeric
+        try:
+            int(user)
+            return user
+        except ValueError:
+            pass
+        # Get user ID from image
+        try:
+            user_id = PodmanCLIWrapper.run_docker_command(
+                cmd=f"run --rm {src_image} bash -c 'id -u {user}' 2>/dev/null",
+                return_output=True
+            ).strip()
+            return user_id
+        except subprocess.CalledProcessError:
+            print(f"ERROR: id of user {user} not found inside image {src_image}.")
+            return None
+
+    def build_as_df_build_args(
+        self,
+        app_path: str,
+        src_image: str,
+        dst_image: str,
+        build_args: str = "",
+        s2i_args: str = ""
+    ) -> bool:
+        """
+        Create a new S2I app image from local sources using Dockerfile approach.
+        This is the Python equivalent of ct_s2i_build_as_df_build_args.
+        Args:
+            app_path: Local path to the app sources to be used in the test
+            src_image: Image to be used as a base for the S2I build
+            dst_image: Image name to be used during the tagging of the S2I build result
+            build_args: Build arguments to be used in the S2I build
+            s2i_args: Additional list of source-to-image arguments
+        Returns:
+            True if build successful, False otherwise
+        """
+        local_app = "upload/src/"
+        local_scripts = "upload/scripts/"
+        incremental = "--incremental" in s2i_args
+        # Create temporary directory
+        tmpdir = Path(tempfile.mkdtemp())
+        original_cwd = os.getcwd()
+
+        try:
+            os.chdir(tmpdir)
+            # Create Dockerfile name
+            df_name = Path(tempfile.mktemp(dir=str(tmpdir), prefix="Dockerfile."))
+            # Check if the image is available locally and try to pull it if it is not
+            try:
+                PodmanCLIWrapper.run_docker_command(cmd=f"images {src_image}", return_output=True)
+            except subprocess.CalledProcessError:
+                if "pull-policy=never" not in s2i_args:
+                    try:
+                        PodmanCLIWrapper.run_docker_command(cmd=f"pull {src_image}", return_output=False)
+                    except subprocess.CalledProcessError:
+                        print(f"Failed to pull source image {src_image}")
+                        return False
+            # Get user from source image
+            try:
+                user = PodmanCLIWrapper.run_docker_command(
+                    cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
+                    return_output=True
+                ).strip()
+                user = user or "0"  # Default to root if no user is set
+            except subprocess.CalledProcessError:
+                user = "0"
+            # Get user ID from image
+            user_id = self.get_uid_from_image(user, src_image)
+            if not user_id:
+                print("Terminating s2i build.")
+                return False
+            # Handle incremental build
+            if incremental:
+                inc_tmp = Path(tempfile.mkdtemp(prefix="incremental."))
+                try:
+                    # Set permissions for incremental directory
+                    ContainerTestLibUtils.run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
+                    # Check if the destination image exists
+                    try:
+                        PodmanCLIWrapper.run_docker_command(cmd=f"images {dst_image}", return_output=True)
+                    except subprocess.CalledProcessError:
+                        print(f"Image {dst_image} not found.")
+                        return False
+                    # Run the original image with mounted volume to get artifacts
+                    cmd = (
+                        "if [ -s /usr/libexec/s2i/save-artifacts ]; then "
+                        f"/usr/libexec/s2i/save-artifacts > '{inc_tmp}/artifacts.tar'; "
+                        f"else touch '{inc_tmp}/artifacts.tar'; fi"
+                    )
+                    PodmanCLIWrapper.run_docker_command(
+                        cmd=f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c \"{cmd}\"",
+                        return_output=False
+                    )
+                    # Move artifacts to build directory
+                    shutil.move(str(inc_tmp / "artifacts.tar"), str(tmpdir / "artifacts.tar"))
+                except subprocess.CalledProcessError as e:
+                    print(f"Incremental build setup failed: {e}")
+                    return False
+                finally:
+                    if inc_tmp.exists():
+                        shutil.rmtree(inc_tmp, ignore_errors=True)
+
+            # Strip file:// from APP_PATH and copy contents
+            clean_app_path = app_path.replace("file://", "")
+            local_app_path = tmpdir / local_app
+            local_scripts_path = tmpdir / local_scripts
+            # Create directories and copy application source
+            local_app_path.mkdir(parents=True, exist_ok=True)
+
+            if Path(clean_app_path).exists():
+                # Copy all contents from source to destination
+                for item in Path(clean_app_path).iterdir():
+                    if item.is_dir():
+                        shutil.copytree(item, local_app_path / item.name, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(item, local_app_path)
+            else:
+                print(f"Source path {clean_app_path} does not exist")
+                return False
+            # Move .s2i/bin to scripts directory if it exists
+            s2i_bin_path = local_app_path / ".s2i" / "bin"
+            if s2i_bin_path.exists():
+                local_scripts_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(s2i_bin_path), str(local_scripts_path))
+            # Create Dockerfile content
+            dockerfile_lines = [
+                f"FROM {src_image}",
+                f"LABEL \"io.openshift.s2i.build.image\"=\"{src_image}\" \\",
+                f"      \"io.openshift.s2i.build.source-location\"=\"{app_path}\"",
+                "USER root",
+                f"COPY {local_app} /tmp/src"
+            ]
+            # Add scripts copy if directory exists
+            if local_scripts_path.exists():
+                dockerfile_lines.extend([
+                    f"COPY {local_scripts} /tmp/scripts",
+                    f"RUN chown -R {user_id}:0 /tmp/scripts"
+                ])
+            dockerfile_lines.append(f"RUN chown -R {user_id}:0 /tmp/src")
+            # Check for custom environment variables inside .s2i/ folder
+            env_file = local_app_path / ".s2i" / "environment"
+            if env_file.exists():
+                try:
+                    with open(env_file, 'r') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith('#'):
+                                dockerfile_lines.append(f"ENV {line}")
+                except Exception as e:
+                    print(f"Warning: Could not read environment file: {e}")
+            # Filter out env var definitions from s2i_args and create Dockerfile ENV commands
+            env_commands = get_env_commands_from_s2i_args(s2i_args)
+            dockerfile_lines.extend(env_commands)
+            # Check if CA authority is present on host and add it into Dockerfile
+            if get_full_ca_file_path().exists():
+                dockerfile_lines.append("RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract")
+            # Add artifacts if doing an incremental build
+            if incremental:
+                dockerfile_lines.extend([
+                    "RUN mkdir /tmp/artifacts",
+                    "ADD artifacts.tar /tmp/artifacts",
+                    f"RUN chown -R {user_id}:0 /tmp/artifacts"
+                ])
+            dockerfile_lines.append(f"USER {user_id}")
+            # Add assemble script
+            if local_scripts_path.exists() and (local_scripts_path / "assemble").exists():
+                dockerfile_lines.append("RUN /tmp/scripts/assemble")
+            else:
+                dockerfile_lines.append("RUN /usr/libexec/s2i/assemble")
+            # Add run script
+            if local_scripts_path.exists() and (local_scripts_path / "run").exists():
+                dockerfile_lines.append("CMD /tmp/scripts/run")
+            else:
+                dockerfile_lines.append("CMD /usr/libexec/s2i/run")
+            # Write Dockerfile
+            with open(df_name, 'w') as f:
+                f.write('\n'.join(dockerfile_lines))
+            # Get mount options from s2i_args
+            mount_options = get_mount_options_from_s2i_args(s2i_args)
+            # Build the image
+            build_command_parts = []
+            if mount_options:
+                build_command_parts.append(mount_options)
+            build_command_parts.extend(["-t", dst_image, ".", build_args])
+            build_command = " ".join(filter(None, build_command_parts))
+            if not self.build_image_and_parse_id(str(df_name), build_command):
+                print(f"ERROR: Failed to build {df_name}")
+                return False
+            # Store image ID for cleanup
+            if hasattr(self, 'app_image_id') and self.app_image_id:
+                id_file = self.app_id_file_dir / str(hash(dst_image))
+                with open(id_file, 'w') as f:
+                    f.write(self.app_image_id)
+            return True
+        except Exception as e:
+            print(f"S2I build failed: {e}")
+            return False
+        finally:
+            # Restore original working directory
+            os.chdir(original_cwd)
+            # Clean up temporary directory
+            if tmpdir.exists():
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def build_as_df(
+        self,
+        app_path: str,
+        src_image: str,
+        dst_image: str,
+        s2i_args: str = ""
+    ) -> bool:
+        """
+        Create a new S2I app image from local sources (wrapper function).
+        This is the Python equivalent of ct_s2i_build_as_df.
+        Args:
+            app_path: Local path to the app sources to be used in the test
+            src_image: Image to be used as a base for the S2I build
+            dst_image: Image name to be used during the tagging of the S2I build result
+            s2i_args: Additional list of source-to-image arguments
+        Returns:
+            True if build successful, False otherwise
+        """
+        return self.build_as_df_build_args(app_path, src_image, dst_image, "", s2i_args)
+
+    def clone_git_repository(self, app_url: str, app_dir: str) -> bool:
+        """
+        Clone git repository.
+        This is the Python equivalent of ct_clone_git_repository.
+
+        Args:
+            app_url: Git URI pointing to a repository, supports "@" to indicate a different branch
+            app_dir: Name of the directory to clone the repository into
+
+        Returns:
+            True if clone successful, False otherwise
+        """
+        try:
+            # If app_url contains @, the string after @ is considered
+            # as a name of a branch to clone instead of the main/master branch
+            if '@' in app_url:
+                git_url_parts = app_url.split('@')
+                git_url = git_url_parts[0]
+                branch = git_url_parts[1]
+                cmd = f"git clone --branch {branch} {git_url} {app_dir}"
+            else:
+                cmd = f"git clone {app_url} {app_dir}"
+
+            ContainerTestLibUtils.run_command(cmd, return_output=False)
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Git clone failed: {e}")
+            return False
+
+    def s2i_multistage_build(
+        self,
+        app_path: str,
+        src_image: str,
+        sec_image: str,
+        dst_image: str,
+        s2i_args: str = ""
+    ) -> bool:
+        """
+        Create a new S2I app image from local sources using multistage build.
+        This is the Python equivalent of ct_s2i_multistage_build.
+
+        Args:
+            app_path: Local path to the app sources to be used in the test
+            src_image: Image to be used as a base for the S2I build process
+            sec_image: Image to be used as the base for the result of the build process
+            dst_image: Image name to be used during the tagging of the S2I build result
+            s2i_args: Additional list of source-to-image arguments
+
+        Returns:
+            True if build successful, False otherwise
+        """
+        local_app = "app-src"
+
+        # Create temporary directory
+        tmpdir = Path(tempfile.mkdtemp())
+        original_cwd = os.getcwd()
+
+        try:
+            os.chdir(tmpdir)
+
+            # Create Dockerfile name
+            df_name = Path(tempfile.mktemp(dir=str(tmpdir), prefix="Dockerfile."))
+
+            # Get user from source image
+            try:
+                user = PodmanCLIWrapper.run_docker_command(
+                    cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
+                    return_output=True
+                ).strip()
+                user = user or "0"  # Default to root if no user is set
+            except subprocess.CalledProcessError:
+                user = "0"
+
+            # Get user ID from image
+            user_id = self.get_uid_from_image(user, src_image)
+            if not user_id:
+                print("Terminating s2i build.")
+                return False
+
+            # Handle application source
+            local_app_path = tmpdir / local_app
+            local_app_path.mkdir(parents=True, exist_ok=True)
+
+            # If the path exists on the local host, copy it into the directory for the build
+            # Otherwise handle it as a link to a git repository
+            clean_app_path = app_path.replace("file://", "")
+
+            if Path(clean_app_path).exists():
+                # Copy all contents from source to destination
+                for item in Path(clean_app_path).iterdir():
+                    if item.is_dir():
+                        shutil.copytree(item, local_app_path / item.name, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(item, local_app_path)
+            else:
+                # Clone git repository
+                if not self.clone_git_repository(app_path, str(local_app_path)):
+                    print(f"Failed to clone git repository: {app_path}")
+                    return False
+
+            # Create Dockerfile content for multistage build
+            dockerfile_lines = [
+                "# First stage builds the application",
+                f"FROM {src_image} as builder",
+                "# Add application sources to a directory that the assemble script expects them",
+                "# and set permissions so that the container runs without root access",
+                "USER 0",
+                f"ADD {local_app} /tmp/src",
+                "RUN chown -R 1001:0 /tmp/src"
+            ]
+
+            # Filter out env var definitions from s2i_args and create Dockerfile ENV commands
+            env_commands = get_env_commands_from_s2i_args(s2i_args)
+            dockerfile_lines.extend(env_commands)
+
+            # Check if CA authority is present on host and add it into Dockerfile
+            if get_full_ca_file_path().exists():
+                dockerfile_lines.append("RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract")
+
+            dockerfile_lines.extend([
+                f"USER {user_id}",
+                "# Install the dependencies",
+                "RUN /usr/libexec/s2i/assemble",
+                "# Second stage copies the application to the minimal image",
+                f"FROM {sec_image}",
+                "# Copy the application source and build artifacts from the builder image to this one",
+                "COPY --from=builder $HOME $HOME",
+                "# Set the default command for the resulting image",
+                "CMD /usr/libexec/s2i/run"
+            ])
+
+            # Write Dockerfile
+            with open(df_name, 'w') as f:
+                f.write('\n'.join(dockerfile_lines))
+
+            # Get mount options from s2i_args
+            mount_options = get_mount_options_from_s2i_args(s2i_args)
+
+            # Build the image
+            build_command_parts = []
+            if mount_options:
+                build_command_parts.append(mount_options)
+            build_command_parts.extend(["-t", dst_image, "."])
+            build_command = " ".join(filter(None, build_command_parts))
+
+            if not self.build_image_and_parse_id(str(df_name), build_command):
+                print(f"ERROR: Failed to build {df_name}")
+                return False
+
+            # Store image ID for cleanup
+            if hasattr(self, 'app_image_id') and self.app_image_id:
+                id_file = self.app_id_file_dir / str(hash(dst_image))
+                with open(id_file, 'w') as f:
+                    f.write(self.app_image_id)
+
+            return True
+
+        except Exception as e:
+            print(f"S2I multistage build failed: {e}")
+            return False
+
+        finally:
+            # Restore original working directory
+            os.chdir(original_cwd)
+            # Clean up temporary directory
+            if tmpdir.exists():
+                shutil.rmtree(tmpdir, ignore_errors=True)
