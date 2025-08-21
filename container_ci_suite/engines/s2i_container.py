@@ -35,8 +35,8 @@ from pathlib import Path
 from tempfile import mkdtemp, mktemp
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
+from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
-    run_command,
     get_file_content,
     get_mount_ca_file,
     get_full_ca_file_path,
@@ -137,7 +137,7 @@ class S2IContainerImage(object):
         print(f"s2i_create_df: increamental is: {incremental}")
         if incremental:
             inc_tmp = Path(mktemp(dir=str(tmp_dir), prefix="incremental."))
-            run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
+            ContainerTestLibUtils.run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
             # Check if the image exists, build should fail (for testing use case) if it does not
             if not PodmanCLIWrapper.docker_image_exists(src_image):
                 return None
@@ -475,7 +475,7 @@ RUN which {binary} | grep {binary_path}
         print("Check if HTTP_CODE is valid.")
         for count in range(max_tests):
             try:
-                output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
+                output_code = ContainerTestLibUtils.run_command(cmd=f"{cmd_to_run}", return_output=True)
                 return_code = output_code[-3:]
                 print(f"Output is: {output_code} and Return Code is: {return_code}")
                 try:
@@ -496,7 +496,7 @@ RUN which {binary} | grep {binary_path}
         cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
         # Check if application returns proper output
         for count in range(max_tests):
-            output_code = run_command(cmd=f"{cmd_to_run}", return_output=True)
+            output_code = ContainerTestLibUtils.run_command(cmd=f"{cmd_to_run}", return_output=True)
             print(f"Check if expected output {expected_output} is in {cmd_to_run}.")
             if expected_output in output_code:
                 print(f"Expected output '{expected_output}' is present.")
