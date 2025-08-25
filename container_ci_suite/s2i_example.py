@@ -61,7 +61,7 @@ if __name__ == '__main__':
         # Example 1: Basic S2I build using s2i_build_as_df
         print("\n1. Testing s2i_build_as_df (wrapper function)...")
         try:
-            success = ct.s2i_build_as_df(
+            success = ct.build_as_df(
                 app_path=str(app_dir),
                 src_image=src_image,
                 dst_image=dst_image,
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         print("\n2. Testing s2i_build_as_df_build_args (full function)...")
         dst_image_with_args = "my-python-app-with-args:latest"
         try:
-            success = ct.s2i_build_as_df_build_args(
+            success = ct.build_as_df_build_args(
                 app_path=str(app_dir),
                 src_image=src_image,
                 dst_image=dst_image_with_args,
@@ -96,7 +96,7 @@ if __name__ == '__main__':
         print("\n3. Testing s2i_build_as_df_build_args with mount options...")
         dst_image_with_mount = "my-python-app-with-mount:latest"
         try:
-            success = ct.s2i_build_as_df_build_args(
+            success = ct.build_as_df_build_args(
                 app_path=str(app_dir),
                 src_image=src_image,
                 dst_image=dst_image_with_mount,
