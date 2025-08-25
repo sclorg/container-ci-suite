@@ -410,8 +410,8 @@ def check_variables() -> bool:
     return ret_value
 
 
-def get_image_name() -> Any:
-    image_id_file = Path(".image-id")
+def get_image_name(path: str) -> Any:
+    image_id_file = Path(path, ".image-id")
     if not image_id_file.exists():
         return None
     image_id = get_file_content(image_id_file).strip()

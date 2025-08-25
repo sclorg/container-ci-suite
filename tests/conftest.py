@@ -301,3 +301,79 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "network: mark test as requiring network access"
     )
+
+
+@pytest.fixture
+def temp_directories():
+    """Fixture providing temporary directories for testing."""
+    import tempfile
+    import shutil
+
+    app_id_dir = tempfile.mkdtemp(prefix="test_app_ids_")
+    cid_dir = tempfile.mkdtemp(prefix="test_cids_")
+
+    yield {
+        'app_id_dir': app_id_dir,
+        'cid_dir': cid_dir
+    }
+
+    # Cleanup
+    shutil.rmtree(app_id_dir, ignore_errors=True)
+    shutil.rmtree(cid_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def mock_docker_responses():
+    """Fixture providing common docker command responses."""
+    return {
+        'container_running_true': "true",
+        'container_running_false': "false",
+        'container_exists': "container_id_12345",
+        'container_not_exists': "",
+        'image_inspect_size': "1073741824",  # 1GB
+        'image_inspect_created': "2024-01-01T12:00:00.123456789Z",
+        'docker_build_success': "Successfully built sha256:abcdef123456",
+        'npm_version': "v16.14.0",
+        'scl_enabled': "nodejs14 python38"
+    }
+
+
+@pytest.fixture
+def sample_s2i_app_structure():
+    """Fixture providing sample S2I application structure."""
+    return {
+        'app.js': 'console.log("Hello World");',
+        'package.json': '{"name": "test-app", "version": "1.0.0"}',
+        '.s2i/environment': 'NODE_ENV=production\nPORT=8080',
+        '.s2i/bin/assemble': '#!/bin/bash\nnpm install',
+        '.s2i/bin/run': '#!/bin/bash\nnode app.js'
+    }
+
+
+@pytest.fixture
+def mock_certificate_content():
+    """Fixture providing sample certificate content."""
+    return """-----BEGIN CERTIFICATE-----
+MIICljCCAX4CCQDKZKvKvKvKvDANBgkqhkiG9w0BAQsFADCBjTELMAkGA1UEBhMC
+VVMxCzAJBgNVBAgMAlVTMQswCQYDVQQHDAJVUzELMAkGA1UECgwCVVMxCzAJBgNV
+BAsMAlVTMQswCQYDVQQDDAJVUzEhMB8GCSqGSIb3DQEJARYSdGVzdEBleGFtcGxl
+LmNvbTAeFw0yNDAxMDEwMDAwMDBaFw0yNTAxMDEwMDAwMDBaMIGNMQswCQYDVQQG
+EwJVUzELMAkGA1UECAwCVVMxCzAJBgNVBAcMAlVTMQswCQYDVQQKDAJVUzELMAkG
+A1UECwwCVVMxCzAJBgNVBAMMAlVTMSEwHwYJKoZIhvcNAQkBFhJ0ZXN0QGV4YW1w
+bGUuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC7vbqajDw4o6gJy8I8
+-----END CERTIFICATE-----"""
+
+
+@pytest.fixture
+def environment_variables():
+    """Fixture providing common environment variables for testing."""
+    return {
+        'IMAGE_NAME': 'test-image:latest',
+        'VERSION': '1.0',
+        'OS': 'rhel8',
+        'NPM_REGISTRY': 'https://registry.example.com',
+        'CONTAINER_ARGS': '--rm -p 8080:8080',
+        'TEST_SET': 'test_basic test_advanced test_integration',
+        'UNSTABLE_TESTS': 'test_flaky',
+        'IGNORE_UNSTABLE_TESTS': 'true'
+    }

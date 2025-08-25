@@ -65,10 +65,12 @@ class ContainerTestLib:
     This is a Python replacement for the container-test-lib.sh shell script.
     """
 
-    def __init__(self):
+    def __init__(self, image_name: str):
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
+        self.image_name = image_name
+        self.s2i_image: bool = False
         self.lib = ContainerImage(
             image_name=os.getenv("IMAGE_NAME"), cid_file_dir=self.cid_file_dir, cid_file=self.app_id_file_dir
         )
@@ -353,51 +355,37 @@ class ContainerTestLib:
                 cid_path = self.cid_file_dir / cid_file
                 if cid_path.exists():
                     cid_path.unlink()
-
         finally:
             if old_container_args:
                 self.container_args = old_container_args
-
         return True
 
     def create_container(
         self,
-        name: str,
-        command: str = "",
-        image_name: str = "",
-        container_args: str = ""
+        cid_file: str = "",
+        container_args: str = "",
+        command: str = ""
     ) -> bool:
         """
         Create a container.
-
         Args:
-            name: Name for the cid_file
+            cid_file: Name for the cid_file
             command: Command to run in container
-            image_name: Image name to use
             container_args: Additional container arguments
-
         Returns:
             True if container created successfully, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         if not container_args:
             container_args = getattr(self, 'container_args', '')
-
-        cid_file = self.cid_file_dir / name
-
+        cid_file_name: Path = self.cid_file_dir / cid_file
         try:
-            cmd = f"run --cidfile={cid_file} -d {container_args} {image_name} {command}"
+            cmd = f"run --cidfile={cid_file_name} -d {container_args} {self.image_name} {command}"
             PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=False)
-
             if not self.wait_for_cid(cid_file):
                 return False
-
-            container_id = utils.get_file_content(cid_file).strip()
+            container_id = utils.get_file_content(cid_file_name).strip()
             print(f"Created container {container_id}")
             return True
-
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create container: {e}")
             return False
@@ -875,6 +863,7 @@ class ContainerTestLib:
     def test_response(
         self, url: str,
         expected_code: int = 200,
+        port: int = 8080,
         body_regexp: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10
     ) -> bool:
@@ -884,6 +873,7 @@ class ContainerTestLib:
         Args:
             url: Request URL
             expected_code: Expected HTTP response code
+            port: Port where curl will be used
             body_regexp: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
@@ -902,7 +892,7 @@ class ContainerTestLib:
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
                 result = ContainerTestLibUtils.run_command(
-                    f"curl --connect-timeout 10 -s -w '%{{http_code}}' '{url}'",
+                    f"curl --connect-timeout 10 -s -w '%{{http_code}}' '{url}:{port}'",
                     return_output=True
                 )
                 response_file.write(result)
@@ -1035,21 +1025,19 @@ class ContainerTestLib:
 
         return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
-    def s2i_usage(self, img_name: str, s2i_args: str = "") -> str:
+    def s2i_usage(self) -> str:
         """
         Run S2I usage script inside container.
-
         Args:
             img_name: Image name
             s2i_args: S2I arguments (currently unused)
-
         Returns:
             Usage script output
         """
         usage_command = "/usr/libexec/s2i/usage"
         try:
             return PodmanCLIWrapper.run_docker_command(
-                cmd=f"run --rm {img_name} bash -c {usage_command}",
+                cmd=f"run --rm {self.image_name} bash -c {usage_command}",
                 return_output=True
             )
         except subprocess.CalledProcessError as e:
@@ -1365,6 +1353,150 @@ class ContainerTestLib:
         finally:
             # Restore original working directory
             os.chdir(original_cwd)
+            # Clean up temporary directory
+            if tmpdir.exists():
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_app_dockerfile(
+        self,
+        dockerfile: str,
+        app_url: str,
+        expected_text: str,
+        app_dir: str,
+        build_args: str = "",
+        port: int = 8080
+    ) -> bool:
+        """
+        Test application using Dockerfile build.
+        This is the Python equivalent of ct_test_app_dockerfile.
+        Args:
+            dockerfile: Path to a Dockerfile that will be used for building an image
+            app_url: Git or local URI with a testing application, supports "@" to indicate a different branch
+            expected_text: PCRE regular expression that must match the response body
+            app_dir: Name of the application directory that is used in the Dockerfile
+            build_args: Build args that will be used for building an image
+
+        Returns:
+            True if test successful, False otherwise
+        """
+        app_image_name = "myapp"
+        cname = "app_dockerfile"
+
+        # Validate inputs
+        if not app_dir:
+            print("ERROR: Option app_dir not set. Terminating the Dockerfile build.")
+            return False
+
+        dockerfile_path = Path(dockerfile)
+        if not dockerfile_path.exists() or dockerfile_path.stat().st_size == 0:
+            print(f"ERROR: Dockerfile {dockerfile} does not exist or is empty.")
+            print("Terminating the Dockerfile build.")
+            return False
+
+        # Create temporary directory and work in it
+        tmpdir = Path(tempfile.mkdtemp())
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Copy Dockerfile to temporary directory
+            dockerfile_abs = dockerfile_path.resolve()
+            shutil.copy2(dockerfile_abs, tmpdir / "Dockerfile")
+            # Rewrite the source image to what we test
+            dockerfile_content = (tmpdir / "Dockerfile").read_text()
+            # Replace FROM line with our test image
+            dockerfile_content = re.sub(r'^FROM.*$', f'FROM {self.image_name}', dockerfile_content, flags=re.MULTILINE)
+            (tmpdir / "Dockerfile").write_text(dockerfile_content)
+            # Show the Dockerfile being used
+            print("Using this Dockerfile:")
+            print(dockerfile_content)
+            # Handle application source
+            app_dir_path = tmpdir / app_dir
+            if Path(app_url).is_dir():
+                print(f"Copying local folder: {app_url} -> {app_dir}.")
+                shutil.copytree(app_url, app_dir_path, dirs_exist_ok=True)
+            else:
+                if not self.clone_git_repository(app_url, str(app_dir_path)):
+                    print("Terminating the Dockerfile build.")
+                    return False
+            # Build the image
+            print(f"Building '{app_image_name}' image using docker build")
+            build_command = f"-t {app_image_name} . {build_args}".strip()
+            if not self.build_image_and_parse_id("", build_command):
+                print(f"ERROR: The image cannot be built from {dockerfile} and application {app_url}.")
+                print("Terminating the Dockerfile build.")
+                return False
+            # Store image ID for cleanup
+            if hasattr(self, 'app_image_id') and self.app_image_id:
+                id_file = self.app_id_file_dir / str(hash(app_image_name))
+                with open(id_file, 'w') as f:
+                    f.write(self.app_image_id)
+            # Run the container
+            cid_file_path = self.cid_file_dir / cname
+            try:
+                cmd = f"run -d --cidfile={cid_file_path} --rm {app_image_name}"
+                PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=False)
+            except subprocess.CalledProcessError:
+                print(f"ERROR: The image {app_image_name} cannot be run for {dockerfile} and application {app_url}.")
+                print("Terminating the Dockerfile build.")
+                return False
+
+            # Wait for container to start
+            print(f"Waiting for {app_image_name} to start")
+            if not ContainerImage.wait_for_cid(cid_file_path):
+                print("ERROR: Container failed to start.")
+                return False
+            # Get container IP
+            ip = self.get_cip(cname)
+            if not ip:
+                print("ERROR: Cannot get container's IP address.")
+                return False
+            # Test the response
+            url = f"http://{ip}:{port}"
+            result = self.test_response(url, 200, body_regexp=expected_text)
+
+            if not result:
+                # Show logs on failure
+                try:
+                    container_id = self.get_cid(cname)
+                    logs = PodmanCLIWrapper.run_docker_command(
+                        cmd=f"logs {container_id}",
+                        return_output=True
+                    )
+                    print("Container logs:")
+                    print(logs)
+                except subprocess.CalledProcessError:
+                    print("Could not retrieve container logs")
+
+            return result
+
+        except Exception as e:
+            print(f"Test app dockerfile failed: {e}")
+            return False
+
+        finally:
+            # Cleanup
+            try:
+                # Kill container if it exists
+                if (self.cid_file_dir / cname).exists():
+                    container_id = self.get_cid(cname)
+                    PodmanCLIWrapper.run_docker_command(cmd=f"kill {container_id}", ignore_error=True)
+                    time.sleep(2)
+
+                # Remove image
+                PodmanCLIWrapper.run_docker_command(cmd=f"rmi {app_image_name}", ignore_error=True)
+
+                # Remove cid file
+                cid_file_path = self.cid_file_dir / cname
+                if cid_file_path.exists():
+                    cid_file_path.unlink()
+
+            except Exception as e:
+                logger.warning(f"Cleanup error: {e}")
+
+            # Restore original working directory
+            os.chdir(original_cwd)
+
             # Clean up temporary directory
             if tmpdir.exists():
                 shutil.rmtree(tmpdir, ignore_errors=True)

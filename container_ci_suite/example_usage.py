@@ -102,6 +102,20 @@ def main():
     except Exception as e:
         print(f"✗ S2I Multistage Build test failed: {e}")
 
+    # Example 9: Test App Dockerfile (new migrated function)
+    print("\n9. Testing App Dockerfile...")
+    try:
+        # This is a demonstration - would need real dockerfile and app
+        print("✓ Test App Dockerfile function available")
+        print("  Usage: ct.test_app_dockerfile(dockerfile, app_url, expected_text, app_dir, build_args)")
+        print("  This function:")
+        print("  - Builds a Docker image from a Dockerfile and application source")
+        print("  - Runs the container and tests HTTP responses")
+        print("  - Validates that the application responds with expected content")
+        print("  - Handles both local directories and git repositories as app sources")
+    except Exception as e:
+        print(f"✗ Test App Dockerfile test failed: {e}")
+
     print("\n=== Example completed successfully ===")
     return 0
 
