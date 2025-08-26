@@ -157,7 +157,7 @@ class ContainerTestLib:
         Returns:
             True if container exists, False otherwise
         """
-        return self.lib.get_container_exit_code(cid_name=container_id)
+        return self.lib.get_container_exitcode(cid_name=container_id)
 
     def clean_app_images(self) -> None:
         """Clean up application images referenced by APP_ID_FILE_DIR."""
@@ -172,22 +172,22 @@ class ContainerTestLib:
                 image_id = utils.get_file_content(file_path).strip()
                 # Check if image exists
                 try:
-                    PodmanCLIWrapper.run_docker_command(cmd=f"inspect {image_id}", return_output=False)
+                    PodmanCLIWrapper.call_podman_command(cmd=f"inspect {image_id}", return_output=False)
                 except subprocess.CalledProcessError:
                     continue
                 # Remove containers using this image
                 try:
-                    containers = PodmanCLIWrapper.run_docker_command(
+                    containers = PodmanCLIWrapper.call_podman_command(
                         cmd=f"ps -q -a -f ancestor={image_id}",
                         return_output=True
                     ).strip()
                     if containers:
-                        PodmanCLIWrapper.run_docker_command(cmd=" rm -f {containers}", ignore_error=True)
+                        PodmanCLIWrapper.call_podman_command(cmd=" rm -f {containers}", ignore_error=True)
                 except subprocess.CalledProcessError:
                     pass
                 # Remove the image
                 try:
-                    PodmanCLIWrapper.run_docker_command(f"rmi -f {image_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(f"rmi -f {image_id}", ignore_error=True)
                 except subprocess.CalledProcessError:
                     pass
             except Exception as e:
@@ -216,25 +216,25 @@ class ContainerTestLib:
                 print(f"Stopping and removing container {container_id}...")
                 # Stop container if running
                 if ContainerTestLib.is_container_running(container_id):
-                    PodmanCLIWrapper.run_docker_command(cmd=f"stop {container_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
                     print(f"Container {container_id} stopped")
                 # Check exit status and dump logs if needed
                 try:
-                    exit_status = PodmanCLIWrapper.run_docker_command(
+                    exit_status = PodmanCLIWrapper.call_podman_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                         return_output=True
                     ).strip()
                     if int(exit_status) != 0:
                         print(f"Dumping logs for {container_id}")
                         try:
-                            logs = PodmanCLIWrapper.run_docker_command(cmd=f"logs {container_id}", return_output=True)
+                            logs = PodmanCLIWrapper.call_podman_command(cmd=f"logs {container_id}", return_output=True)
                             print(logs)
                         except subprocess.CalledProcessError:
                             pass
                 except subprocess.CalledProcessError:
                     pass
                 # Remove container
-                PodmanCLIWrapper.run_docker_command(cmd=f"rm -v {container_id}", ignore_error=True)
+                PodmanCLIWrapper.call_podman_command(cmd=f"rm -v {container_id}", ignore_error=True)
                 if cid_file.exists():
                     cid_file.unlink()
             except Exception as e:
@@ -300,8 +300,9 @@ class ContainerTestLib:
 
         return True
 
-    def get_cid(self, name: str) -> str:
-        return self.lib.get_cid(name=name)
+    def get_cid(self, cid_name: str) -> str:
+        print(f"Get content of CID_NAME: {cid_name}")
+        return self.lib.get_cid(cid_name=cid_name)
 
     def get_cip(self, cid_name: str = "app_dockerfile") -> str:
         return self.lib.get_cip(cid_name=cid_name)
@@ -341,12 +342,12 @@ class ContainerTestLib:
                     time.sleep(2)
                     attempt += 1
                     if attempt > max_attempts:
-                        PodmanCLIWrapper.run_docker_command(cmd=f"stop {container_id}", ignore_error=True)
+                        PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
                         return False
 
                 # Check exit status
                 try:
-                    exit_status = PodmanCLIWrapper.run_docker_command(
+                    exit_status = PodmanCLIWrapper.call_podman_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                         return_output=True
                     ).strip()
@@ -356,7 +357,7 @@ class ContainerTestLib:
                     pass
 
                 # Clean up
-                PodmanCLIWrapper.run_docker_command(cmd=f"rm -v {container_id}", ignore_error=True)
+                PodmanCLIWrapper.call_podman_command(cmd=f"rm -v {container_id}", ignore_error=True)
                 cid_path = self.cid_file_dir / cid_file
                 if cid_path.exists():
                     cid_path.unlink()
@@ -364,6 +365,9 @@ class ContainerTestLib:
             if old_container_args:
                 self.container_args = old_container_args
         return True
+
+    def run_command(self, cmd: str, return_output: bool = True, ignore_errors: bool = False):
+        return ContainerTestLibUtils.run_command(cmd=cmd, return_output=return_output, ignore_error=ignore_errors)
 
     def build_test_container(self, dockerfile: str, app_url: str, app_dir: str):
         return self.lib.build_test_container(dockerfile=dockerfile, app_url=app_url, app_dir=app_dir)
@@ -394,7 +398,7 @@ class ContainerTestLib:
         try:
             cmd = f"run --cidfile={cid_file_name} -d {container_args} {self.image_name} {command}"
             print(f"Command to create container is '{cmd}'.")
-            PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=True)
+            PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
             if not self.wait_for_cid(cid_file_name):
                 return False
             container_id = utils.get_file_content(cid_file_name).strip()
@@ -430,7 +434,7 @@ class ContainerTestLib:
 
         # Test 1: docker run
         try:
-            output = PodmanCLIWrapper.run_docker_command(
+            output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c '{command}'",
                 return_output=True
             )
@@ -443,7 +447,7 @@ class ContainerTestLib:
         # Test 2: docker exec with bash
         try:
             container_id = self.get_cid(name)
-            output = PodmanCLIWrapper.run_docker_command(
+            output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/bash -c '{command}'",
                 return_output=True
             )
@@ -456,7 +460,7 @@ class ContainerTestLib:
         # Test 3: docker exec with sh
         try:
             container_id = self.get_cid(name)
-            output = PodmanCLIWrapper.run_docker_command(
+            output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/sh -ic '{command}'",
                 return_output=True
             )
@@ -494,7 +498,7 @@ class ContainerTestLib:
             # Extract help files from container
             for filename in ["help.1"]:
                 try:
-                    content = PodmanCLIWrapper.run_docker_command(
+                    content = PodmanCLIWrapper.call_podman_command(
                         cmd=f"run --rm {image_name} /bin/bash -c 'cat /{filename}'",
                         return_output=True
                     )
@@ -572,7 +576,7 @@ class ContainerTestLib:
 
             # Test npm version
             try:
-                version_output = PodmanCLIWrapper.run_docker_command(
+                version_output = PodmanCLIWrapper.call_podman_command(
                     cmd=f"run --rm {image_name} /bin/bash -c 'npm --version'",
                     return_output=True
                 )
@@ -588,7 +592,7 @@ class ContainerTestLib:
             test_app_image = f"{image_name}-testapp"
 
             try:
-                PodmanCLIWrapper.run_docker_command(
+                PodmanCLIWrapper.call_podman_command(
                     cmd=f"run -d {mount_ca} --rm --cidfile={cid_file} {test_app_image}",
                     return_output=False
                 )
@@ -604,7 +608,7 @@ class ContainerTestLib:
 
             # Test npm install
             try:
-                jquery_output = PodmanCLIWrapper.run_docker_command(
+                jquery_output = PodmanCLIWrapper.call_podman_command(
                     cmd=f"docker exec {container_id} /bin/bash -c "
                     f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'",
                     return_output=True
@@ -628,7 +632,7 @@ class ContainerTestLib:
             # Stop container
             if cid_file.exists():
                 try:
-                    PodmanCLIWrapper.run_docker_command(cmd=f"stop {container_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
                 except subprocess.CalledProcessError:
                     pass
 
@@ -706,7 +710,7 @@ class ContainerTestLib:
 
         try:
             # Get environment variables from docker run
-            run_envs = PodmanCLIWrapper.run_docker_command(
+            run_envs = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c env",
                 return_output=True
             )
@@ -717,7 +721,7 @@ class ContainerTestLib:
             container_id = self.get_cid("test_exec_envs")
 
             # Get environment variables from docker exec
-            exec_envs = PodmanCLIWrapper.run_docker_command(cmd=f"exec {container_id} env", return_output=True)
+            exec_envs = PodmanCLIWrapper.call_podman_command(cmd=f"exec {container_id} env", return_output=True)
             # Check environment variables
             result = self.check_envs_set(env_filter, exec_envs, run_envs)
             if result:
@@ -746,7 +750,7 @@ class ContainerTestLib:
 
         try:
             # Get enabled SCLs
-            enabled_scls = PodmanCLIWrapper.run_docker_command(
+            enabled_scls = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c 'echo $X_SCLS'",
                 return_output=True
             ).strip()
@@ -758,12 +762,12 @@ class ContainerTestLib:
                     env_filter = "|".join([f"/{scl}" for scl in scl_list])
 
             # Get environment variables
-            loop_envs = PodmanCLIWrapper.run_docker_command(
+            loop_envs = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c env",
                 return_output=True
             )
 
-            run_envs = PodmanCLIWrapper.run_docker_command(
+            run_envs = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c 'X_SCLS= scl enable {enabled_scls} env'",
                 return_output=True
             )
@@ -1047,7 +1051,7 @@ class ContainerTestLib:
         """
         usage_command = "/usr/libexec/s2i/usage"
         try:
-            return PodmanCLIWrapper.run_docker_command(
+            return PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {self.image_name} bash -c {usage_command}",
                 return_output=True
             )
@@ -1098,7 +1102,7 @@ class ContainerTestLib:
             Size string in MB
         """
         try:
-            size_bytes = PodmanCLIWrapper.run_docker_command(
+            size_bytes = PodmanCLIWrapper.call_podman_command(
                 cmd=f"inspect {image_name} -f '{{{{.Size}}}}'",
                 return_output=True
             ).strip()
@@ -1119,7 +1123,7 @@ class ContainerTestLib:
         """
         try:
             # Save image and compress to get size
-            result = PodmanCLIWrapper.run_docker_command(
+            result = PodmanCLIWrapper.call_podman_command(
                 cmd=f"save {image_name} | gzip - | wc --bytes",
                 return_output=True
             )
@@ -1171,7 +1175,7 @@ class ContainerTestLib:
             pass
         # Get user ID from image
         try:
-            user_id = PodmanCLIWrapper.run_docker_command(
+            user_id = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {src_image} bash -c 'id -u {user}' 2>/dev/null",
                 return_output=True
             ).strip()
@@ -1213,17 +1217,17 @@ class ContainerTestLib:
             df_name = Path(tempfile.mktemp(dir=str(tmpdir), prefix="Dockerfile."))
             # Check if the image is available locally and try to pull it if it is not
             try:
-                PodmanCLIWrapper.run_docker_command(cmd=f"images {src_image}", return_output=True)
+                PodmanCLIWrapper.call_podman_command(cmd=f"images {src_image}", return_output=True)
             except subprocess.CalledProcessError:
                 if "pull-policy=never" not in s2i_args:
                     try:
-                        PodmanCLIWrapper.run_docker_command(cmd=f"pull {src_image}", return_output=False)
+                        PodmanCLIWrapper.call_podman_command(cmd=f"pull {src_image}", return_output=False)
                     except subprocess.CalledProcessError:
                         print(f"Failed to pull source image {src_image}")
                         return False
             # Get user from source image
             try:
-                user = PodmanCLIWrapper.run_docker_command(
+                user = PodmanCLIWrapper.call_podman_command(
                     cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
                     return_output=True
                 ).strip()
@@ -1243,7 +1247,7 @@ class ContainerTestLib:
                     ContainerTestLibUtils.run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
                     # Check if the destination image exists
                     try:
-                        PodmanCLIWrapper.run_docker_command(cmd=f"images {dst_image}", return_output=True)
+                        PodmanCLIWrapper.call_podman_command(cmd=f"images {dst_image}", return_output=True)
                     except subprocess.CalledProcessError:
                         print(f"Image {dst_image} not found.")
                         return False
@@ -1253,7 +1257,7 @@ class ContainerTestLib:
                         f"/usr/libexec/s2i/save-artifacts > '{inc_tmp}/artifacts.tar'; "
                         f"else touch '{inc_tmp}/artifacts.tar'; fi"
                     )
-                    PodmanCLIWrapper.run_docker_command(
+                    PodmanCLIWrapper.call_podman_command(
                         cmd=f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c \"{cmd}\"",
                         return_output=False
                     )
@@ -1424,7 +1428,7 @@ class ContainerTestLib:
 
             # Get user from source image
             try:
-                user = PodmanCLIWrapper.run_docker_command(
+                user = PodmanCLIWrapper.call_podman_command(
                     cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
                     return_output=True
                 ).strip()
@@ -1526,3 +1530,6 @@ class ContainerTestLib:
             # Clean up temporary directory
             if tmpdir.exists():
                 shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def get_logs(self, cid_name: str):
+        return self.lib.get_logs(cid_name=cid_name)

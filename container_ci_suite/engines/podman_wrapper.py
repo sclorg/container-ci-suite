@@ -29,7 +29,7 @@ from container_ci_suite.utils import ContainerTestLibUtils
 
 class PodmanCLIWrapper(object):
     @staticmethod
-    def run_docker_command(
+    def call_podman_command(
         cmd, return_output: bool = True, ignore_error: bool = False, shell: bool = True, debug: bool = False
     ):
         """
@@ -44,57 +44,57 @@ class PodmanCLIWrapper(object):
         )
 
     @staticmethod
-    def docker_image_exists(image_name: str) -> bool:
+    def podman_image_exists(image_name: str) -> bool:
         """
         Check if docker image exists or not
         :param image_name: image to check
         :return True: In case if image is present
                 False: In case if image is not present
         """
-        output = PodmanCLIWrapper.run_docker_command(
+        output = PodmanCLIWrapper.call_podman_command(
             f"images -q {image_name}", ignore_error=True, return_output=True)
         return True if output != "" else False
 
     @staticmethod
-    def docker_inspect(field: str, src_image: str) -> str:
-        return PodmanCLIWrapper.run_docker_command(
+    def podman_inspect(field: str, src_image: str) -> str:
+        return PodmanCLIWrapper.call_podman_command(
             f"inspect -f '{field}' {src_image}"
         )
 
     @staticmethod
-    def docker_run_command(cmd):
-        return PodmanCLIWrapper.run_docker_command(f"run {cmd}")
+    def podman_run_command(cmd):
+        return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
 
     @staticmethod
-    def docker_get_user_id(src_image, user):
-        return PodmanCLIWrapper.docker_run_command(
+    def podman_get_user_id(src_image, user):
+        return PodmanCLIWrapper.call_podman_command(
             f"--rm {src_image} bash -c 'id -u {user}' 2>/dev/null"
         ).strip()
 
     @staticmethod
-    def docker_pull_image(image_name: str, loops: int = 10) -> bool:
+    def podman_pull_image(image_name: str, loops: int = 10) -> bool:
         """
         Function checks if image_name is present in system.
         In case it isn't, try to pull it for specific count of loops
         Default is 10.
         """
-        if PodmanCLIWrapper.docker_image_exists(image_name=image_name):
+        if PodmanCLIWrapper.podman_image_exists(image_name=image_name):
             print("Pulled image already exists.")
             return True
         for loop in range(loops):
-            ret_val = PodmanCLIWrapper.run_docker_command(
+            ret_val = PodmanCLIWrapper.call_podman_command(
                 cmd=f"pull {image_name}", return_output=False
             )
-            if ret_val == 0 and PodmanCLIWrapper.docker_image_exists(image_name=image_name):
+            if ret_val == 0 and PodmanCLIWrapper.podman_image_exists(image_name=image_name):
                 return True
-            PodmanCLIWrapper.run_docker_command("images", return_output=True)
+            PodmanCLIWrapper.call_podman_command("images", return_output=True)
             print(f"Pulling of image {image_name} failed. Let's wait {loop*5} seconds and try again.")
             time.sleep(loop*5)
         return False
 
     @staticmethod
-    def docker_inspect_ip_address(container_id: str) -> Any:
-        output = PodmanCLIWrapper.run_docker_command(
+    def podman_inspect_ip_address(container_id: str) -> Any:
+        output = PodmanCLIWrapper.call_podman_command(
             f"inspect {container_id}"
         )
 
@@ -106,9 +106,16 @@ class PodmanCLIWrapper(object):
         return json_output[0]["NetworkSettings"]["IPAddress"]
 
     @staticmethod
-    def docker_get_user(iamge_name: str) -> Any:
-        output = PodmanCLIWrapper.run_docker_command(
-            f"inspect {iamge_name}"
+    def podman_exit_status(image_name: str) -> str:
+        return PodmanCLIWrapper.call_podman_command(
+            cmd=f"inspect --format='{{{{.State.ExitCode}}}}' {image_name}",
+            return_output=True
+        ).strip()
+
+    @staticmethod
+    def podman_get_user(image_name: str) -> Any:
+        output = PodmanCLIWrapper.call_podman_command(
+            f"inspect {image_name}"
         )
 
         json_output = json.loads(output)
