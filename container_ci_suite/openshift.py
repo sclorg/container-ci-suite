@@ -299,7 +299,7 @@ class OpenShiftAPI:
         time.sleep(3)
         return True
 
-    def docker_login_to_openshift(self) -> Any:
+    def podman_login_to_openshift(self) -> Any:
         output = ContainerTestLibUtils.run_oc_command(cmd="get route default-route -n openshift-image-registry")
         jsou_output = json.loads(output)
         print(jsou_output["spec"]["host"])
@@ -308,13 +308,13 @@ class OpenShiftAPI:
             return None
         ocp4_register = jsou_output["spec"]["host"]
         token_output = ContainerTestLibUtils.run_oc_command(cmd="whoami -t", json_output=False).strip()
-        cmd = f"docker login -u kubeadmin -p {token_output} {ocp4_register}"
+        cmd = f"podman login -u kubeadmin -p {token_output} {ocp4_register}"
         output = ContainerTestLibUtils.run_command(
             cmd=cmd,
             ignore_error=False,
             return_output=True
         )
-        print(f"Output from docker login: {output}")
+        print(f"Output from podman login: {output}")
         return ocp4_register
 
     def upload_image(self, source_image: str, tagged_image: str) -> bool:
@@ -326,24 +326,24 @@ class OpenShiftAPI:
         :return True: image was properly uploaded to OpenShift
                 False: image was not either pulled or uploading failed
         """
-        if not PodmanCLIWrapper.docker_pull_image(image_name=source_image, loops=3):
+        if not PodmanCLIWrapper.podman_pull_image(image_name=source_image, loops=3):
             return False
         try:
-            ocp4_register = self.docker_login_to_openshift()
+            ocp4_register = self.podman_login_to_openshift()
             if not ocp4_register:
                 return False
         except subprocess.CalledProcessError:
             return False
         output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
-        cmd = f"docker tag {source_image} {output_name}"
-        print(f"Tag docker image {cmd}")
+        cmd = f"podman tag {source_image} {output_name}"
+        print(f"Tag podman image {cmd}")
         output = ContainerTestLibUtils.run_command(
             cmd=cmd,
             ignore_error=False
         )
         print(f"Upload_image tagged {output}")
         output = ContainerTestLibUtils.run_command(
-            cmd=f"docker push {output_name}",
+            cmd=f"podman push {output_name}",
             ignore_error=False
         )
         print(f"Upload_image push {output}")

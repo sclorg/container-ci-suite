@@ -54,17 +54,17 @@ class TestOpenShiftCISuite(object):
         ) == expected_output
 
     def test_upload_image_pull_failed(self):
-        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(False)
+        flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(False)
         assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_upload_image_login_failed(self):
-        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(True)
-        flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return(None)
+        flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
+        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(None)
         assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
     def test_upload_image_success(self):
-        flexmock(PodmanCLIWrapper).should_receive("docker_pull_image").and_return(True)
-        flexmock(OpenShiftAPI).should_receive("docker_login_to_openshift").and_return("default_registry")
+        flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
+        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return("default_registry")
         flexmock(ContainerTestLibUtils).should_receive("run_command").twice()
         assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
 
