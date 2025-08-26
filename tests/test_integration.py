@@ -97,8 +97,8 @@ class TestS2IIntegration:
 
     def test_s2i_usage(self, mock_docker_commands):
         """Test S2I usage command."""
-        lib = ContainerTestLib()
-        result = lib.s2i_usage("test:latest")
+        lib = ContainerTestLib(image_name="test:latest")
+        result = lib.s2i_usage()
         assert result == ""  # Mocked to return empty string
 
 

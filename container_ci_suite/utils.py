@@ -390,6 +390,33 @@ def get_tagged_image(image_name: str, version: str) -> Any:
     return f"{image_no_tag}:{version}"
 
 
+def clone_git_repository(app_url: str, app_dir: str) -> bool:
+    """
+    Clone git repository.
+    This is the Python equivalent of ct_clone_git_repository.
+    Args:
+        app_url: Git URI pointing to a repository, supports "@" to indicate a different branch
+        app_dir: Name of the directory to clone the repository into
+    Returns:
+        True if clone successful, False otherwise
+    """
+    try:
+        # If app_url contains @, the string after @ is considered
+        # as a name of a branch to clone instead of the main/master branch
+        if '@' in app_url:
+            git_url_parts = app_url.split('@')
+            git_url = git_url_parts[0]
+            branch = git_url_parts[1]
+            cmd = f"git clone --branch {branch} {git_url} {app_dir}"
+        else:
+            cmd = f"git clone {app_url} {app_dir}"
+        ContainerTestLibUtils.run_command(cmd, return_output=False)
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Git clone failed: {e}")
+        return False
+
+
 def get_service_image(image_name: str) -> Any:
     try:
         image_no_namespace = image_name.split('/')[1]

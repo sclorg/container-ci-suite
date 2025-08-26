@@ -65,12 +65,12 @@ class ContainerTestLib:
     This is a Python replacement for the container-test-lib.sh shell script.
     """
 
-    def __init__(self, image_name: str):
+    def __init__(self, image_name: str = os.getenv("IMAGE_NAME"), s2i_image: bool = False):
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         self.image_name = image_name
-        self.s2i_image: bool = False
+        self.s2i_image: bool = s2i_image
         self.lib = ContainerImage(
             image_name=os.getenv("IMAGE_NAME"), cid_file_dir=self.cid_file_dir, cid_file=self.app_id_file_dir
         )
@@ -149,6 +149,16 @@ class ContainerTestLib:
         """
         return ContainerImage.is_container_exists(container_id=container_id)
 
+    def get_container_exitcode(self, container_id: str) -> str:
+        """
+        Check if container exists.
+        Args:
+            container_id: Container ID to check
+        Returns:
+            True if container exists, False otherwise
+        """
+        return self.lib.get_container_exit_code(cid_name=container_id)
+
     def clean_app_images(self) -> None:
         """Clean up application images referenced by APP_ID_FILE_DIR."""
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
@@ -197,26 +207,23 @@ class ContainerTestLib:
         for cid_file in self.cid_file_dir.glob("*"):
             if not cid_file.is_file():
                 continue
+            print(f"Let's clean file {cid_file}")
 
             try:
                 container_id = utils.get_file_content(cid_file).strip()
-
                 if not ContainerTestLib.is_container_exists(container_id):
                     continue
-
                 print(f"Stopping and removing container {container_id}...")
-
                 # Stop container if running
                 if ContainerTestLib.is_container_running(container_id):
                     PodmanCLIWrapper.run_docker_command(cmd=f"stop {container_id}", ignore_error=True)
-
+                    print(f"Container {container_id} stopped")
                 # Check exit status and dump logs if needed
                 try:
                     exit_status = PodmanCLIWrapper.run_docker_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                         return_output=True
                     ).strip()
-
                     if int(exit_status) != 0:
                         print(f"Dumping logs for {container_id}")
                         try:
@@ -226,14 +233,12 @@ class ContainerTestLib:
                             pass
                 except subprocess.CalledProcessError:
                     pass
-
                 # Remove container
                 PodmanCLIWrapper.run_docker_command(cmd=f"rm -v {container_id}", ignore_error=True)
-                cid_file.unlink()
-
+                if cid_file.exists():
+                    cid_file.unlink()
             except Exception as e:
                 logger.warning(f"Error cleaning container from {cid_file}: {e}")
-
         # Remove the directory
         if self.cid_file_dir.exists():
             shutil.rmtree(self.cid_file_dir)
@@ -298,7 +303,7 @@ class ContainerTestLib:
     def get_cid(self, name: str) -> str:
         return self.lib.get_cid(name=name)
 
-    def get_cip(self, cid_name: str) -> str:
+    def get_cip(self, cid_name: str = "app_dockerfile") -> str:
         return self.lib.get_cip(cid_name=cid_name)
 
     @staticmethod
@@ -360,6 +365,12 @@ class ContainerTestLib:
                 self.container_args = old_container_args
         return True
 
+    def build_test_container(self, dockerfile: str, app_url: str, app_dir: str):
+        return self.lib.build_test_container(dockerfile=dockerfile, app_url=app_url, app_dir=app_dir)
+
+    def test_app_dockerfile(self):
+        return self.lib.test_app_dockerfile()
+
     def create_container(
         self,
         cid_file: str = "",
@@ -377,11 +388,14 @@ class ContainerTestLib:
         """
         if not container_args:
             container_args = getattr(self, 'container_args', '')
+        if not self.cid_file_dir.exists():
+            self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         cid_file_name: Path = self.cid_file_dir / cid_file
         try:
             cmd = f"run --cidfile={cid_file_name} -d {container_args} {self.image_name} {command}"
-            PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=False)
-            if not self.wait_for_cid(cid_file):
+            print(f"Command to create container is '{cmd}'.")
+            PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=True)
+            if not self.wait_for_cid(cid_file_name):
                 return False
             container_id = utils.get_file_content(cid_file_name).strip()
             print(f"Created container {container_id}")
@@ -864,7 +878,7 @@ class ContainerTestLib:
         self, url: str,
         expected_code: int = 200,
         port: int = 8080,
-        body_regexp: str = "",
+        expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10
     ) -> bool:
         """
@@ -874,7 +888,7 @@ class ContainerTestLib:
             url: Request URL
             expected_code: Expected HTTP response code
             port: Port where curl will be used
-            body_regexp: Regular expression for response body
+            expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
 
@@ -903,7 +917,7 @@ class ContainerTestLib:
                     try:
                         code_int = int(response_code)
                         if code_int == expected_code:
-                            if not body_regexp or re.search(body_regexp, response_body):
+                            if not expected_output or re.search(expected_output, response_body):
                                 return True
                     except ValueError:
                         pass
@@ -1028,9 +1042,6 @@ class ContainerTestLib:
     def s2i_usage(self) -> str:
         """
         Run S2I usage script inside container.
-        Args:
-            img_name: Image name
-            s2i_args: S2I arguments (currently unused)
         Returns:
             Usage script output
         """
@@ -1176,7 +1187,7 @@ class ContainerTestLib:
         dst_image: str,
         build_args: str = "",
         s2i_args: str = ""
-    ) -> bool:
+    ):
         """
         Create a new S2I app image from local sources using Dockerfile approach.
         This is the Python equivalent of ct_s2i_build_as_df_build_args.
@@ -1340,163 +1351,19 @@ class ContainerTestLib:
             build_command = " ".join(filter(None, build_command_parts))
             if not self.build_image_and_parse_id(str(df_name), build_command):
                 print(f"ERROR: Failed to build {df_name}")
-                return False
+                return None
             # Store image ID for cleanup
             if hasattr(self, 'app_image_id') and self.app_image_id:
                 id_file = self.app_id_file_dir / str(hash(dst_image))
                 with open(id_file, 'w') as f:
                     f.write(self.app_image_id)
-            return True
+            return ContainerTestLib(dst_image, s2i_image=True)
         except Exception as e:
             print(f"S2I build failed: {e}")
-            return False
+            return None
         finally:
             # Restore original working directory
             os.chdir(original_cwd)
-            # Clean up temporary directory
-            if tmpdir.exists():
-                shutil.rmtree(tmpdir, ignore_errors=True)
-
-    def test_app_dockerfile(
-        self,
-        dockerfile: str,
-        app_url: str,
-        expected_text: str,
-        app_dir: str,
-        build_args: str = "",
-        port: int = 8080
-    ) -> bool:
-        """
-        Test application using Dockerfile build.
-        This is the Python equivalent of ct_test_app_dockerfile.
-        Args:
-            dockerfile: Path to a Dockerfile that will be used for building an image
-            app_url: Git or local URI with a testing application, supports "@" to indicate a different branch
-            expected_text: PCRE regular expression that must match the response body
-            app_dir: Name of the application directory that is used in the Dockerfile
-            build_args: Build args that will be used for building an image
-
-        Returns:
-            True if test successful, False otherwise
-        """
-        app_image_name = "myapp"
-        cname = "app_dockerfile"
-
-        # Validate inputs
-        if not app_dir:
-            print("ERROR: Option app_dir not set. Terminating the Dockerfile build.")
-            return False
-
-        dockerfile_path = Path(dockerfile)
-        if not dockerfile_path.exists() or dockerfile_path.stat().st_size == 0:
-            print(f"ERROR: Dockerfile {dockerfile} does not exist or is empty.")
-            print("Terminating the Dockerfile build.")
-            return False
-
-        # Create temporary directory and work in it
-        tmpdir = Path(tempfile.mkdtemp())
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(tmpdir)
-
-            # Copy Dockerfile to temporary directory
-            dockerfile_abs = dockerfile_path.resolve()
-            shutil.copy2(dockerfile_abs, tmpdir / "Dockerfile")
-            # Rewrite the source image to what we test
-            dockerfile_content = (tmpdir / "Dockerfile").read_text()
-            # Replace FROM line with our test image
-            dockerfile_content = re.sub(r'^FROM.*$', f'FROM {self.image_name}', dockerfile_content, flags=re.MULTILINE)
-            (tmpdir / "Dockerfile").write_text(dockerfile_content)
-            # Show the Dockerfile being used
-            print("Using this Dockerfile:")
-            print(dockerfile_content)
-            # Handle application source
-            app_dir_path = tmpdir / app_dir
-            if Path(app_url).is_dir():
-                print(f"Copying local folder: {app_url} -> {app_dir}.")
-                shutil.copytree(app_url, app_dir_path, dirs_exist_ok=True)
-            else:
-                if not self.clone_git_repository(app_url, str(app_dir_path)):
-                    print("Terminating the Dockerfile build.")
-                    return False
-            # Build the image
-            print(f"Building '{app_image_name}' image using docker build")
-            build_command = f"-t {app_image_name} . {build_args}".strip()
-            if not self.build_image_and_parse_id("", build_command):
-                print(f"ERROR: The image cannot be built from {dockerfile} and application {app_url}.")
-                print("Terminating the Dockerfile build.")
-                return False
-            # Store image ID for cleanup
-            if hasattr(self, 'app_image_id') and self.app_image_id:
-                id_file = self.app_id_file_dir / str(hash(app_image_name))
-                with open(id_file, 'w') as f:
-                    f.write(self.app_image_id)
-            # Run the container
-            cid_file_path = self.cid_file_dir / cname
-            try:
-                cmd = f"run -d --cidfile={cid_file_path} --rm {app_image_name}"
-                PodmanCLIWrapper.run_docker_command(cmd=cmd, return_output=False)
-            except subprocess.CalledProcessError:
-                print(f"ERROR: The image {app_image_name} cannot be run for {dockerfile} and application {app_url}.")
-                print("Terminating the Dockerfile build.")
-                return False
-
-            # Wait for container to start
-            print(f"Waiting for {app_image_name} to start")
-            if not ContainerImage.wait_for_cid(cid_file_path):
-                print("ERROR: Container failed to start.")
-                return False
-            # Get container IP
-            ip = self.get_cip(cname)
-            if not ip:
-                print("ERROR: Cannot get container's IP address.")
-                return False
-            # Test the response
-            url = f"http://{ip}:{port}"
-            result = self.test_response(url, 200, body_regexp=expected_text)
-
-            if not result:
-                # Show logs on failure
-                try:
-                    container_id = self.get_cid(cname)
-                    logs = PodmanCLIWrapper.run_docker_command(
-                        cmd=f"logs {container_id}",
-                        return_output=True
-                    )
-                    print("Container logs:")
-                    print(logs)
-                except subprocess.CalledProcessError:
-                    print("Could not retrieve container logs")
-
-            return result
-
-        except Exception as e:
-            print(f"Test app dockerfile failed: {e}")
-            return False
-
-        finally:
-            # Cleanup
-            try:
-                # Kill container if it exists
-                if (self.cid_file_dir / cname).exists():
-                    container_id = self.get_cid(cname)
-                    PodmanCLIWrapper.run_docker_command(cmd=f"kill {container_id}", ignore_error=True)
-                    time.sleep(2)
-
-                # Remove image
-                PodmanCLIWrapper.run_docker_command(cmd=f"rmi {app_image_name}", ignore_error=True)
-
-                # Remove cid file
-                cid_file_path = self.cid_file_dir / cname
-                if cid_file_path.exists():
-                    cid_file_path.unlink()
-
-            except Exception as e:
-                logger.warning(f"Cleanup error: {e}")
-
-            # Restore original working directory
-            os.chdir(original_cwd)
-
             # Clean up temporary directory
             if tmpdir.exists():
                 shutil.rmtree(tmpdir, ignore_errors=True)
@@ -1507,7 +1374,7 @@ class ContainerTestLib:
         src_image: str,
         dst_image: str,
         s2i_args: str = ""
-    ) -> bool:
+    ):
         """
         Create a new S2I app image from local sources (wrapper function).
         This is the Python equivalent of ct_s2i_build_as_df.
@@ -1521,37 +1388,7 @@ class ContainerTestLib:
         """
         return self.build_as_df_build_args(app_path, src_image, dst_image, "", s2i_args)
 
-    def clone_git_repository(self, app_url: str, app_dir: str) -> bool:
-        """
-        Clone git repository.
-        This is the Python equivalent of ct_clone_git_repository.
-
-        Args:
-            app_url: Git URI pointing to a repository, supports "@" to indicate a different branch
-            app_dir: Name of the directory to clone the repository into
-
-        Returns:
-            True if clone successful, False otherwise
-        """
-        try:
-            # If app_url contains @, the string after @ is considered
-            # as a name of a branch to clone instead of the main/master branch
-            if '@' in app_url:
-                git_url_parts = app_url.split('@')
-                git_url = git_url_parts[0]
-                branch = git_url_parts[1]
-                cmd = f"git clone --branch {branch} {git_url} {app_dir}"
-            else:
-                cmd = f"git clone {app_url} {app_dir}"
-
-            ContainerTestLibUtils.run_command(cmd, return_output=False)
-            return True
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Git clone failed: {e}")
-            return False
-
-    def s2i_multistage_build(
+    def multistage_build(
         self,
         app_path: str,
         src_image: str,
@@ -1618,7 +1455,7 @@ class ContainerTestLib:
                         shutil.copy2(item, local_app_path)
             else:
                 # Clone git repository
-                if not self.clone_git_repository(app_path, str(local_app_path)):
+                if not utils.clone_git_repository(app_path, str(local_app_path)):
                     print(f"Failed to clone git repository: {app_path}")
                     return False
 
