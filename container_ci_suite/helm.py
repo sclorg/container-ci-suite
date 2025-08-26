@@ -34,6 +34,7 @@ import urllib3
 
 import container_ci_suite.utils as utils
 
+from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.engines.openshift import OpenShiftOperations
 
@@ -79,7 +80,7 @@ class HelmChartsAPI:
         json_cmd = "-o json" if json_output else ""
         print(f"run_helm_command: helm {cmd} {json_cmd}")
 
-        return utils.run_command(
+        return ContainerTestLibUtils.run_command(
             f"helm {cmd} {json_cmd}",
             return_output=return_output,
             ignore_error=ignore_error,
@@ -111,7 +112,7 @@ class HelmChartsAPI:
         self.cloned_dir = temp_dir
         cmd_clone = f"git clone {repo_url} {temp_dir}/{repo_name}"
         print(f"Clone charts repo by command: {cmd_clone}")
-        clone_output = utils.run_command(cmd_clone, return_output=True)
+        clone_output = ContainerTestLibUtils.run_command(cmd_clone, return_output=True)
         print(clone_output)
         if subdir != "":
             self.path = Path(temp_dir) / repo_name / subdir
