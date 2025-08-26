@@ -1532,4 +1532,8 @@ class ContainerTestLib:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
     def get_logs(self, cid_name: str):
-        return self.lib.get_logs(cid_name=cid_name)
+        logs = self.lib.get_logs(cid_name=cid_name)
+        return logs
+
+    def check_regexp_output(self, regexp_to_check: str, logs_to_check: str):
+        return re.search(regexp_to_check, logs_to_check)
