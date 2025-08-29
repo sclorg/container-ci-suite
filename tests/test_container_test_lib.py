@@ -8,6 +8,7 @@ from unittest.mock import patch
 from subprocess import CalledProcessError
 
 from container_ci_suite.container_lib import ContainerTestLib
+from container_ci_suite.engines.container import ContainerImage
 
 
 class TestContainerTestLibUtilities:
@@ -130,7 +131,7 @@ class TestContainerOperations:
         """Test container exists check when container doesn't exist."""
         with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
             mock_cmd.return_value = ""
-            result = self.lib.is_container_exists("test_container")
+            result = ContainerImage.is_container_exists("test_container")
             assert result is False
 
     def test_get_cid(self, mock_file_operations):
@@ -272,14 +273,14 @@ class TestWaitFunctions:
         cid_file = temp_dir / "test.cid"
         cid_file.write_text("container123")
 
-        result = self.lib.wait_for_cid(cid_file, max_attempts=1)
+        result = ContainerImage.wait_for_cid(cid_file, max_attempts=1)
         assert result is True
 
     def test_wait_for_cid_failure(self, temp_dir):
         """Test failed wait for CID file."""
         cid_file = temp_dir / "nonexistent.cid"
 
-        result = ContainerTestLib.wait_for_cid(cid_file, max_attempts=1, sleep_time=1)
+        result = ContainerImage.wait_for_cid(cid_file, max_attempts=1, sleep_time=1)
         assert result is False
 
     def test_wait_for_cid_empty_file(self, temp_dir):
@@ -287,7 +288,7 @@ class TestWaitFunctions:
         cid_file = temp_dir / "empty.cid"
         cid_file.touch()  # Create empty file
 
-        result = self.lib.wait_for_cid(cid_file, max_attempts=1)
+        result = ContainerImage.wait_for_cid(cid_file, max_attempts=1)
         assert result is False
 
 

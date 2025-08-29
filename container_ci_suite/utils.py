@@ -210,6 +210,37 @@ class ContainerTestLibUtils:
             debug=debug
         )
 
+    @staticmethod
+    def check_regexp_output(regexp_to_check: str, logs_to_check: str):
+        return re.search(regexp_to_check, logs_to_check)
+
+    @staticmethod
+    def create_local_temp_dir(dir_name: str) -> str:
+        return tempfile.mkdtemp(prefix=dir_name)
+
+    @staticmethod
+    def commands_to_run(commands_to_run: List[str]) -> bool:
+        command_failed: bool = True
+        for cmd in commands_to_run:
+            try:
+                print(f"ContainerTestLibUtils: commands_to_run: {cmd}")
+                output = ContainerTestLibUtils.run_command(cmd=cmd, return_output=True, ignore_error=False)
+                if output:
+                    print(f"Output is '{output}'")
+            except subprocess.CalledProcessError as cpe:
+                print(f"ContainerTestLibUtils: cmd {cmd} failed '{cpe}'")
+                command_failed = False
+        return command_failed
+
+    @staticmethod
+    def check_files_are_present(dir_name: str, file_name_to_check: List[str]) -> bool:
+        file_present: bool = True
+        for f in file_name_to_check:
+            if not (Path(dir_name) / f).exists():
+                print(f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist.")
+                file_present = False
+        return file_present
+
 
 def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:
     for count in range(max_tests):
