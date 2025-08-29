@@ -9,6 +9,7 @@ from unittest.mock import patch
 from subprocess import CalledProcessError
 
 from container_ci_suite.container_lib import ContainerTestLib
+from container_ci_suite.engines.container import ContainerImage
 
 
 @pytest.mark.integration
@@ -27,7 +28,7 @@ class TestContainerIntegration:
         cid_file_path = str(self.lib.cid_file_dir / "test_container")
         mock_file_operations[cid_file_path] = "container123"
 
-        with patch.object(self.lib, 'wait_for_cid', return_value=True):
+        with patch.object(ContainerImage, 'wait_for_cid', return_value=True):
             result = self.lib.create_container("test_container", "sleep 60")
             assert result is True
 
@@ -48,7 +49,7 @@ class TestContainerIntegration:
         # Mock container that exits with non-zero status
         with patch.object(self.lib, 'create_container', return_value=True), \
              patch.object(self.lib, 'get_cid', return_value="container123"), \
-             patch.object(self.lib, 'is_container_running', return_value=False), \
+             patch.object(ContainerImage, 'is_container_running', return_value=False), \
              patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
 
             # Mock exit status check
@@ -189,7 +190,7 @@ class TestNpmIntegration:
         self.lib.image_name = "test:latest"
 
         with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd, \
-                patch.object(self.lib, 'wait_for_cid', return_value=True), \
+                patch.object(ContainerImage, 'wait_for_cid', return_value=True), \
                 patch('container_ci_suite.utils.get_file_content', return_value="container123"):
             mock_cmd.side_effect = [
                 "8.19.2",  # npm --version

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from subprocess import CalledProcessError
 
 from container_ci_suite.container_lib import ContainerTestLib
+from container_ci_suite.engines.container import ContainerImage
 
 
 class TestErrorHandling:
@@ -29,7 +30,7 @@ class TestErrorHandling:
         with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
             mock_cmd.side_effect = CalledProcessError(1, "docker inspect")
 
-            result = self.lib.is_container_running("invalid_id")
+            result = ContainerImage.is_container_running("invalid_id")
             assert result is False
 
     def test_get_cid_with_missing_file(self):
@@ -77,7 +78,7 @@ class TestEdgeCases:
         """Test wait for CID with zero max attempts."""
         cid_file = temp_dir / "test.cid"
 
-        result = self.lib.wait_for_cid(cid_file, max_attempts=0)
+        result = ContainerImage.wait_for_cid(cid_file, max_attempts=0)
         assert result is False
 
     def test_get_public_image_name_unknown_os(self):

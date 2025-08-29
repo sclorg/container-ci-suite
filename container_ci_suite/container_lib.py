@@ -38,7 +38,7 @@ import subprocess
 import logging
 import urllib.request
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 from datetime import datetime
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
@@ -71,9 +71,20 @@ class ContainerTestLib:
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         self.image_name = image_name
         self.s2i_image: bool = s2i_image
-        self.lib = ContainerImage(
-            image_name=os.getenv("IMAGE_NAME"), cid_file_dir=self.cid_file_dir, cid_file=self.app_id_file_dir
-        )
+        self._lib = None
+
+    @property
+    def lib(self):
+        if not self._lib:
+            self._lib = ContainerImage(
+                image_name=self.image_name,
+                cid_file_dir=self.cid_file_dir,
+                cid_file=self.app_id_file_dir
+            )
+        return self._lib
+
+    def set_new_image(self, image_name):
+        self.image_name = image_name
 
     def cleanup(self) -> None:
         """
@@ -127,38 +138,6 @@ class ContainerTestLib:
             logger.error(f"Build failed: {e}")
             return False
 
-    @staticmethod
-    def is_container_running(container_id: str) -> bool:
-        """
-        Check if container is in running state.
-        Args:
-            container_id: Container ID to check
-        Returns:
-            True if container is running, False otherwise
-        """
-        return ContainerImage.is_container_running(container_id=container_id)
-
-    @staticmethod
-    def is_container_exists(container_id: str) -> bool:
-        """
-        Check if container exists.
-        Args:
-            container_id: Container ID to check
-        Returns:
-            True if container exists, False otherwise
-        """
-        return ContainerImage.is_container_exists(container_id=container_id)
-
-    def get_container_exitcode(self, container_id: str) -> str:
-        """
-        Check if container exists.
-        Args:
-            container_id: Container ID to check
-        Returns:
-            True if container exists, False otherwise
-        """
-        return self.lib.get_container_exitcode(cid_name=container_id)
-
     def clean_app_images(self) -> None:
         """Clean up application images referenced by APP_ID_FILE_DIR."""
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
@@ -211,11 +190,11 @@ class ContainerTestLib:
 
             try:
                 container_id = utils.get_file_content(cid_file).strip()
-                if not ContainerTestLib.is_container_exists(container_id):
+                if not ContainerImage.is_container_exists(container_id):
                     continue
                 print(f"Stopping and removing container {container_id}...")
                 # Stop container if running
-                if ContainerTestLib.is_container_running(container_id):
+                if ContainerImage.is_container_running(container_id):
                     PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
                     print(f"Container {container_id} stopped")
                 # Check exit status and dump logs if needed
@@ -307,14 +286,6 @@ class ContainerTestLib:
     def get_cip(self, cid_name: str = "app_dockerfile") -> str:
         return self.lib.get_cip(cid_name=cid_name)
 
-    @staticmethod
-    def wait_for_cid(
-        cid_file: Union[str, Path],
-        max_attempts: int = 10,
-        sleep_time: int = 1
-    ) -> bool:
-        return ContainerImage.wait_for_cid(cid_file=cid_file, max_attempts=max_attempts, sleep_time=sleep_time)
-
     def assert_container_creation_fails(self, container_args: str) -> bool:
         """
         Assert that container creation should fail.
@@ -337,7 +308,7 @@ class ContainerTestLib:
 
                 attempt = 1
                 while attempt <= max_attempts:
-                    if not self.is_container_running(container_id):
+                    if not ContainerImage.is_container_running(container_id):
                         break
                     time.sleep(2)
                     attempt += 1
@@ -399,7 +370,7 @@ class ContainerTestLib:
             cmd = f"run --cidfile={cid_file_name} -d {container_args} {self.image_name} {command}"
             print(f"Command to create container is '{cmd}'.")
             PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
-            if not self.wait_for_cid(cid_file_name):
+            if not ContainerImage.wait_for_cid(cid_file_name):
                 return False
             container_id = utils.get_file_content(cid_file_name).strip()
             print(f"Created container {container_id}")
@@ -601,7 +572,7 @@ class ContainerTestLib:
                 return False
 
             # Wait for container
-            if not self.wait_for_cid(cid_file):
+            if not ContainerImage.wait_for_cid(cid_file):
                 return False
 
             container_id = utils.get_file_content(cid_file).strip()
@@ -1534,6 +1505,3 @@ class ContainerTestLib:
     def get_logs(self, cid_name: str):
         logs = self.lib.get_logs(cid_name=cid_name)
         return logs
-
-    def check_regexp_output(self, regexp_to_check: str, logs_to_check: str):
-        return re.search(regexp_to_check, logs_to_check)
