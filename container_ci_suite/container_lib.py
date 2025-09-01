@@ -854,7 +854,8 @@ class ContainerTestLib:
         expected_code: int = 200,
         port: int = 8080,
         expected_output: str = "",
-        max_attempts: int = 20, ignore_error_attempts: int = 10
+        max_attempts: int = 20, ignore_error_attempts: int = 10,
+        debug: bool = False
     ) -> bool:
         """
         Test HTTP response from application container.
@@ -870,7 +871,7 @@ class ContainerTestLib:
         Returns:
             True if response matches expectations, False otherwise
         """
-        print(f"Testing the HTTP(S) response for <{url}>")
+        print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
         for attempt in range(1, max_attempts + 1):
@@ -880,10 +881,15 @@ class ContainerTestLib:
                 # Create temporary file for response
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
+                insecure = ""
+                if url.startswith("https://"):
+                    insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl --connect-timeout 10 -s -w '%{{http_code}}' '{url}:{port}'",
+                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{url}:{port}'",
                     return_output=True
                 )
+                if debug:
+                    print(result)
                 response_file.write(result)
                 if len(result) >= 3:
                     response_code = result[-3:]
@@ -892,7 +898,11 @@ class ContainerTestLib:
                     try:
                         code_int = int(response_code)
                         if code_int == expected_code:
+                            if debug:
+                                print("Expected code from curl PASSED.")
+                                print(f"Let's check expected_output in {response_body}")
                             if not expected_output or re.search(expected_output, response_body):
+                                print(f"Expected output '{expected_output}' found in response")
                                 return True
                     except ValueError:
                         pass
