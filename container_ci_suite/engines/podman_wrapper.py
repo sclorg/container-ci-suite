@@ -66,6 +66,10 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
 
     @staticmethod
+    def podman_exec_bash_command(image_name: str, cmd: str):
+        return PodmanCLIWrapper.call_podman_command(f'exec {image_name} bash -c "{cmd}"')
+
+    @staticmethod
     def podman_get_user_id(src_image, user):
         return PodmanCLIWrapper.call_podman_command(
             f"--rm {src_image} bash -c 'id -u {user}' 2>/dev/null"
