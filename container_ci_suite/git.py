@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__)
 
 class Git:
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, create_dir: bool = False):
         self.path: Path = path
         self._repo = None
-        # logger.info(f"Creating git repo in path {path}")
-        # self.path.mkdir()
+        if create_dir:
+            logger.info(f"Creating git repo in path {path}")
+            self.path.mkdir()
 
     @property
     def repo(self):
