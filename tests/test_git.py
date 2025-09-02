@@ -34,7 +34,7 @@ class TestContainerCISuiteGit(object):
 
     def setup_method(self):
         self.tmpdir = tempfile.mkdtemp(suffix="ccs")
-        self.git = Git(path=Path(os.path.join(self.tmpdir, "test_git")))
+        self.git = Git(path=Path(os.path.join(self.tmpdir, "test_git")), create_dir=True)
         (self.git.path / "barfoo").touch()
 
     def test_git_init(self):
