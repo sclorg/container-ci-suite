@@ -388,7 +388,6 @@ class ContainerTestLib:
     ) -> bool:
         """
         Test SCL usage in three different ways.
-
         Args:
             name: Name for cid_file
             command: Command to execute
@@ -398,9 +397,6 @@ class ContainerTestLib:
         Returns:
             True if all tests pass, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         print("Testing the image SCL enable")
 
         # Test 1: docker run
@@ -450,19 +446,13 @@ class ContainerTestLib:
     ) -> bool:
         """
         Check documentation content in container.
-
         Args:
             strings: List of strings to check for
             image_name: Image name to test
-
         Returns:
             True if all strings found and format is correct, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         print("Testing documentation in the container image")
-
         tmpdir = Path(tempfile.mkdtemp())
 
         try:
@@ -506,7 +496,6 @@ class ContainerTestLib:
     def mount_ca_file(self) -> str:
         """
         Get mount parameter for CA file.
-
         Returns:
             Mount parameter string or empty string
         """
@@ -515,7 +504,6 @@ class ContainerTestLib:
     def build_s2i_npm_variables(self) -> str:
         """
         Build S2I npm variables.
-
         Returns:
             NPM variables string
         """
@@ -529,16 +517,11 @@ class ContainerTestLib:
     def npm_works(self, image_name: str = "") -> bool:
         """
         Test if npm works in the container.
-
         Args:
             image_name: Image name to test
-
         Returns:
             True if npm works, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         tmpdir = Path(tempfile.mkdtemp())
         cid_file = tmpdir / "npm_test_cid"
 
@@ -621,18 +604,13 @@ class ContainerTestLib:
     ) -> bool:
         """
         Check if binary can be found during Dockerfile build.
-
         Args:
             binary: Binary name to check
             binary_path: Expected path pattern
             image_name: Image name to test
-
         Returns:
             True if binary found, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         tmpdir = Path(tempfile.mkdtemp())
 
         try:
@@ -666,19 +644,13 @@ class ContainerTestLib:
     ) -> bool:
         """
         Check if environment variables from 'docker run' are available in 'docker exec'.
-
         Args:
             env_filter: Filter for environment variables
             image_name: Image name to test
-
         Returns:
             True if all variables present, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         tmpdir = Path(tempfile.mkdtemp())
-
         try:
             # Get environment variables from docker run
             run_envs = PodmanCLIWrapper.call_podman_command(
@@ -690,7 +662,6 @@ class ContainerTestLib:
                 return False
 
             container_id = self.get_cid("test_exec_envs")
-
             # Get environment variables from docker exec
             exec_envs = PodmanCLIWrapper.call_podman_command(cmd=f"exec {container_id} env", return_output=True)
             # Check environment variables
@@ -706,17 +677,12 @@ class ContainerTestLib:
     def check_scl_enable_vars(self, env_filter: str = "", image_name: str = "") -> bool:
         """
         Check if environment variables are set twice after SCL enable.
-
         Args:
             env_filter: Filter for environment variables
             image_name: Image name to test
-
         Returns:
             True if all variables set correctly, False otherwise
         """
-        if not image_name:
-            image_name = getattr(self, 'image_name', '')
-
         tmpdir = Path(tempfile.mkdtemp())
 
         try:
@@ -725,7 +691,6 @@ class ContainerTestLib:
                 cmd=f"run --rm {image_name} /bin/bash -c 'echo $X_SCLS'",
                 return_output=True
             ).strip()
-
             if not env_filter:
                 # Build filter from enabled SCLs
                 scl_list = enabled_scls.split()
@@ -737,17 +702,14 @@ class ContainerTestLib:
                 cmd=f"run --rm {image_name} /bin/bash -c env",
                 return_output=True
             )
-
             run_envs = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c 'X_SCLS= scl enable {enabled_scls} env'",
                 return_output=True
             )
-
             # Check if values are set twice
             result = self.check_envs_set(env_filter, run_envs, loop_envs, "*VALUE*VALUE*")
             if result:
                 print("All scl_enable values present")
-
             return result
 
         finally:
@@ -756,7 +718,6 @@ class ContainerTestLib:
     def path_append(self, path_var: str, directory: str) -> None:
         """
         Append directory to PATH-like variable.
-
         Args:
             path_var: Name of the path variable
             directory: Directory to append
@@ -770,11 +731,9 @@ class ContainerTestLib:
     def gen_self_signed_cert_pem(self, output_dir: str, base_name: str) -> bool:
         """
         Generate self-signed PEM certificate pair.
-
         Args:
             output_dir: Output directory
             base_name: Base name for certificate files
-
         Returns:
             True if successful, False otherwise
         """
@@ -925,27 +884,20 @@ class ContainerTestLib:
     def registry_from_os(os_name: str) -> str:
         """
         Transform OS string into registry URL.
-
         Args:
             os_name: Operating system string
-
         Returns:
             Registry URL
         """
-        if os_name.startswith("rhel"):
-            return "registry.redhat.io"
-        else:
-            return "quay.io"
+        return "registry.redhat.io" if os_name.startswith("rhel") else "quay.io"
 
     def get_public_image_name(self, os_name: str, base_image_name: str, version: str) -> str:
         """
         Transform arguments into public image name.
-
         Args:
             os_name: Operating system string
             base_image_name: Base image name
             version: Version string
-
         Returns:
             Public image name
         """
@@ -969,10 +921,8 @@ class ContainerTestLib:
     def assert_cmd_success(*cmd) -> bool:
         """
         Assert that command succeeds.
-
         Args:
             *cmd: Command and arguments
-
         Returns:
             True if command succeeds, False otherwise
         """
@@ -991,10 +941,8 @@ class ContainerTestLib:
     def assert_cmd_failure(*cmd) -> bool:
         """
         Assert that command fails.
-
         Args:
             *cmd: Command and arguments
-
         Returns:
             True if command fails, False otherwise
         """
@@ -1012,10 +960,8 @@ class ContainerTestLib:
     def random_string(self, length: int = 10) -> str:
         """
         Generate random alphanumeric string.
-
         Args:
             length: Length of string to generate
-
         Returns:
             Random string
         """
@@ -1042,43 +988,34 @@ class ContainerTestLib:
 
     def show_resources(self) -> None:
         """Show system resources information."""
-        print()
-        print(LINE)
         print("Resources info:")
         print("Memory:")
         try:
-            ContainerTestLibUtils.run_command("free -h", return_output=False)
+            ContainerTestLibUtils.run_command("free -h", return_output=True)
         except subprocess.CalledProcessError:
             print("Memory info not available")
-
         print("Storage:")
         try:
-            ContainerTestLibUtils.run_command("df -h", return_output=False)
+            ContainerTestLibUtils.run_command("df -h", return_output=True)
         except subprocess.CalledProcessError:
             print("Storage info not available")
-
         print("CPU")
         try:
-            ContainerTestLibUtils.run_command("lscpu", return_output=False)
+            ContainerTestLibUtils.run_command("lscpu", return_output=True)
         except subprocess.CalledProcessError:
             print("CPU info not available")
 
-        image_name = getattr(self, 'image_name', '')
-        if image_name:
-            print(LINE)
-            print(f"Image {image_name} information:")
-            print(LINE)
-            print(f"Uncompressed size of the image: {self.get_image_size_uncompressed(image_name)}")
-            print(f"Compressed size of the image: {self.get_image_size_compressed(image_name)}")
-            print()
+        print(LINE)
+        print(f"Image {self.image_name} information:")
+        print(LINE)
+        print(f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}")
+        print(f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}")
 
     def get_image_size_uncompressed(self, image_name: str) -> str:
         """
         Get uncompressed image size.
-
         Args:
             image_name: Image name
-
         Returns:
             Size string in MB
         """
@@ -1095,10 +1032,8 @@ class ContainerTestLib:
     def get_image_size_compressed(self, image_name: str) -> str:
         """
         Get compressed image size.
-
         Args:
             image_name: Image name
-
         Returns:
             Size string in MB
         """
@@ -1125,11 +1060,9 @@ class ContainerTestLib:
     def timestamp_diff(self, start_date: int, final_date: int) -> str:
         """
         Compute time difference between timestamps.
-
         Args:
             start_date: Start timestamp
             final_date: End timestamp
-
         Returns:
             Time difference in HH:MM:SS format
         """

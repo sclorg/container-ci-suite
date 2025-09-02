@@ -18,7 +18,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import subprocess
 import time
 import json
 
@@ -30,7 +30,8 @@ from container_ci_suite.utils import ContainerTestLibUtils
 class PodmanCLIWrapper(object):
     @staticmethod
     def call_podman_command(
-        cmd, return_output: bool = True, ignore_error: bool = False, shell: bool = True, debug: bool = False
+        cmd, return_output: bool = True,
+        ignore_error: bool = False, shell: bool = True, debug: bool = False, stderr=subprocess.STDOUT
     ):
         """
         Run docker command:
@@ -41,6 +42,7 @@ class PodmanCLIWrapper(object):
             ignore_error=ignore_error,
             shell=shell,
             debug=debug,
+            stderr=stderr
         )
 
     @staticmethod
@@ -67,7 +69,11 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_exec_bash_command(image_name: str, cmd: str):
-        return PodmanCLIWrapper.call_podman_command(f'exec {image_name} bash -c "{cmd}"')
+        return PodmanCLIWrapper.call_podman_command(f'exec {image_name} /bin/bash -c "{cmd}"')
+
+    @staticmethod
+    def podman_exec_sh_command(image_name: str, cmd: str):
+        return PodmanCLIWrapper.call_podman_command(f'exec {image_name} /usr/sh -c "{cmd}"')
 
     @staticmethod
     def podman_get_user_id(src_image, user):

@@ -34,7 +34,8 @@ from pathlib import Path
 from tempfile import mkdtemp, mktemp
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
-from container_ci_suite.utils import ContainerTestLibUtils
+from container_ci_suite.utils import ContainerTestLibUtils, cwd
+from container_ci_suite.git import Git
 from container_ci_suite import utils
 from container_ci_suite.exceptions import ContainerCIException
 
@@ -457,6 +458,25 @@ class ContainerImage:
             return False
         return True
 
+    def prepare_app(self, path_to_app: Path) -> bool:
+        """
+        Prepare test application for S2I build.
+        Returns:
+            bool: True if preparation successful, False otherwise
+        """
+        if not self.is_image_available():
+            return False
+        if not path_to_app.exists():
+            return False
+
+        print("ContainerImage(prepare_app): Build the test application image")
+        with cwd(path_to_app):
+            git_app = Git(path=path_to_app)
+            git_app.add_global_config(username="builder", mail="build@localhost")
+            git_app.add_files()
+            git_app.commit_files(message="Sample commit")
+        return True
+
     # Replacement for ct_clean_containers
     def cleanup_container(self):
         logger.info(f"Cleaning CID_FILE_DIR {self.cid_file_dir} is ongoing.")
@@ -479,7 +499,7 @@ class ContainerImage:
                 continue
             cid_file.unlink()
         os.rmdir(self.cid_file_dir)
-        logger.info(f"Cleanning CID_FILE_DIR {self.cid_file_dir} is DONE.")
+        logger.info(f"Cleaning CID_FILE_DIR {self.cid_file_dir} is DONE.")
 
     # Replacement for ct_assert_container_creation_fails
     def assert_container_fails(self, cid_file: str, container_args: str):
@@ -691,3 +711,46 @@ RUN which {binary} | grep {binary_path}
     def get_logs(self, cid_name: str):
         container_id = self.get_cid(cid_name=cid_name)
         return PodmanCLIWrapper.call_podman_command(cmd=f"logs {container_id}", return_output=True, ignore_error=True)
+
+    def get_logs_std_output(self, expected: str, cid_name: str, std_output: str = None) -> bool:
+        container_id = self.get_cid(cid_name=cid_name)
+        result = ""
+        if std_output == "stdouterr" or std_output is None:
+            result = PodmanCLIWrapper.call_podman_command(cmd=f"logs {container_id}", return_output=True)
+        if std_output == "stdout":
+            result = PodmanCLIWrapper.call_podman_command(
+                cmd=f"logs {container_id}", return_output=True,
+                stderr=subprocess.DEVNULL
+            )
+        if std_output == "stderr":
+            result = PodmanCLIWrapper.call_podman_command(
+                cmd=f"logs {container_id}",
+                stderr=subprocess.PIPE
+            )
+        if not re.search(expected, result):
+            print(f'ERROR[docker logs {std_output or ""}] Expected \'{expected}\', got \'{result}\'')
+            return False
+
+        return True
+
+    def test_command(self, run_cmd: str, expected: str) -> bool:
+        """
+        Test command execution in container using both bash and sh.
+        Args:
+            run_cmd (str): Command to execute in container
+            expected (str): Expected output pattern
+        Returns:
+            bool: True if test passes, False otherwise
+        """
+        print(f"Test command ({run_cmd})")
+        result = PodmanCLIWrapper.podman_exec_bash_command(image_name=self.image_name, cmd=run_cmd)
+        if not re.search(expected, result):
+            print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
+            return False
+
+        result = PodmanCLIWrapper.podman_exec_sh_command(image_name=self.image_name, cmd=run_cmd)
+        if not re.search(expected, result):
+            print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
+            return False
+
+        return True

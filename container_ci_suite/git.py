@@ -31,13 +31,13 @@ logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-class Git(object):
+class Git:
 
     def __init__(self, path: Path):
         self.path: Path = path
         self._repo = None
-        logger.info(f"Creating git repo in path {path}")
-        self.path.mkdir()
+        # logger.info(f"Creating git repo in path {path}")
+        # self.path.mkdir()
 
     @property
     def repo(self):

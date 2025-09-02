@@ -154,6 +154,7 @@ class ContainerTestLibUtils:
         ignore_error: bool = False,
         shell: bool = True,
         debug: bool = False,
+        stderr=subprocess.STDOUT,
         **kwargs,
     ):
         """
@@ -164,6 +165,7 @@ class ContainerTestLibUtils:
         :param ignore_error: bool, do not fail in case nonzero return code
         :param shell: bool, run command in shell
         :param debug: bool, print command in shell, default is suppressed
+        :param stderr: bool, print command in shell, default is suppressed
         :return: None or str
         """
         if debug:
@@ -172,7 +174,7 @@ class ContainerTestLibUtils:
             if return_output:
                 return subprocess.check_output(
                     cmd,
-                    stderr=subprocess.STDOUT,
+                    stderr=stderr,
                     universal_newlines=True,
                     shell=shell,
                     **kwargs,
