@@ -221,6 +221,10 @@ class ContainerTestLibUtils:
         return tempfile.mkdtemp(prefix=dir_name)
 
     @staticmethod
+    def create_local_temp_file(filename: str) -> str:
+        return tempfile.mktemp(prefix=filename)
+
+    @staticmethod
     def commands_to_run(commands_to_run: List[str]) -> bool:
         command_failed: bool = True
         for cmd in commands_to_run:
@@ -242,6 +246,20 @@ class ContainerTestLibUtils:
                 print(f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist.")
                 file_present = False
         return file_present
+
+    @staticmethod
+    def update_dockerfile(dockerfile: str, original_string, string_to_replace) -> Any:
+        local_temp_dir = Path(ContainerTestLibUtils.create_local_temp_file(filename="new_dockerfile"))
+        if not Path(dockerfile).exists():
+            print(f"ERROR: Dockerfile '{dockerfile}' do not exists")
+            return None
+        with open(dockerfile, "r") as f:
+            content = f.read()
+
+        content = re.sub(original_string, string_to_replace, content, flags=re.MULTILINE)
+        with open(local_temp_dir, "w") as f:
+            f.write(content)
+        return True
 
 
 def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:

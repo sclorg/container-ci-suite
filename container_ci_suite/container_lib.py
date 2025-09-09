@@ -814,6 +814,7 @@ class ContainerTestLib:
         port: int = 8080,
         expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10,
+        page: str = "",
         debug: bool = False
     ) -> bool:
         """
@@ -841,10 +842,13 @@ class ContainerTestLib:
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
                 insecure = ""
+                full_url = f"{url}:{port}"
+                if page:
+                    full_url = f"{full_url}{page}"
                 if url.startswith("https://"):
                     insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{url}:{port}'",
+                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
                     return_output=True
                 )
                 if debug:
