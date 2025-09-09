@@ -22,9 +22,13 @@
 
 import logging
 import os
+import subprocess
 
 from pathlib import Path
 from git import Repo
+
+from container_ci_suite.utils import ContainerTestLibUtils
+from container_ci_suite.utils import cwd
 
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -52,7 +56,8 @@ class Git:
         Function adds all files to git
         """
         print(f"WOrking dir {os.getcwd()}")
-        self.repo.git.add(all=True)
+        # self.repo.git.add(all=True)
+        ContainerTestLibUtils.run_command("git add -A")
 
     def add_global_config(self, username: str, mail: str):
         """
@@ -61,8 +66,10 @@ class Git:
         :param mail: str, Specify mail added to git config file
         """
         logger.info(f"Adding to repo username {username} and email {mail}")
-        self.repo.config_writer().set_value("user", "name", username).release()
-        self.repo.config_writer().set_value("user", "email", mail).release()
+        # self.repo.config_writer().set_value("user", "name", username).release()
+        # self.repo.config_writer().set_value("user", "email", mail).release()
+        ContainerTestLibUtils.run_command("git config user.email 'build@localhost'")
+        ContainerTestLibUtils.run_command("git config user.name 'builder'")
 
     def commit_files(self, commit_command: str = "-am", message: str = "init commit"):
         """
@@ -71,9 +78,16 @@ class Git:
         :param message: str, Commit message. Default is "init commit"
         """
         logger.info(f"Commit changes to git repo by commit command message {message}")
-        self.repo.git.commit(commit_command, message)
+        # self.repo.git.commit(commit_command, message)
+        ContainerTestLibUtils.run_command("git commit -m 'Sample commit'")
 
-    def create_repo(self, commit_command: str, message: str, username: str = None, mail: str = None):
+    def create_repo(
+            self,
+            commit_command: str = "Sample commit",
+            message: str = "init commit",
+            username: str = "build@localhost",
+            mail: str = "builder"
+    ) -> bool:
         """
         Function adds files into repository, updates global configuration file with username and mail
         and commit changes to the repository
@@ -82,8 +96,15 @@ class Git:
         :param username: str, define username which will be added to git config
         :param mail: str, define mail which will be added to git config
         """
-        os.chdir(self.path)
-        if username and mail:
-            self.add_global_config(username=username, mail=mail)
-        self.add_files()
-        self.commit_files(commit_command, message=message)
+        git_init: bool = True
+        with cwd(self.path):
+            try:
+                ContainerTestLibUtils.run_command("git init")
+                if username and mail:
+                    self.add_global_config(username=username, mail=mail)
+                self.add_files()
+                self.commit_files(commit_command, message=message)
+            except subprocess.CalledProcessError:
+                print("Git repo initialization FAILED.")
+                git_init = False
+        return git_init

@@ -134,3 +134,9 @@ class PodmanCLIWrapper(object):
         if "Config" not in json_output[0]:
             return None
         return json_output[0]["Config"]["User"]
+
+    @staticmethod
+    def podman_get_file_content(cid_name: str, filename: str) -> str:
+        return PodmanCLIWrapper.call_podman_command(
+            cmd=f"exec {cid_name} cat {filename}"
+        )
