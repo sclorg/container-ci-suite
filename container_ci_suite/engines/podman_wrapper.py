@@ -68,8 +68,10 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
 
     @staticmethod
-    def podman_exec_bash_command(image_name: str, cmd: str):
-        return PodmanCLIWrapper.call_podman_command(f'exec {image_name} /bin/bash -c "{cmd}"')
+    def podman_exec_bash_command(image_name: str, cmd: str, return_output: bool = True):
+        return PodmanCLIWrapper.call_podman_command(
+            f'exec {image_name} /bin/bash -c "{cmd}"', return_output=return_output
+        )
 
     @staticmethod
     def podman_exec_sh_command(image_name: str, cmd: str):

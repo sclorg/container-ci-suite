@@ -37,13 +37,22 @@ class DockerfileProcessor:
         This method performs the same operations as the sed command:
         Args:
             version: The NGINX version to use for replacement
-            variable: Expression to replace
+            variable: Expression to replace with $
         Returns:
             The processed Dockerfile content as a string
         """
 
         # Replace all occurrences of $NGINX_VERSION (equivalent to s/\$NGINX_VERSION/$version/g)
-        self.content = re.sub(fr'\${variable}', version, self.content, flags=re.MULTILINE)
+        split_dockerfile = self.content.split("\n")
+        for index, line in enumerate(split_dockerfile):
+            if line.startswith("#"):
+                continue
+            split_dockerfile[index] = re.sub(
+                fr'\${variable}',
+                version,
+                line
+            )
+        self.content = '\n'.join(split_dockerfile)
 
     def update_env_in_dockerfile(self, version: str, what_to_replace: str):
         """
@@ -56,12 +65,16 @@ class DockerfileProcessor:
             The processed Dockerfile content as a string
         """
 
-        self.content = re.sub(
-            fr'^{what_to_replace}.*\$',
-            f'{what_to_replace}={version}',
-            self.content,
-            flags=re.MULTILINE
-        )
+        split_dockerfile = self.content.split("\n")
+        for index, line in enumerate(split_dockerfile):
+            if line.startswith("#"):
+                continue
+            split_dockerfile[index] = re.sub(
+                fr'^{what_to_replace}.*$',
+                f"{what_to_replace}={version}",
+                line
+            )
+        self.content = '\n'.join(split_dockerfile)
 
     def create_temp_dockerfile(self) -> str:
         """
@@ -107,3 +120,6 @@ class DockerfileProcessor:
                 return False
 
         return True
+
+    def get_content(self):
+        return self.content
