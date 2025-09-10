@@ -56,8 +56,8 @@ class Git:
         Function adds all files to git
         """
         print(f"WOrking dir {os.getcwd()}")
-        # self.repo.git.add(all=True)
-        ContainerTestLibUtils.run_command("git add -A")
+        self.repo.git.add(all=True)
+        # ContainerTestLibUtils.run_command("git add -A")
 
     def add_global_config(self, username: str, mail: str):
         """
@@ -66,10 +66,10 @@ class Git:
         :param mail: str, Specify mail added to git config file
         """
         logger.info(f"Adding to repo username {username} and email {mail}")
-        # self.repo.config_writer().set_value("user", "name", username).release()
-        # self.repo.config_writer().set_value("user", "email", mail).release()
-        ContainerTestLibUtils.run_command("git config user.email 'build@localhost'")
-        ContainerTestLibUtils.run_command("git config user.name 'builder'")
+        self.repo.config_writer().set_value("user", "name", username).release()
+        self.repo.config_writer().set_value("user", "email", mail).release()
+        # ContainerTestLibUtils.run_command("git config user.email 'build@localhost'")
+        # ContainerTestLibUtils.run_command("git config user.name 'builder'")
 
     def commit_files(self, commit_command: str = "-am", message: str = "init commit"):
         """
@@ -78,8 +78,8 @@ class Git:
         :param message: str, Commit message. Default is "init commit"
         """
         logger.info(f"Commit changes to git repo by commit command message {message}")
-        # self.repo.git.commit(commit_command, message)
-        ContainerTestLibUtils.run_command("git commit -m 'Sample commit'")
+        self.repo.git.commit(commit_command, message)
+        # ContainerTestLibUtils.run_command("git commit -m 'Sample commit'")
 
     def create_repo(
             self,

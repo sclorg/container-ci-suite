@@ -65,12 +65,13 @@ class ContainerTestLib:
     This is a Python replacement for the container-test-lib.sh shell script.
     """
 
-    def __init__(self, image_name: str = os.getenv("IMAGE_NAME"), s2i_image: bool = False):
+    def __init__(self, image_name: str = os.getenv("IMAGE_NAME"), s2i_image: bool = False, app_name: str = ""):
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         self.image_name = image_name
         self.s2i_image: bool = s2i_image
+        self.app_name = app_name
         self._lib = None
 
     @property
@@ -815,6 +816,7 @@ class ContainerTestLib:
         expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10,
         page: str = "",
+        host: str = "",
         debug: bool = False
     ) -> bool:
         """
@@ -827,6 +829,8 @@ class ContainerTestLib:
             expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
+            page: Page where curl will be used
+            host: host where curl will be used
 
         Returns:
             True if response matches expectations, False otherwise
@@ -845,10 +849,12 @@ class ContainerTestLib:
                 full_url = f"{url}:{port}"
                 if page:
                     full_url = f"{full_url}{page}"
+                if host:
+                    host = f'-H "Host: {host}"'
                 if url.startswith("https://"):
                     insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
+                    f"curl {insecure} {host} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
                     return_output=True
                 )
                 if debug:
@@ -1279,7 +1285,7 @@ class ContainerTestLib:
                 id_file = self.app_id_file_dir / str(hash(dst_image))
                 with open(id_file, 'w') as f:
                     f.write(self.app_image_id)
-            return ContainerTestLib(dst_image, s2i_image=True)
+            return ContainerTestLib(dst_image, s2i_image=True, app_name=os.path.basename(app_path))
         except Exception as e:
             print(f"S2I build failed: {e}")
             return None
