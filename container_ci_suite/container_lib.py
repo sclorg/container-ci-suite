@@ -816,7 +816,7 @@ class ContainerTestLib:
         expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10,
         page: str = "",
-        host: str = "",
+        host: str = "localhost",
         debug: bool = False
     ) -> bool:
         """
@@ -829,7 +829,7 @@ class ContainerTestLib:
             expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
-            page: Page where curl will be used
+            page: Page where curl will be used. Page has to start with '/'
             host: host where curl will be used
 
         Returns:
@@ -838,6 +838,13 @@ class ContainerTestLib:
         print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
+        insecure = ""
+        full_url = f"{url}:{port}"
+        if page:
+            full_url = f"{full_url}{page}"
+        host = f'-H "Host: {host}"'
+        if url.startswith("https://"):
+            insecure = "--insecure"
         for attempt in range(1, max_attempts + 1):
             print(f"Trying to connect ... {attempt}")
 
@@ -845,16 +852,10 @@ class ContainerTestLib:
                 # Create temporary file for response
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
-                insecure = ""
-                full_url = f"{url}:{port}"
-                if page:
-                    full_url = f"{full_url}{page}"
-                if host:
-                    host = f'-H "Host: {host}"'
-                if url.startswith("https://"):
-                    insecure = "--insecure"
+                cmd = f"curl {insecure} -is {host} --connect-timeout 10 -w '%{{http_code}}' '{full_url}'"
+                print(f"Command for getting response is: '{cmd}'.")
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} {host} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
+                    cmd=cmd,
                     return_output=True
                 )
                 if debug:
@@ -869,7 +870,7 @@ class ContainerTestLib:
                         if code_int == expected_code:
                             if debug:
                                 print("Expected code from curl PASSED.")
-                                print(f"Let's check expected_output in {response_body}")
+                                print(f"Let's check {expected_output} in response: '{response_body}'")
                             if not expected_output or re.search(expected_output, response_body):
                                 print(f"Expected output '{expected_output}' found in response")
                                 return True

@@ -159,6 +159,7 @@ class ContainerImage:
                 cmd=f"inspect --format='{{{{.NetworkSettings.IPAddress}}}}' {container_id}",
                 return_output=True
             )
+            print(f"Container IP is: '{result.strip()}'")
             return result.strip()
         except subprocess.CalledProcessError:
             return ""
@@ -743,12 +744,12 @@ RUN which {binary} | grep {binary_path}
             bool: True if test passes, False otherwise
         """
         print(f"Test command ({run_cmd})")
-        result = PodmanCLIWrapper.podman_exec_bash_command(image_name=self.image_name, cmd=run_cmd)
+        result = PodmanCLIWrapper.podman_exec_bash_command(cid_name=self.image_name, cmd=run_cmd)
         if not re.search(expected, result):
             print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
 
-        result = PodmanCLIWrapper.podman_exec_sh_command(image_name=self.image_name, cmd=run_cmd)
+        result = PodmanCLIWrapper.podman_exec_sh_command(cid_name=self.image_name, cmd=run_cmd)
         if not re.search(expected, result):
             print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
