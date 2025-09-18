@@ -68,8 +68,8 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
 
     @staticmethod
-    def podman_exec_bash_command(cid_name: str, cmd: str, return_output: bool = True):
-        cmd = f'exec {cid_name} /bin/bash -c "{cmd}"'
+    def podman_exec_bash_command(cid_file_name: str, cmd: str, return_output: bool = True):
+        cmd = f'exec {cid_file_name} /bin/bash -c "{cmd}"'
         print(f"podman exec command is: {cmd}")
         output = PodmanCLIWrapper.call_podman_command(
             cmd=cmd, return_output=return_output
@@ -78,8 +78,8 @@ class PodmanCLIWrapper(object):
         return output
 
     @staticmethod
-    def podman_exec_sh_command(cid_name: str, cmd: str):
-        return PodmanCLIWrapper.call_podman_command(f'exec {cid_name} /usr/sh -c "{cmd}"')
+    def podman_exec_sh_command(cid_file_name: str, cmd: str):
+        return PodmanCLIWrapper.call_podman_command(f'exec {cid_file_name} /usr/sh -c "{cmd}"')
 
     @staticmethod
     def podman_get_user_id(src_image, user):
@@ -142,7 +142,7 @@ class PodmanCLIWrapper(object):
         return json_output[0]["Config"]["User"]
 
     @staticmethod
-    def podman_get_file_content(cid_name: str, filename: str) -> str:
+    def podman_get_file_content(cid_file_name: str, filename: str) -> str:
         return PodmanCLIWrapper.call_podman_command(
-            cmd=f"exec {cid_name} cat {filename}"
+            cmd=f"exec {cid_file_name} cat {filename}"
         )

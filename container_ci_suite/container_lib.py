@@ -280,12 +280,12 @@ class ContainerTestLib:
 
         return True
 
-    def get_cid(self, cid_name: str) -> str:
-        print(f"Get content of CID_NAME: {cid_name}")
-        return self.lib.get_cid(cid_name=cid_name)
+    def get_cid(self, cid_file_name: str) -> str:
+        print(f"Get content of CID_NAME: {cid_file_name}")
+        return self.lib.get_cid(cid_file_name=cid_file_name)
 
-    def get_cip(self, cid_name: str = "app_dockerfile") -> str:
-        return self.lib.get_cip(cid_name=cid_name)
+    def get_cip(self, cid_file_name: str = "app_dockerfile") -> str:
+        return self.lib.get_cip(cid_file_name=cid_file_name)
 
     def assert_container_creation_fails(self, container_args: str) -> bool:
         """
@@ -349,14 +349,14 @@ class ContainerTestLib:
 
     def create_container(
         self,
-        cid_file: str = "",
+        cid_file_name: str = "",
         container_args: str = "",
         command: str = ""
     ) -> bool:
         """
         Create a container.
         Args:
-            cid_file: Name for the cid_file
+            cid_file_name: Name for the cid_filename
             command: Command to run in container
             container_args: Additional container arguments
         Returns:
@@ -366,14 +366,14 @@ class ContainerTestLib:
             container_args = getattr(self, 'container_args', '')
         if not self.cid_file_dir.exists():
             self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
-        cid_file_name: Path = self.cid_file_dir / cid_file
+        full_cid_file_name: Path = self.cid_file_dir / cid_file_name
         try:
-            cmd = f"run --cidfile={cid_file_name} -d {container_args} {self.image_name} {command}"
+            cmd = f"run --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
             print(f"Command to create container is '{cmd}'.")
             PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
-            if not ContainerImage.wait_for_cid(cid_file_name):
+            if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
                 return False
-            container_id = utils.get_file_content(cid_file_name).strip()
+            container_id = utils.get_file_content(full_cid_file_name).strip()
             print(f"Created container {container_id}")
             return True
         except subprocess.CalledProcessError as e:
@@ -382,7 +382,7 @@ class ContainerTestLib:
 
     def scl_usage_old(
             self,
-            name: str,
+            cid_file_name: str,
             command: str,
             expected: str,
             image_name: str = ""
@@ -390,7 +390,7 @@ class ContainerTestLib:
         """
         Test SCL usage in three different ways.
         Args:
-            name: Name for cid_file
+            cid_file_name: Name for cid_file_name
             command: Command to execute
             expected: Expected string in output
             image_name: Image name to test
@@ -412,9 +412,9 @@ class ContainerTestLib:
         except subprocess.CalledProcessError:
             return False
 
+        container_id = self.get_cid(cid_file_name=cid_file_name)
         # Test 2: docker exec with bash
         try:
-            container_id = self.get_cid(name)
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/bash -c '{command}'",
                 return_output=True
@@ -427,7 +427,6 @@ class ContainerTestLib:
 
         # Test 3: docker exec with sh
         try:
-            container_id = self.get_cid(name)
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/sh -ic '{command}'",
                 return_output=True
@@ -524,7 +523,7 @@ class ContainerTestLib:
             True if npm works, False otherwise
         """
         tmpdir = Path(tempfile.mkdtemp())
-        cid_file = tmpdir / "npm_test_cid"
+        cid_file_name = tmpdir / "npm_test_cid"
 
         try:
             print("Testing npm in the container image")
@@ -548,7 +547,7 @@ class ContainerTestLib:
 
             try:
                 PodmanCLIWrapper.call_podman_command(
-                    cmd=f"run -d {mount_ca} --rm --cidfile={cid_file} {test_app_image}",
+                    cmd=f"run -d {mount_ca} --rm --cidfile={cid_file_name} {test_app_image}",
                     return_output=False
                 )
             except subprocess.CalledProcessError:
@@ -556,10 +555,10 @@ class ContainerTestLib:
                 return False
 
             # Wait for container
-            if not ContainerImage.wait_for_cid(cid_file):
+            if not ContainerImage.wait_for_cid(cid_file_name=cid_file_name):
                 return False
 
-            container_id = utils.get_file_content(cid_file).strip()
+            container_id = utils.get_file_content(filename=cid_file_name).strip()
 
             # Test npm install
             try:
@@ -585,7 +584,7 @@ class ContainerTestLib:
                     return False
 
             # Stop container
-            if cid_file.exists():
+            if cid_file_name.exists():
                 try:
                     PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
                 except subprocess.CalledProcessError:
@@ -783,22 +782,24 @@ class ContainerTestLib:
             if re.match(r'^[a-z0-9]*$', ext_part):
                 extension = f".{ext_part}"
 
+        dir_name = "/var/tmp"
+        prefix = "test-input-"
         # Create temporary file/directory
         if Path(input_path).is_file():
             # Local file
-            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-")
+            temp_file = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
             shutil.copy2(input_path, temp_file)
             return temp_file
 
         elif Path(input_path).is_dir():
             # Local directory
-            temp_dir = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-")
+            temp_dir = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
             shutil.copytree(input_path, temp_dir, symlinks=True)
             return temp_dir
 
         elif input_path.startswith(('http://', 'https://')):
             # URL
-            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-")
+            temp_file = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
             try:
                 urllib.request.urlretrieve(input_path, temp_file)
                 return temp_file
@@ -1456,6 +1457,6 @@ class ContainerTestLib:
             if tmpdir.exists():
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
-    def get_logs(self, cid_name: str):
-        logs = self.lib.get_logs(cid_name=cid_name)
+    def get_logs(self, cid_file_name: str):
+        logs = self.lib.get_logs(cid_file_name=cid_file_name)
         return logs
