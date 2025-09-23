@@ -8,10 +8,16 @@ No Python bidings. The same for OpenShift tests. `oc` command is used.
 
 ##  How to use Container CI Suite for testing containers
 
-Install this suite by command:
+Install this suite from PiPy:
 
 ```bash
-pip3 install git+https://github.com/phracek/container-ci-suite
+pip3 install container-ci-suite
+```
+
+Install this suite from GitHub repository:
+
+```bash
+pip3 install git+https://github.com/sclorg/container-ci-suite
 ```
 
 ### Run a test with Container-CI-Suite
@@ -117,63 +123,3 @@ class TestHelmPostgresqlImageStreams:
         self.hc_api.helm_package()
 
 ```
-
-## Container functions onboarding
-
-- [] ct_init - call `ct_enable_cleanup`, creates temp dir for app_id and cid_files
-- [] ct_cleanup - call `ct_clean_app_images`, and `ct_clean_container`
-- [] ct_build_image_and_parse_id -
-- [x] ct_container_running - ContainerCISuite.is_container_running - used for cleaning containers only
-- [x] ct_container_exists - ContainerCISuite.is_container_exists - used for cleaning containers only
-- [] ct_clean_app_images
-- [x] ct_clean_containers - ContainerCISuite.cleanup_container
-- [] ct_show_results
-- [] ct_enable_cleanup
-- [] ct_trap_on_exit
-- [] ct_trap_on_sigint
-- [x] ct_pull_image - PodmanCLIWrapper.docker_pull_image
-- [] ct_check_envs_set
-- [] ct_get_cid
-- [x] ct_get_cip - ContainerCISuite.get_cip
-- [x] ct_wait_for_cid - ContainerCISuite.wait_for_cid
-- [x] ct_assert_container_creation_fails - ContainerCISuite.assert_container_fails
-- [x] ct_create_container - ContainerCISuite.create_container
-- [] ct_scl_usage_old
-- [] ct_doc_content_old
-- [x] full_ca_file_path - utils.get_full_ca_file_path
-- [x] ct_mount_ca_file - utils.get_mount_ca_file
-- [x] ct_build_s2i_npm_variables - utils.get_npm_variables
-- [x] ct_npm_works - ContainerCISuite.npm_works
-- [x] ct_binary_found_from_df - ContainerCISuite.binary_found_from_df
-- [x] ct_check_exec_env_vars - ContainerCISuite.test_check_exec_env_vars
-- [x] ct_check_scl_enable_vars - ContainerCISuite.test_check_envs_set
-- [] ct_path_append
-- [] ct_path_foreach
-- [] ct_gen_self_signed_cert_pem
-- [] ct_obtain_input -
-- [x] ct_test_response - UPDATE NEEDED utils.get_response_request
-- [x] ct_registry_from_os - utils.get_registry_name
-- [x] ct_get_public_image_name - utils.get_public_image_name
-- [] ct_assert_cmd_success
-- [] ct_assert_cmd_failure
-- [] ct_random_string
-- [x] ct_s2i_usage - ContainerCISuite.s2i_usage
-- [x] ct_s2i_build_as_df - ContainerCISuite.s2i_build_as_df
-- [x] ct_s2i_build_as_df_build_args - ContainerCISuite.s2i_create_df
-- [] ct_s2i_multistage_build
-- [x] ct_check_image_availability - ContainerCISuite.check_image_availability
-- [] ct_show_resources
-- [] ct_clone_git_repository
-- [] ct_get_uid_from_image
-- [] ct_test_app_dockerfile
-- [] ct_check_testcase_result
-- [] ct_update_test_result
-- [] ct_run_tests_from_testset
-- [] ct_timestamp_s
-- [] ct_timestamp_pretty
-- [] ct_timestamp_diff
-- [] ct_get_certificate_timestamp
-- [] ct_get_certificate_age_s
-- [] ct_get_image_age_s
-- [] ct_get_image_size_uncompresseed
-- [] ct_get_image_size_compresseed
