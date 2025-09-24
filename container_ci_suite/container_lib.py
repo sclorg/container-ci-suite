@@ -71,8 +71,8 @@ class ContainerTestLib:
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         self.image_name = image_name
         self.s2i_image: bool = s2i_image
-        self.app_name = app_name
         self._lib = None
+        self.app_name = app_name
 
     @property
     def lib(self):
@@ -356,7 +356,7 @@ class ContainerTestLib:
         """
         Create a container.
         Args:
-            cid_file_name: Name for the cid_filename
+            cid_file_name: Name for the cid_file_name
             command: Command to run in container
             container_args: Additional container arguments
         Returns:
@@ -412,9 +412,9 @@ class ContainerTestLib:
         except subprocess.CalledProcessError:
             return False
 
-        container_id = self.get_cid(cid_file_name=cid_file_name)
         # Test 2: docker exec with bash
         try:
+            container_id = self.get_cid(cid_file_name=cid_file_name)
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/bash -c '{command}'",
                 return_output=True
@@ -427,6 +427,7 @@ class ContainerTestLib:
 
         # Test 3: docker exec with sh
         try:
+            container_id = self.get_cid(cid_file_name=cid_file_name)
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"exec {container_id} /bin/sh -ic '{command}'",
                 return_output=True
@@ -782,24 +783,22 @@ class ContainerTestLib:
             if re.match(r'^[a-z0-9]*$', ext_part):
                 extension = f".{ext_part}"
 
-        dir_name = "/var/tmp"
-        prefix = "test-input-"
         # Create temporary file/directory
         if Path(input_path).is_file():
             # Local file
-            temp_file = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
+            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-file")
             shutil.copy2(input_path, temp_file)
             return temp_file
 
         elif Path(input_path).is_dir():
             # Local directory
-            temp_dir = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
+            temp_dir = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-dir")
             shutil.copytree(input_path, temp_dir, symlinks=True)
             return temp_dir
 
         elif input_path.startswith(('http://', 'https://')):
             # URL
-            temp_file = tempfile.mktemp(suffix=extension, dir=dir_name, prefix=prefix)
+            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-url")
             try:
                 urllib.request.urlretrieve(input_path, temp_file)
                 return temp_file
@@ -817,7 +816,6 @@ class ContainerTestLib:
         expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10,
         page: str = "",
-        host: str = "localhost",
         debug: bool = False
     ) -> bool:
         """
@@ -830,8 +828,6 @@ class ContainerTestLib:
             expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
-            page: Page where curl will be used. Page has to start with '/'
-            host: host where curl will be used
 
         Returns:
             True if response matches expectations, False otherwise
@@ -839,13 +835,6 @@ class ContainerTestLib:
         print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
-        insecure = ""
-        full_url = f"{url}:{port}"
-        if page:
-            full_url = f"{full_url}{page}"
-        host = f'-H "Host: {host}"'
-        if url.startswith("https://"):
-            insecure = "--insecure"
         for attempt in range(1, max_attempts + 1):
             print(f"Trying to connect ... {attempt}")
 
@@ -853,10 +842,14 @@ class ContainerTestLib:
                 # Create temporary file for response
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
-                cmd = f"curl {insecure} -is {host} --connect-timeout 10 -w '%{{http_code}}' '{full_url}'"
-                print(f"Command for getting response is: '{cmd}'.")
+                insecure = ""
+                full_url = f"{url}:{port}"
+                if page:
+                    full_url = f"{full_url}{page}"
+                if url.startswith("https://"):
+                    insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    cmd=cmd,
+                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
                     return_output=True
                 )
                 if debug:
@@ -1112,7 +1105,7 @@ class ContainerTestLib:
 
     def build_as_df_build_args(
         self,
-        app_path: str,
+        app_path: Path,
         src_image: str,
         dst_image: str,
         build_args: str = "",
@@ -1197,7 +1190,7 @@ class ContainerTestLib:
                         shutil.rmtree(inc_tmp, ignore_errors=True)
 
             # Strip file:// from APP_PATH and copy contents
-            clean_app_path = app_path.replace("file://", "")
+            clean_app_path = app_path
             local_app_path = tmpdir / local_app
             local_scripts_path = tmpdir / local_scripts
             # Create directories and copy application source
@@ -1300,7 +1293,7 @@ class ContainerTestLib:
 
     def build_as_df(
         self,
-        app_path: str,
+        app_path: Path,
         src_image: str,
         dst_image: str,
         s2i_args: str = ""
@@ -1320,7 +1313,7 @@ class ContainerTestLib:
 
     def multistage_build(
         self,
-        app_path: str,
+        app_path: Path,
         src_image: str,
         sec_image: str,
         dst_image: str,
@@ -1374,7 +1367,7 @@ class ContainerTestLib:
 
             # If the path exists on the local host, copy it into the directory for the build
             # Otherwise handle it as a link to a git repository
-            clean_app_path = app_path.replace("file://", "")
+            clean_app_path = app_path
 
             if Path(clean_app_path).exists():
                 # Copy all contents from source to destination
@@ -1385,7 +1378,7 @@ class ContainerTestLib:
                         shutil.copy2(item, local_app_path)
             else:
                 # Clone git repository
-                if not utils.clone_git_repository(app_path, str(local_app_path)):
+                if not utils.clone_git_repository(str(app_path), str(local_app_path)):
                     print(f"Failed to clone git repository: {app_path}")
                     return False
 

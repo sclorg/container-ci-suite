@@ -8,7 +8,7 @@ No Python bidings. The same for OpenShift tests. `oc` command is used.
 
 ##  How to use Container CI Suite for testing containers
 
-Install this suite from PiPy:
+Install this suite from PyPi:
 
 ```bash
 pip3 install container-ci-suite
