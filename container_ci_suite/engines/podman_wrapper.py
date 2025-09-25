@@ -75,7 +75,7 @@ class PodmanCLIWrapper(object):
         Function executes shell command if image_name is present in system.
         :param cid_file_name: image to check specified by cid_file_name
         :param cmd: command that will be executed in image
-        :param used_shell: which shell will be used /usr/bash or /usr/sh
+        :param used_shell: which shell will be used /bin/bash or /bin/sh
         :return True: In case if image is present
                 False: In case if image is not present
         """
