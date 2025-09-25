@@ -217,7 +217,7 @@ class ContainerImage:
 
     def s2i_usage(self) -> str:
         return PodmanCLIWrapper.call_podman_command(
-            f"run --rm {self.image_name} /usr/bash -c /usr/libexec/s2i/usage"
+            f"run --rm {self.image_name} /bin/bash -c /usr/libexec/s2i/usage"
         )
 
     def is_image_available(self):
