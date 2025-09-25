@@ -6,10 +6,10 @@ and environment variables.
 """
 
 import re
+import tempfile
+
 from pathlib import Path
 from typing import Union
-
-from container_ci_suite.utils import ContainerTestLibUtils
 
 
 class DockerfileProcessor:
@@ -85,7 +85,7 @@ class DockerfileProcessor:
             Path to the temporary Dockerfile
         """
         # Create a temporary file
-        local_docker_file = Path(ContainerTestLibUtils.create_local_temp_file(filename="new_dockerfile"))
+        local_docker_file = tempfile.mktemp(prefix="/tmp/new_dockerfile")
         with open(local_docker_file, "w") as f:
             f.write(self.content)
 

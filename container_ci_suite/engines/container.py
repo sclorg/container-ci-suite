@@ -217,7 +217,7 @@ class ContainerImage:
 
     def s2i_usage(self) -> str:
         return PodmanCLIWrapper.call_podman_command(
-            f"run --rm {self.image_name} bash -c /usr/libexec/s2i/usage"
+            f"run --rm {self.image_name} /usr/bash -c /usr/libexec/s2i/usage"
         )
 
     def is_image_available(self):
@@ -744,14 +744,16 @@ RUN which {binary} | grep {binary_path}
             bool: True if test passes, False otherwise
         """
         print(f"Test command ({run_cmd})")
-        result = PodmanCLIWrapper.podman_exec_bash_command(cid_file_name=self.image_name, cmd=run_cmd)
+        result = PodmanCLIWrapper.podman_exec_shell_command(cid_file_name=self.image_name, cmd=run_cmd)
         if not re.search(expected, result):
             print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
 
-        result = PodmanCLIWrapper.podman_exec_sh_command(cid_file_name=self.image_name, cmd=run_cmd)
+        result = PodmanCLIWrapper.podman_exec_shell_command(
+            cid_file_name=self.image_name, used_shell="/usr/sh", cmd=run_cmd
+        )
         if not re.search(expected, result):
-            print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
+            print(f'ERROR[exec /usr/sh -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
 
         return True
