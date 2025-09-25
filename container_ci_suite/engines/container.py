@@ -746,14 +746,14 @@ RUN which {binary} | grep {binary_path}
         print(f"Test command ({run_cmd})")
         result = PodmanCLIWrapper.podman_exec_shell_command(cid_file_name=self.image_name, cmd=run_cmd)
         if not re.search(expected, result):
-            print(f'ERROR[exec /usr/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
+            print(f'ERROR[exec /bin/bash -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
 
         result = PodmanCLIWrapper.podman_exec_shell_command(
             cid_file_name=self.image_name, used_shell="/usr/sh", cmd=run_cmd
         )
         if not re.search(expected, result):
-            print(f'ERROR[exec /usr/sh -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
+            print(f'ERROR[exec /bin/sh -c "{run_cmd}"] Expected \'{expected}\', got \'{result}\'')
             return False
 
         return True

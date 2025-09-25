@@ -69,7 +69,7 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_exec_shell_command(
-            cid_file_name: str, cmd: str, used_shell: str = "/usr/bash", return_output: bool = True
+            cid_file_name: str, cmd: str, used_shell: str = "/bin/bash", return_output: bool = True
     ):
         """
         Function executes shell command if image_name is present in system.
