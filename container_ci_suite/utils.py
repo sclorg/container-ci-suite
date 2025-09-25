@@ -213,18 +213,6 @@ class ContainerTestLibUtils:
         )
 
     @staticmethod
-    def check_regexp_output(regexp_to_check: str, logs_to_check: str):
-        return re.search(regexp_to_check, logs_to_check)
-
-    @staticmethod
-    def create_local_temp_dir(dir_name: str) -> str:
-        return tempfile.mkdtemp(prefix=dir_name)
-
-    @staticmethod
-    def create_local_temp_file(filename: str) -> str:
-        return tempfile.mktemp(prefix=filename)
-
-    @staticmethod
     def commands_to_run(commands_to_run: List[str]) -> bool:
         command_failed: bool = True
         for cmd in commands_to_run:
@@ -249,7 +237,7 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def update_dockerfile(dockerfile: str, original_string, string_to_replace) -> Any:
-        local_temp_dir = Path(ContainerTestLibUtils.create_local_temp_file(filename="new_dockerfile"))
+        local_temp_dir = tempfile.mktemp(prefix="/tmp/new_dockerfile")
         if not Path(dockerfile).exists():
             print(f"ERROR: Dockerfile '{dockerfile}' do not exists")
             return None

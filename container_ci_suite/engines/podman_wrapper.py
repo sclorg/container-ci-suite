@@ -68,23 +68,33 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
 
     @staticmethod
-    def podman_exec_bash_command(cid_file_name: str, cmd: str, return_output: bool = True):
-        cmd = f'exec {cid_file_name} /bin/bash -c "{cmd}"'
+    def podman_exec_shell_command(
+            cid_file_name: str, cmd: str, used_shell: str = "/usr/bash", return_output: bool = True
+    ):
+        """
+        Function executes shell command if image_name is present in system.
+        :param cid_file_name: image to check specified by cid_file_name
+        :param cmd: command that will be executed in image
+        :param used_shell: which shell will be used /usr/bash or /usr/sh
+        :return True: In case if image is present
+                False: In case if image is not present
+        """
+        cmd = f'exec {cid_file_name} {used_shell} -c "{cmd}"'
         print(f"podman exec command is: {cmd}")
-        output = PodmanCLIWrapper.call_podman_command(
-            cmd=cmd, return_output=return_output
-        )
+        try:
+            output = PodmanCLIWrapper.call_podman_command(
+                cmd=cmd, return_output=return_output
+            )
+        except subprocess.CalledProcessError as cpe:
+            print(f"podman exec command {cmd} failed. See '{cpe}'")
+            return False
         print(f"Output cmd is {output}")
         return output
 
     @staticmethod
-    def podman_exec_sh_command(cid_file_name: str, cmd: str):
-        return PodmanCLIWrapper.call_podman_command(f'exec {cid_file_name} /usr/sh -c "{cmd}"')
-
-    @staticmethod
     def podman_get_user_id(src_image, user):
         return PodmanCLIWrapper.call_podman_command(
-            f"--rm {src_image} bash -c 'id -u {user}' 2>/dev/null"
+            f"--rm {src_image} /bin/bash -c 'id -u {user}' 2>/dev/null"
         ).strip()
 
     @staticmethod
