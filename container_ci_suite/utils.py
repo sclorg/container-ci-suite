@@ -95,7 +95,7 @@ def get_mount_options_from_s2i_args(s2i_args: str) -> str:
 
 
 def get_env_commands_from_s2i_args(s2i_args: str) -> List:
-    matchObj = re.findall(r"(-e|--env)\s*(\S*)=(\S*)", s2i_args)
+    matchObj = re.findall(r"(-e|--env)\s*=?\s*(\S*)=(\S*)", s2i_args)
     logger.debug(matchObj)
     env_content: List = []
     if matchObj:

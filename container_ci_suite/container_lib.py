@@ -1178,7 +1178,7 @@ class ContainerTestLib:
                     )
                     PodmanCLIWrapper.call_podman_command(
                         cmd=f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c \"{cmd}\"",
-                        return_output=False
+                        return_output=True
                     )
                     # Move artifacts to build directory
                     shutil.move(str(inc_tmp / "artifacts.tar"), str(tmpdir / "artifacts.tar"))
