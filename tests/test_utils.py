@@ -93,11 +93,13 @@ class TestContainerCISuiteUtils(object):
         [
             ("--pull-never", []),
             ("--pull-never -e NODE=development", ["ENV NODE=development"]),
+            ("--pull-never -e=NODE=development", ["ENV NODE=development"]),
             (
                 "-v mount_point:mount_point:Z -e FOO=bar --env TEST=deployment",
                 ["ENV FOO=bar", "ENV TEST=deployment"],
             ),
             ("-v mount_point:mount_point:Z -e FOO=bar --env TEST", ["ENV FOO=bar"]),
+            ("-v mount_point:mount_point:Z -e=FOO=bar --env=TEST", ["ENV FOO=bar"]),
         ],
     )
     def test_get_env_from_s2i_args(self, s2i_args, expected_output):
