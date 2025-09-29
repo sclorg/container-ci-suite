@@ -473,6 +473,8 @@ def check_variables() -> bool:
     if not os.getenv("OS"):
         print("Make sure OS is defined")
         ret_value = False
+    if not os.getenv("IMAGE_NAME"):
+        print("Make sure IMAGE_NAME is defined")
     return ret_value
 
 
