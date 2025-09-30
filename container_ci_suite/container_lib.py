@@ -528,11 +528,14 @@ class ContainerTestLib:
 
         try:
             print("Testing npm in the container image")
+            npm_registry = get_os_environment("NPM_REGISTRY")
 
             # Test npm version
             try:
+                cmd = f"run --rm {image_name} /bin/bash -c 'npm --version'"
+                print(f"Podman command for getting npm version is: '{cmd}'")
                 version_output = PodmanCLIWrapper.call_podman_command(
-                    cmd=f"run --rm {image_name} /bin/bash -c 'npm --version'",
+                    cmd=cmd,
                     return_output=True
                 )
                 version_file = tmpdir / "version"
@@ -543,12 +546,13 @@ class ContainerTestLib:
                 return False
 
             # Start test container
-            mount_ca = self.mount_ca_file()
             test_app_image = f"{image_name}-testapp"
 
             try:
+                cmd = f"run -d {get_mount_ca_file()} --rm --cidfile={cid_file_name} {test_app_image}"
+                print(f"Podman command for running in daemon is: '{cmd}'")
                 PodmanCLIWrapper.call_podman_command(
-                    cmd=f"run -d {mount_ca} --rm --cidfile={cid_file_name} {test_app_image}",
+                    cmd=cmd,
                     return_output=False
                 )
             except subprocess.CalledProcessError:
@@ -563,9 +567,11 @@ class ContainerTestLib:
 
             # Test npm install
             try:
+                cmd = (f"exec {container_id} /bin/bash -c "
+                       f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'")
+                print(f"Podman command for testing npm is: '{cmd}'")
                 jquery_output = PodmanCLIWrapper.call_podman_command(
-                    cmd=f"docker exec {container_id} /bin/bash -c "
-                    f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'",
+                    cmd=cmd,
                     return_output=True
                 )
 
@@ -578,7 +584,6 @@ class ContainerTestLib:
                 return False
 
             # Check NPM registry if configured
-            npm_registry = get_os_environment("NPM_REGISTRY")
             if npm_registry and get_full_ca_file_path().exists():
                 if npm_registry not in jquery_output:
                     print("ERROR: Internal repository is NOT set. Even it is requested.")
