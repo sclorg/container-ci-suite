@@ -69,7 +69,8 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_exec_shell_command(
-            cid_file_name: str, cmd: str, used_shell: str = "/bin/bash", return_output: bool = True
+            cid_file_name: str, cmd: str, used_shell: str = "/bin/bash", return_output: bool = True,
+            debug: bool = False
     ):
         """
         Function executes shell command if image_name is present in system.
@@ -83,7 +84,32 @@ class PodmanCLIWrapper(object):
         print(f"podman exec command is: {cmd}")
         try:
             output = PodmanCLIWrapper.call_podman_command(
-                cmd=cmd, return_output=return_output
+                cmd=cmd, return_output=return_output, debug=debug
+            )
+        except subprocess.CalledProcessError as cpe:
+            print(f"podman exec command {cmd} failed. See '{cpe}'")
+            return False
+        print(f"Output cmd is {output}")
+        return output
+
+    @staticmethod
+    def podman_run_command_and_remove(
+            cid_file_name: str, cmd: str, return_output: bool = True,
+            debug: bool = False
+    ):
+        """
+        Function run shell command if image_name is present in system.
+        Calling is `podman run --rm {cid_file_name} /bin/bash -c "{cmd}"
+        :param cid_file_name: image to check specified by cid_file_name
+        :param cmd: command that will be executed in image
+        :return True: In case if image is present
+                False: In case if image is not present
+        """
+        cmd = f'run --rm {cid_file_name} /bin/bash -c "{cmd}"'
+        print(f"podman exec command is: {cmd}")
+        try:
+            output = PodmanCLIWrapper.call_podman_command(
+                cmd=cmd, return_output=return_output, debug=debug
             )
         except subprocess.CalledProcessError as cpe:
             print(f"podman exec command {cmd} failed. See '{cpe}'")
