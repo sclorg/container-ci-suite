@@ -844,22 +844,23 @@ class ContainerTestLib:
         print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
+        insecure = ""
+        full_url = f"{url}:{port}"
+        if page:
+            full_url = f"{full_url}{page}"
+        host_header = f'-H "Host: {host}"'
+        if url.startswith("https://"):
+            insecure = "--insecure"
+
         for attempt in range(1, max_attempts + 1):
             print(f"Trying to connect ... {attempt}")
-
             try:
                 # Create temporary file for response
                 response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
                 # Use curl to get response
-                insecure = ""
-                full_url = f"{url}:{port}"
-                if page:
-                    full_url = f"{full_url}{page}"
-                host_header = f'-H "Host: {host}"'
-                if url.startswith("https://"):
-                    insecure = "--insecure"
+                curl_cmd = f"curl {insecure} -is {host_header} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} -is {host_header} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
+                    cmd=curl_cmd,
                     return_output=True
                 )
                 if debug:
