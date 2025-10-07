@@ -855,11 +855,11 @@ class ContainerTestLib:
                 full_url = f"{url}:{port}"
                 if page:
                     full_url = f"{full_url}{page}"
-                host = f'-H "Host: {host}"'
+                host_header = f'-H "Host: {host}"'
                 if url.startswith("https://"):
                     insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} -is {host} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
+                    f"curl {insecure} -is {host_header} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
                     return_output=True
                 )
                 if debug:
