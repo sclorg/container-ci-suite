@@ -821,7 +821,9 @@ class ContainerTestLib:
         expected_output: str = "",
         max_attempts: int = 20, ignore_error_attempts: int = 10,
         page: str = "",
-        debug: bool = False
+        host: str = "localhost",
+        debug: bool = False,
+
     ) -> bool:
         """
         Test HTTP response from application container.
@@ -833,6 +835,8 @@ class ContainerTestLib:
             expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
+            page: Page where curl will be used. Page hast to start with '/'
+            host: host where curl will be used
 
         Returns:
             True if response matches expectations, False otherwise
@@ -851,10 +855,11 @@ class ContainerTestLib:
                 full_url = f"{url}:{port}"
                 if page:
                     full_url = f"{full_url}{page}"
+                host = f'-H "Host: {host}"'
                 if url.startswith("https://"):
                     insecure = "--insecure"
                 result = ContainerTestLibUtils.run_command(
-                    f"curl {insecure} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
+                    f"curl {insecure} -is {host} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'",
                     return_output=True
                 )
                 if debug:
