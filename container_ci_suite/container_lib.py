@@ -92,10 +92,10 @@ class ContainerTestLib:
         Clean up containers and images used during tests.
         Stops and removes all containers and cleans up temporary directories.
         """
-        print(LINE)
-        print("Cleaning of testing containers and images started.")
-        print("It may take a few seconds.")
-        print(LINE)
+        logging.info(LINE)
+        logging.info("Cleaning of testing containers and images started.")
+        logging.info("It may take a few seconds.")
+        logging.info(LINE)
 
         self.clean_app_images()
         self.clean_containers()
@@ -123,7 +123,7 @@ class ContainerTestLib:
 
             try:
                 log_content = ContainerTestLibUtils.run_command(timeout_cmd, return_output=True)
-                print(log_content)
+                logging.info(log_content)
                 with open(log_file, 'w') as f:
                     f.write(log_content)
                 # Extract image ID from last line
@@ -144,7 +144,7 @@ class ContainerTestLib:
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
             print(f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped.")
             return
-        print(f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}")
+        logging.info(f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}")
         for file_path in self.app_id_file_dir.glob("*"):
             if not file_path.is_file():
                 continue
@@ -179,25 +179,25 @@ class ContainerTestLib:
     def clean_containers(self) -> None:
         """Clean up containers referenced by CID_FILE_DIR."""
         if not self.cid_file_dir:
-            print("The CID_FILE_DIR is not set. Container cleaning is to be skipped.")
+            logging.info("The CID_FILE_DIR is not set. Container cleaning is to be skipped.")
             return
 
-        print(f"Examining CID files in CID_FILE_DIR={self.cid_file_dir}")
+        logging.info(f"Examining CID files in CID_FILE_DIR={self.cid_file_dir}")
 
         for cid_file in self.cid_file_dir.glob("*"):
             if not cid_file.is_file():
                 continue
-            print(f"Let's clean file {cid_file}")
+            logging.info(f"Let's clean file {cid_file}")
 
             try:
                 container_id = utils.get_file_content(cid_file).strip()
                 if not ContainerImage.is_container_exists(container_id):
                     continue
-                print(f"Stopping and removing container {container_id}...")
+                logging.info(f"Stopping and removing container {container_id}...")
                 # Stop container if running
                 if ContainerImage.is_container_running(container_id):
                     PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
-                    print(f"Container {container_id} stopped")
+                    logging.info(f"Container {container_id} stopped")
                 # Check exit status and dump logs if needed
                 try:
                     exit_status = PodmanCLIWrapper.call_podman_command(
@@ -205,10 +205,10 @@ class ContainerTestLib:
                         return_output=True
                     ).strip()
                     if int(exit_status) != 0:
-                        print(f"Dumping logs for {container_id}")
+                        logging.info(f"Dumping logs for {container_id}")
                         try:
                             logs = PodmanCLIWrapper.call_podman_command(cmd=f"logs {container_id}", return_output=True)
-                            print(logs)
+                            logging.debug(logs)
                         except subprocess.CalledProcessError:
                             pass
                 except subprocess.CalledProcessError:
@@ -261,7 +261,7 @@ class ContainerTestLib:
             # Find matching environment variable in check_envs
             filtered_envs = [env for env in check_envs.split('\n') if env.startswith(f"{var_name}=")]
             if not filtered_envs:
-                print(f"{var_name} not found during 'docker exec'")
+                logging.info(f"{var_name} not found during 'docker exec'")
                 return False
 
             filtered_env = filtered_envs[0]
@@ -274,14 +274,14 @@ class ContainerTestLib:
                 pattern = env_format.replace("VALUE", re.escape(value))
                 pattern = pattern.replace("*", ".*")
                 if not re.search(pattern, filtered_env):
-                    print(f"Value {value} is missing from variable {var_name}")
-                    print(filtered_env)
+                    logging.info(f"Value {value} is missing from variable {var_name}")
+                    logging.info(filtered_env)
                     return False
 
         return True
 
     def get_cid(self, cid_file_name: str) -> str:
-        print(f"Get content of CID_NAME: {cid_file_name}")
+        logging.debug(f"Get content of CID_NAME: {cid_file_name}")
         return self.lib.get_cid(cid_file_name=cid_file_name)
 
     def get_cip(self, cid_file_name: str = "app_dockerfile") -> str:
@@ -341,8 +341,10 @@ class ContainerTestLib:
     def run_command(self, cmd: str, return_output: bool = True, ignore_errors: bool = False):
         return ContainerTestLibUtils.run_command(cmd=cmd, return_output=return_output, ignore_error=ignore_errors)
 
-    def build_test_container(self, dockerfile: str, app_url: str, app_dir: str):
-        return self.lib.build_test_container(dockerfile=dockerfile, app_url=app_url, app_dir=app_dir)
+    def build_test_container(self, dockerfile: str, app_url: str, app_dir: str, build_args: str = ""):
+        return self.lib.build_test_container(
+            dockerfile=dockerfile, app_url=app_url, app_dir=app_dir, build_args=build_args
+        )
 
     def test_app_dockerfile(self):
         return self.lib.test_app_dockerfile()
@@ -369,12 +371,12 @@ class ContainerTestLib:
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
         try:
             cmd = f"run --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
-            print(f"Command to create container is '{cmd}'.")
+            logging.info(f"Command to create container is '{cmd}'.")
             PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
             if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
                 return False
             container_id = utils.get_file_content(full_cid_file_name).strip()
-            print(f"Created container {container_id}")
+            logging.info(f"Created container {container_id}")
             return True
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create container: {e}")
@@ -398,7 +400,7 @@ class ContainerTestLib:
         Returns:
             True if all tests pass, False otherwise
         """
-        print("Testing the image SCL enable")
+        logging.debug("Testing the image SCL enable")
 
         # Test 1: docker run
         try:
@@ -407,7 +409,7 @@ class ContainerTestLib:
                 return_output=True
             )
             if expected not in output:
-                print(f"ERROR[/bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(f"ERROR[/bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
                 return False
         except subprocess.CalledProcessError:
             return False
@@ -420,7 +422,7 @@ class ContainerTestLib:
                 return_output=True
             )
             if expected not in output:
-                print(f"ERROR[exec /bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(f"ERROR[exec /bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
                 return False
         except subprocess.CalledProcessError:
             return False
@@ -433,7 +435,7 @@ class ContainerTestLib:
                 return_output=True
             )
             if expected not in output:
-                print(f"ERROR[exec /bin/sh -ic '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(f"ERROR[exec /bin/sh -ic '{command}'] Expected '{expected}', got '{output}'")
                 return False
         except subprocess.CalledProcessError:
             return False
@@ -453,7 +455,7 @@ class ContainerTestLib:
         Returns:
             True if all strings found and format is correct, False otherwise
         """
-        print("Testing documentation in the container image")
+        logging.info("Testing documentation in the container image")
         tmpdir = Path(tempfile.mkdtemp())
 
         try:
@@ -472,23 +474,23 @@ class ContainerTestLib:
                     # Check for required strings
                     for term in strings:
                         if term not in content:
-                            print(f"ERROR: File /{filename} does not include '{term}'.")
+                            logging.error(f"ERROR: File /{filename} does not include '{term}'.")
                             return False
 
                     # Check format
                     for term in ["TH", "PP", "SH"]:
                         if not re.search(f"^\\.{term}", content, re.MULTILINE):
-                            print(
+                            logging.error(
                                 f"ERROR: /{filename} is probably not in troff or groff format,"
                                 f"since '{term}' is missing."
                             )
                             return False
 
                 except subprocess.CalledProcessError:
-                    print(f"ERROR: Could not extract {filename} from container")
+                    logging.error(f"ERROR: Could not extract {filename} from container")
                     return False
 
-            print("Success!")
+            logging.info("Success!")
             return True
 
         finally:
@@ -527,13 +529,13 @@ class ContainerTestLib:
         cid_file_name = tmpdir / "npm_test_cid"
 
         try:
-            print("Testing npm in the container image")
+            logging.info("Testing npm in the container image")
             npm_registry = get_os_environment("NPM_REGISTRY")
 
             # Test npm version
             try:
                 cmd = f"run --rm {image_name} /bin/bash -c 'npm --version'"
-                print(f"Podman command for getting npm version is: '{cmd}'")
+                logging.debug(f"Podman command for getting npm version is: '{cmd}'")
                 version_output = PodmanCLIWrapper.call_podman_command(
                     cmd=cmd,
                     return_output=True
@@ -542,7 +544,7 @@ class ContainerTestLib:
                 with open(version_file, 'w') as f:
                     f.write(version_output)
             except subprocess.CalledProcessError:
-                print(f"ERROR: 'npm --version' does not work inside the image {image_name}.")
+                logging.error(f"ERROR: 'npm --version' does not work inside the image {image_name}.")
                 return False
 
             # Start test container
@@ -550,13 +552,13 @@ class ContainerTestLib:
 
             try:
                 cmd = f"run -d {get_mount_ca_file()} --rm --cidfile={cid_file_name} {test_app_image}"
-                print(f"Podman command for running in daemon is: '{cmd}'")
+                logging.info(f"Podman command for running in daemon is: '{cmd}'")
                 PodmanCLIWrapper.call_podman_command(
                     cmd=cmd,
                     return_output=False
                 )
             except subprocess.CalledProcessError:
-                print(f"ERROR: Could not start {test_app_image}")
+                logging.error(f"ERROR: Could not start {test_app_image}")
                 return False
 
             # Wait for container
@@ -569,7 +571,7 @@ class ContainerTestLib:
             try:
                 cmd = (f"exec {container_id} /bin/bash -c "
                        f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'")
-                print(f"Podman command for testing npm is: '{cmd}'")
+                logging.info(f"Podman command for testing npm is: '{cmd}'")
                 jquery_output = PodmanCLIWrapper.call_podman_command(
                     cmd=cmd,
                     return_output=True
@@ -580,13 +582,13 @@ class ContainerTestLib:
                     f.write(jquery_output)
 
             except subprocess.CalledProcessError:
-                print(f"ERROR: npm could not install jquery inside the image {image_name}.")
+                logging.error(f"ERROR: npm could not install jquery inside the image {image_name}.")
                 return False
 
             # Check NPM registry if configured
             if npm_registry and get_full_ca_file_path().exists():
                 if npm_registry not in jquery_output:
-                    print("ERROR: Internal repository is NOT set. Even it is requested.")
+                    logging.debug("ERROR: Internal repository is NOT set. Even it is requested.")
                     return False
 
             # Stop container
@@ -596,7 +598,7 @@ class ContainerTestLib:
                 except subprocess.CalledProcessError:
                     pass
 
-            print("Success!")
+            logging.info("Success!")
             return True
 
         finally:
