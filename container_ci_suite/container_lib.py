@@ -65,7 +65,13 @@ class ContainerTestLib:
     This is a Python replacement for the container-test-lib.sh shell script.
     """
 
-    def __init__(self, image_name: str = os.getenv("IMAGE_NAME"), s2i_image: bool = False, app_name: str = ""):
+    def __init__(
+            self,
+            image_name: str = os.getenv("IMAGE_NAME"),
+            s2i_image: bool = False,
+            app_name: str = "",
+            podman_build_log: Path = None
+    ):
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
         self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
@@ -73,6 +79,7 @@ class ContainerTestLib:
         self.s2i_image: bool = s2i_image
         self._lib = None
         self.app_name = app_name
+        self.podman_build_log: Path = podman_build_log
 
     @property
     def lib(self):
@@ -100,6 +107,11 @@ class ContainerTestLib:
         self.clean_app_images()
         self.clean_containers()
 
+    def get_podman_build_log_file(self) -> str:
+        if not self.podman_build_log.exists():
+            return ""
+        return utils.get_file_content(self.podman_build_log)
+
     def build_image_and_parse_id(self, dockerfile: str = "", build_params: str = "") -> bool:
         """
         Build container image and parse the image ID.
@@ -112,7 +124,7 @@ class ContainerTestLib:
             True if build successful, False otherwise
         """
         try:
-            log_file = Path(tempfile.mktemp(prefix="build_log_"))
+            self.podman_build_log = Path(tempfile.mktemp(prefix="build_log_"))
             sleep_time = "10m"
 
             dockerfile_arg = f"-f {dockerfile}" if dockerfile else ""
@@ -124,7 +136,7 @@ class ContainerTestLib:
             try:
                 log_content = ContainerTestLibUtils.run_command(timeout_cmd, return_output=True)
                 logging.info(log_content)
-                with open(log_file, 'w') as f:
+                with open(self.podman_build_log, 'w') as f:
                     f.write(log_content)
                 # Extract image ID from last line
                 lines = log_content.strip().split('\n')
@@ -1293,7 +1305,13 @@ class ContainerTestLib:
                 id_file = self.app_id_file_dir / str(hash(dst_image))
                 with open(id_file, 'w') as f:
                     f.write(self.app_image_id)
-            return ContainerTestLib(dst_image, s2i_image=True, app_name=os.path.basename(app_path))
+            return ContainerTestLib(
+                dst_image,
+                s2i_image=True,
+                app_name=os.path.basename(app_path),
+                podman_build_log=self.podman_build_log
+
+            )
         except Exception as e:
             print(f"S2I build failed: {e}")
             return None
