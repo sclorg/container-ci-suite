@@ -127,7 +127,7 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
         ext = f".{file_ext_field[1]}"
     print(f"Local temporary file {template_name} with extension {ext}")
     print(f"Temporary file: download_template from {template_name}")
-    random_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    random_text = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
     path_name = f"{dir_name}/{random_text}{ext}"
     if Path(template_name).is_file():
         shutil.copy2(template_name, path_name)
@@ -179,6 +179,8 @@ class ContainerTestLibUtils:
                     cmd,
                     stderr=stderr,
                     universal_newlines=True,
+                    encoding="utf-8",
+                    errors="replace",
                     shell=shell,
                     **kwargs,
                 )
@@ -198,8 +200,13 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def run_oc_command(
-        cmd, json_output: bool = True, return_output: bool = True, ignore_error: bool = False, shell: bool = True,
-            namespace: str = "", debug: bool = False
+        cmd,
+        json_output: bool = True,
+        return_output: bool = True,
+        ignore_error: bool = False,
+        shell: bool = True,
+        namespace: str = "",
+        debug: bool = False,
     ):
         """
         Run docker command:
@@ -212,7 +219,7 @@ class ContainerTestLibUtils:
             return_output=return_output,
             ignore_error=ignore_error,
             shell=shell,
-            debug=debug
+            debug=debug,
         )
 
     @staticmethod
@@ -221,7 +228,9 @@ class ContainerTestLibUtils:
         for cmd in commands_to_run:
             try:
                 print(f"ContainerTestLibUtils: commands_to_run: {cmd}")
-                output = ContainerTestLibUtils.run_command(cmd=cmd, return_output=True, ignore_error=False)
+                output = ContainerTestLibUtils.run_command(
+                    cmd=cmd, return_output=True, ignore_error=False
+                )
                 if output:
                     print(f"Output is '{output}'")
             except subprocess.CalledProcessError as cpe:
@@ -234,7 +243,9 @@ class ContainerTestLibUtils:
         file_present: bool = True
         for f in file_name_to_check:
             if not (Path(dir_name) / f).exists():
-                print(f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist.")
+                print(
+                    f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist."
+                )
                 file_present = False
         return file_present
 
@@ -247,23 +258,31 @@ class ContainerTestLibUtils:
         with open(dockerfile, "r") as f:
             content = f.read()
 
-        content = re.sub(original_string, string_to_replace, content, flags=re.MULTILINE)
+        content = re.sub(
+            original_string, string_to_replace, content, flags=re.MULTILINE
+        )
         with open(local_temp_dir, "w") as f:
             f.write(content)
         return True
 
 
-def get_response_request(url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3) -> bool:
+def get_response_request(
+    url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3
+) -> bool:
     for count in range(max_tests):
         try:
             resp = requests.get(url_address, timeout=10, verify=False)
             resp.raise_for_status()
-            print(f"Response code is {resp.status_code} and expected should be {response_code}")
+            print(
+                f"Response code is {resp.status_code} and expected should be {response_code}"
+            )
             if resp.status_code == response_code and expected_str in resp.text:
                 return True
             return False
         except requests.exceptions.HTTPError:
-            print("get_response_request: Service is not yet available. Let's wait some time")
+            print(
+                "get_response_request: Service is not yet available. Let's wait some time"
+            )
             pass
         except requests.exceptions.ConnectTimeout:
             print("get_response_request: ConnectTimeout. Let's wait some time")
@@ -282,9 +301,7 @@ def save_command_yaml(image_name: str) -> str:
     cmd_yaml = {
         "apiVersion": "v1",
         "kind": "Pod",
-        "metadata": {
-            "name": "command-app"
-        },
+        "metadata": {"name": "command-app"},
         "spec": {
             "restartPolicy": "OnFailure",
             "containers": [
@@ -292,10 +309,10 @@ def save_command_yaml(image_name: str) -> str:
                     "name": "command-container",
                     "image": image_name,
                     "command": ["sleep"],
-                    "args": ["3h"]
+                    "args": ["3h"],
                 }
-            ]
-        }
+            ],
+        },
     }
     temp_file = tempfile.NamedTemporaryFile(prefix="command-yml", delete=False)
     with open(temp_file.name, "w") as fp:
@@ -311,22 +328,16 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
         "metadata": {
             "labels": {
                 "tenant.paas.redhat.com/namespace-type": "build",
-                "tenant.paas.redhat.com/tenant": "core-services-ocp"
+                "tenant.paas.redhat.com/tenant": "core-services-ocp",
             },
             "name": f"{project_name}",
-            "namespace": "core-services-ocp--config"
+            "namespace": "core-services-ocp--config",
         },
         "spec": {
             "type": "build",
-            "roles": [
-                    "namespace-admin",
-                    "tenant-egress-admin"
-            ],
-            "network": {
-                "security-zone": "internal"
-            }
-
-        }
+            "roles": ["namespace-admin", "tenant-egress-admin"],
+            "network": {"security-zone": "internal"},
+        },
     }
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-namespace-yml", delete=False)
     with open(temp_file.name, "w") as fp:
@@ -338,41 +349,41 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
 def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     if not rules:
         rules = [
-            "github.com", "api.github.com", "codeload.github.com", "pypi.org", "www.cpan.org",
-            "registry.npmjs.org", "npmjs.org", "npmjs.com", "rubygems.org", "repo.packagist.org",
-            "backpan.perl.org", "www.metacpan.org", "files.pythonhosted.org", "getcomposer.org",
+            "github.com",
+            "api.github.com",
+            "codeload.github.com",
+            "pypi.org",
+            "www.cpan.org",
+            "registry.npmjs.org",
+            "npmjs.org",
+            "npmjs.com",
+            "rubygems.org",
+            "repo.packagist.org",
+            "backpan.perl.org",
+            "www.metacpan.org",
+            "files.pythonhosted.org",
+            "getcomposer.org",
         ]
     generated_yaml = []
     for rule in rules:
-        generated_yaml.append({
-            "to": {
-                "dnsName": f"{rule}"
-            },
-            "type": "Allow"
-        })
-    for rule in ["172.0.0.0/8", "10.0.0.0/9", "52.218.128.0/17", "52.92.128.0/17", "52.216.0.0/15"]:
-        generated_yaml.append({
-            "to": {
-                "cidrSelector": f"{rule}"
-            },
-            "type": "Allow"
-        })
-    generated_yaml.append({
-        "to": {
-            "cidrSelector": "0.0.0.0/0"
-        },
-        "type": "Deny"
-    })
+        generated_yaml.append({"to": {"dnsName": f"{rule}"}, "type": "Allow"})
+    for rule in [
+        "172.0.0.0/8",
+        "10.0.0.0/9",
+        "52.218.128.0/17",
+        "52.92.128.0/17",
+        "52.216.0.0/15",
+    ]:
+        generated_yaml.append({"to": {"cidrSelector": f"{rule}"}, "type": "Allow"})
+    generated_yaml.append({"to": {"cidrSelector": "0.0.0.0/0"}, "type": "Deny"})
     tenant_egress_yaml = {
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantEgress",
         "metadata": {
             "name": "default",
-            "namespace": f"core-services-ocp--{project_name}"
+            "namespace": f"core-services-ocp--{project_name}",
         },
-        "spec": {
-            "egress": generated_yaml
-        }
+        "spec": {"egress": generated_yaml},
     }
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
@@ -392,28 +403,16 @@ def save_tenant_limit_yaml() -> str:
             "limits": [
                 {
                     "type": "Pod",
-                    "max": {
-                        "cpu": "8",
-                        "memory": "8Gi"
-                    },
-                    "min": {
-                        "cpu": "4",
-                        "memory": "2Gi"
-                    }
+                    "max": {"cpu": "8", "memory": "8Gi"},
+                    "min": {"cpu": "4", "memory": "2Gi"},
                 },
                 {
                     "type": "Container",
-                    "max": {
-                        "cpu": "8",
-                        "memory": "8Gi"
-                    },
-                    "min": {
-                        "cpu": "2",
-                        "memory": "2Gi"
-                    }
-                }
+                    "max": {"cpu": "8", "memory": "8Gi"},
+                    "min": {"cpu": "2", "memory": "2Gi"},
+                },
             ]
-        }
+        },
     }
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-limit-yml", delete=False)
     with open(temp_file.name, "w") as fp:
@@ -424,8 +423,8 @@ def save_tenant_limit_yaml() -> str:
 
 def get_tagged_image(image_name: str, version: str) -> Any:
     try:
-        image_no_namespace = image_name.split('/')[1]
-        image_no_tag = image_no_namespace.split(':')[0]
+        image_no_namespace = image_name.split("/")[1]
+        image_no_tag = image_no_namespace.split(":")[0]
     except IndexError:
         return None
 
@@ -445,8 +444,8 @@ def clone_git_repository(app_url: str, app_dir: str) -> bool:
     try:
         # If app_url contains @, the string after @ is considered
         # as a name of a branch to clone instead of the main/master branch
-        if '@' in app_url:
-            git_url_parts = app_url.split('@')
+        if "@" in app_url:
+            git_url_parts = app_url.split("@")
             git_url = git_url_parts[0]
             branch = git_url_parts[1]
             cmd = f"git clone --branch {branch} {git_url} {app_dir}"
@@ -461,8 +460,8 @@ def clone_git_repository(app_url: str, app_dir: str) -> bool:
 
 def get_service_image(image_name: str) -> Any:
     try:
-        image_no_namespace = image_name.split('/')[1]
-        image_no_tag = image_no_namespace.split(':')[0]
+        image_no_namespace = image_name.split("/")[1]
+        image_no_tag = image_no_namespace.split(":")[0]
     except IndexError:
         return None
     return f"{image_no_tag}-testing"
@@ -515,7 +514,9 @@ def get_json_data(file_name: Path = Path("/root/shared_cluster.json")) -> dict:
     return json_data
 
 
-def dump_json_data(json_data: dict, file_name: Path = Path("/root/shared_cluster.json")):
+def dump_json_data(
+    json_data: dict, file_name: Path = Path("/root/shared_cluster.json")
+):
     with open(file_name, "w") as fd:
         json.dump(json_data, fd)
 
@@ -540,7 +541,9 @@ def is_shared_cluster(test_type: str = "ocp4"):
     if isinstance(value, str) and value in ["true", "True", "y", "Y", "1"]:
         print(f"Shared cluster allowed for {test_type}")
         return True
-    print("\nShared cluster is not allowed.\nTo allow it add 'true' to file /root/shared_cluster.json.")
+    print(
+        "\nShared cluster is not allowed.\nTo allow it add 'true' to file /root/shared_cluster.json."
+    )
     return False
 
 
@@ -552,9 +555,15 @@ def get_shared_variable(variable: str) -> Any:
     return json_data[variable]
 
 
-def get_raw_url_for_json(container: str, dir: str, filename: str, branch: str = "master") -> str:
-    RAW_SCL_JSON_URL: str = "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
-    return RAW_SCL_JSON_URL.format(container=container, branch=branch, dir=dir, filename=filename)
+def get_raw_url_for_json(
+    container: str, dir: str, filename: str, branch: str = "master"
+) -> str:
+    RAW_SCL_JSON_URL: str = (
+        "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
+    )
+    return RAW_SCL_JSON_URL.format(
+        container=container, branch=branch, dir=dir, filename=filename
+    )
 
 
 def shared_cluster_variables() -> dict:
