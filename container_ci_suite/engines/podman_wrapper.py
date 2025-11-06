@@ -30,8 +30,12 @@ from container_ci_suite.utils import ContainerTestLibUtils
 class PodmanCLIWrapper(object):
     @staticmethod
     def call_podman_command(
-        cmd, return_output: bool = True,
-        ignore_error: bool = False, shell: bool = True, debug: bool = False, stderr=subprocess.STDOUT
+        cmd,
+        return_output: bool = True,
+        ignore_error: bool = False,
+        shell: bool = True,
+        debug: bool = False,
+        stderr=subprocess.STDOUT,
     ):
         """
         Run docker command:
@@ -42,7 +46,7 @@ class PodmanCLIWrapper(object):
             ignore_error=ignore_error,
             shell=shell,
             debug=debug,
-            stderr=stderr
+            stderr=stderr,
         )
 
     @staticmethod
@@ -54,14 +58,13 @@ class PodmanCLIWrapper(object):
                 False: In case if image is not present
         """
         output = PodmanCLIWrapper.call_podman_command(
-            f"images -q {image_name}", ignore_error=True, return_output=True)
+            f"images -q {image_name}", ignore_error=True, return_output=True
+        )
         return True if output != "" else False
 
     @staticmethod
     def podman_inspect(field: str, src_image: str) -> str:
-        return PodmanCLIWrapper.call_podman_command(
-            f"inspect -f '{field}' {src_image}"
-        )
+        return PodmanCLIWrapper.call_podman_command(f"inspect -f '{field}' {src_image}")
 
     @staticmethod
     def podman_run_command(cmd):
@@ -69,8 +72,11 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_exec_shell_command(
-            cid_file_name: str, cmd: str, used_shell: str = "/bin/bash", return_output: bool = True,
-            debug: bool = False
+        cid_file_name: str,
+        cmd: str,
+        used_shell: str = "/bin/bash",
+        return_output: bool = True,
+        debug: bool = False,
     ):
         """
         Function executes shell command if image_name is present in system.
@@ -94,8 +100,7 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_run_command_and_remove(
-            cid_file_name: str, cmd: str, return_output: bool = True,
-            debug: bool = False
+        cid_file_name: str, cmd: str, return_output: bool = True, debug: bool = False
     ):
         """
         Function run shell command if image_name is present in system.
@@ -137,18 +142,20 @@ class PodmanCLIWrapper(object):
             ret_val = PodmanCLIWrapper.call_podman_command(
                 cmd=f"pull {image_name}", return_output=False
             )
-            if ret_val == 0 and PodmanCLIWrapper.podman_image_exists(image_name=image_name):
+            if ret_val == 0 and PodmanCLIWrapper.podman_image_exists(
+                image_name=image_name
+            ):
                 return True
             PodmanCLIWrapper.call_podman_command("images", return_output=True)
-            print(f"Pulling of image {image_name} failed. Let's wait {loop*5} seconds and try again.")
-            time.sleep(loop*5)
+            print(
+                f"Pulling of image {image_name} failed. Let's wait {loop * 5} seconds and try again."
+            )
+            time.sleep(loop * 5)
         return False
 
     @staticmethod
     def podman_inspect_ip_address(container_id: str) -> Any:
-        output = PodmanCLIWrapper.call_podman_command(
-            f"inspect {container_id}"
-        )
+        output = PodmanCLIWrapper.call_podman_command(f"inspect {container_id}")
 
         json_output = json.loads(output)
         if len(json_output) == 0:
@@ -161,14 +168,12 @@ class PodmanCLIWrapper(object):
     def podman_exit_status(image_name: str) -> str:
         return PodmanCLIWrapper.call_podman_command(
             cmd=f"inspect --format='{{{{.State.ExitCode}}}}' {image_name}",
-            return_output=True
+            return_output=True,
         ).strip()
 
     @staticmethod
     def podman_get_user(image_name: str) -> Any:
-        output = PodmanCLIWrapper.call_podman_command(
-            f"inspect {image_name}"
-        )
+        output = PodmanCLIWrapper.call_podman_command(f"inspect {image_name}")
 
         json_output = json.loads(output)
         if len(json_output) == 0:
