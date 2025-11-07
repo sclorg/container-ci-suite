@@ -13,7 +13,7 @@ jobs:
     name: Tox test
     strategy:
       matrix:
-        tox_env: [py311, py312, py313]
+        tox_env: [py311, py312, py313, py314]
     # Use GitHub's Linux Docker host
     runs-on: ubuntu-latest
     steps:
