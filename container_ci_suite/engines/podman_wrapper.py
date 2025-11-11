@@ -100,7 +100,11 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_run_command_and_remove(
-        cid_file_name: str, cmd: str, return_output: bool = True, debug: bool = False
+        cid_file_name: str,
+        cmd: str,
+        return_output: bool = True,
+        debug: bool = False,
+        ignore_error: bool = False,
     ):
         """
         Function run shell command if image_name is present in system.
@@ -114,7 +118,10 @@ class PodmanCLIWrapper(object):
         print(f"podman exec command is: {cmd}")
         try:
             output = PodmanCLIWrapper.call_podman_command(
-                cmd=cmd, return_output=return_output, debug=debug
+                cmd=cmd,
+                return_output=return_output,
+                ignore_error=ignore_error,
+                debug=debug,
             )
         except subprocess.CalledProcessError as cpe:
             print(f"podman exec command {cmd} failed. See '{cpe}'")
