@@ -66,11 +66,11 @@ class ContainerTestLib:
     """
 
     def __init__(
-            self,
-            image_name: str = os.getenv("IMAGE_NAME"),
-            s2i_image: bool = False,
-            app_name: str = "",
-            podman_build_log: Path = None
+        self,
+        image_name: str = os.getenv("IMAGE_NAME"),
+        s2i_image: bool = False,
+        app_name: str = "",
+        podman_build_log: Path = None,
     ):
         """Initialize the container test library."""
         self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
@@ -87,7 +87,7 @@ class ContainerTestLib:
             self._lib = ContainerImage(
                 image_name=self.image_name,
                 cid_file_dir=self.cid_file_dir,
-                cid_file=self.app_id_file_dir
+                cid_file=self.app_id_file_dir,
             )
         return self._lib
 
@@ -112,7 +112,9 @@ class ContainerTestLib:
             return ""
         return utils.get_file_content(self.podman_build_log)
 
-    def build_image_and_parse_id(self, dockerfile: str = "", build_params: str = "") -> bool:
+    def build_image_and_parse_id(
+        self, dockerfile: str = "", build_params: str = ""
+    ) -> bool:
         """
         Build container image and parse the image ID.
 
@@ -128,18 +130,24 @@ class ContainerTestLib:
             sleep_time = "10m"
 
             dockerfile_arg = f"-f {dockerfile}" if dockerfile else ""
-            command = f"docker build --no-cache {dockerfile_arg} {build_params}".replace("'", "")
+            command = (
+                f"docker build --no-cache {dockerfile_arg} {build_params}".replace(
+                    "'", ""
+                )
+            )
 
             # Run build command with timeout
             timeout_cmd = f"timeout {sleep_time} {command}"
 
             try:
-                log_content = ContainerTestLibUtils.run_command(timeout_cmd, return_output=True)
+                log_content = ContainerTestLibUtils.run_command(
+                    timeout_cmd, return_output=True
+                )
                 logging.info(log_content)
-                with open(self.podman_build_log, 'w') as f:
+                with open(self.podman_build_log, "w") as f:
                     f.write(log_content)
                 # Extract image ID from last line
-                lines = log_content.strip().split('\n')
+                lines = log_content.strip().split("\n")
                 if lines:
                     self.app_image_id = lines[-1].strip()
                 return True
@@ -154,9 +162,13 @@ class ContainerTestLib:
     def clean_app_images(self) -> None:
         """Clean up application images referenced by APP_ID_FILE_DIR."""
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
-            print(f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped.")
+            print(
+                f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped."
+            )
             return
-        logging.info(f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}")
+        logging.info(
+            f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}"
+        )
         for file_path in self.app_id_file_dir.glob("*"):
             if not file_path.is_file():
                 continue
@@ -164,22 +176,27 @@ class ContainerTestLib:
                 image_id = utils.get_file_content(file_path).strip()
                 # Check if image exists
                 try:
-                    PodmanCLIWrapper.call_podman_command(cmd=f"inspect {image_id}", return_output=False)
+                    PodmanCLIWrapper.call_podman_command(
+                        cmd=f"inspect {image_id}", return_output=False
+                    )
                 except subprocess.CalledProcessError:
                     continue
                 # Remove containers using this image
                 try:
                     containers = PodmanCLIWrapper.call_podman_command(
-                        cmd=f"ps -q -a -f ancestor={image_id}",
-                        return_output=True
+                        cmd=f"ps -q -a -f ancestor={image_id}", return_output=True
                     ).strip()
                     if containers:
-                        PodmanCLIWrapper.call_podman_command(cmd=" rm -f {containers}", ignore_error=True)
+                        PodmanCLIWrapper.call_podman_command(
+                            cmd=" rm -f {containers}", ignore_error=True
+                        )
                 except subprocess.CalledProcessError:
                     pass
                 # Remove the image
                 try:
-                    PodmanCLIWrapper.call_podman_command(f"rmi -f {image_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(
+                        f"rmi -f {image_id}", ignore_error=True
+                    )
                 except subprocess.CalledProcessError:
                     pass
             except Exception as e:
@@ -191,7 +208,9 @@ class ContainerTestLib:
     def clean_containers(self) -> None:
         """Clean up containers referenced by CID_FILE_DIR."""
         if not self.cid_file_dir:
-            logging.info("The CID_FILE_DIR is not set. Container cleaning is to be skipped.")
+            logging.info(
+                "The CID_FILE_DIR is not set. Container cleaning is to be skipped."
+            )
             return
 
         logging.info(f"Examining CID files in CID_FILE_DIR={self.cid_file_dir}")
@@ -208,25 +227,31 @@ class ContainerTestLib:
                 logging.info(f"Stopping and removing container {container_id}...")
                 # Stop container if running
                 if ContainerImage.is_container_running(container_id):
-                    PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(
+                        cmd=f"stop {container_id}", ignore_error=True
+                    )
                     logging.info(f"Container {container_id} stopped")
                 # Check exit status and dump logs if needed
                 try:
                     exit_status = PodmanCLIWrapper.call_podman_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
-                        return_output=True
+                        return_output=True,
                     ).strip()
                     if int(exit_status) != 0:
                         logging.info(f"Dumping logs for {container_id}")
                         try:
-                            logs = PodmanCLIWrapper.call_podman_command(cmd=f"logs {container_id}", return_output=True)
+                            logs = PodmanCLIWrapper.call_podman_command(
+                                cmd=f"logs {container_id}", return_output=True
+                            )
                             logging.debug(logs)
                         except subprocess.CalledProcessError:
                             pass
                 except subprocess.CalledProcessError:
                     pass
                 # Remove container
-                PodmanCLIWrapper.call_podman_command(cmd=f"rm -v {container_id}", ignore_error=True)
+                PodmanCLIWrapper.call_podman_command(
+                    cmd=f"rm -v {container_id}", ignore_error=True
+                )
                 if cid_file.exists():
                     cid_file.unlink()
             except Exception as e:
@@ -235,19 +260,16 @@ class ContainerTestLib:
         if self.cid_file_dir.exists():
             shutil.rmtree(self.cid_file_dir)
 
-    def pull_image(self, image_name: str, exit_on_fail: bool = False, loops: int = 10) -> bool:
+    def pull_image(
+        self, image_name: str, exit_on_fail: bool = False, loops: int = 10
+    ) -> bool:
         return self.lib.pull_image(
-            image_name=image_name,
-            exit_on_fail=exit_on_fail,
-            loops=loops
+            image_name=image_name, exit_on_fail=exit_on_fail, loops=loops
         )
 
     @staticmethod
     def check_envs_set(
-        env_filter: str,
-        check_envs: str,
-        loop_envs: str,
-        env_format: str = "*VALUE*"
+        env_filter: str, check_envs: str, loop_envs: str, env_format: str = "*VALUE*"
     ) -> bool:
         """
         Compare environment variable values between two lists.
@@ -261,24 +283,26 @@ class ContainerTestLib:
         Returns:
             True if all environment variables match, False otherwise
         """
-        for line in loop_envs.split('\n'):
+        for line in loop_envs.split("\n"):
             line = line.strip()
             if not line or not re.search(env_filter, line) or line.startswith("PWD="):
                 continue
 
-            if '=' not in line:
+            if "=" not in line:
                 continue
 
-            var_name, stripped = line.split('=', 1)
+            var_name, stripped = line.split("=", 1)
             # Find matching environment variable in check_envs
-            filtered_envs = [env for env in check_envs.split('\n') if env.startswith(f"{var_name}=")]
+            filtered_envs = [
+                env for env in check_envs.split("\n") if env.startswith(f"{var_name}=")
+            ]
             if not filtered_envs:
                 logging.info(f"{var_name} not found during 'docker exec'")
                 return False
 
             filtered_env = filtered_envs[0]
             # Check each value in the colon-separated list
-            for value in stripped.split(':'):
+            for value in stripped.split(":"):
                 if not re.search(env_filter, value):
                     continue
 
@@ -312,7 +336,7 @@ class ContainerTestLib:
         cid_file = "assert"
         max_attempts = 10
 
-        old_container_args = getattr(self, 'container_args', "")
+        old_container_args = getattr(self, "container_args", "")
         self.container_args = container_args
 
         try:
@@ -326,14 +350,16 @@ class ContainerTestLib:
                     time.sleep(2)
                     attempt += 1
                     if attempt > max_attempts:
-                        PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
+                        PodmanCLIWrapper.call_podman_command(
+                            cmd=f"stop {container_id}", ignore_error=True
+                        )
                         return False
 
                 # Check exit status
                 try:
                     exit_status = PodmanCLIWrapper.call_podman_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
-                        return_output=True
+                        return_output=True,
                     ).strip()
                     if exit_status == "0":
                         return False
@@ -341,7 +367,9 @@ class ContainerTestLib:
                     pass
 
                 # Clean up
-                PodmanCLIWrapper.call_podman_command(cmd=f"rm -v {container_id}", ignore_error=True)
+                PodmanCLIWrapper.call_podman_command(
+                    cmd=f"rm -v {container_id}", ignore_error=True
+                )
                 cid_path = self.cid_file_dir / cid_file
                 if cid_path.exists():
                     cid_path.unlink()
@@ -350,22 +378,34 @@ class ContainerTestLib:
                 self.container_args = old_container_args
         return True
 
-    def run_command(self, cmd: str, return_output: bool = True, ignore_errors: bool = False):
-        return ContainerTestLibUtils.run_command(cmd=cmd, return_output=return_output, ignore_error=ignore_errors)
+    def run_command(
+        self, cmd: str, return_output: bool = True, ignore_errors: bool = False
+    ):
+        return ContainerTestLibUtils.run_command(
+            cmd=cmd, return_output=return_output, ignore_error=ignore_errors
+        )
 
-    def build_test_container(self, dockerfile: str, app_url: str, app_dir: str, build_args: str = ""):
+    def build_test_container(
+        self,
+        dockerfile: str,
+        app_url: str,
+        app_dir: str,
+        build_args: str = "",
+        app_image_name: str = "app_dockerfile",
+    ):
         return self.lib.build_test_container(
-            dockerfile=dockerfile, app_url=app_url, app_dir=app_dir, build_args=build_args
+            dockerfile=dockerfile,
+            app_url=app_url,
+            app_dir=app_dir,
+            build_args=build_args,
+            app_image_name=app_image_name,
         )
 
     def test_app_dockerfile(self):
         return self.lib.test_app_dockerfile()
 
     def create_container(
-        self,
-        cid_file_name: str = "",
-        container_args: str = "",
-        command: str = ""
+        self, cid_file_name: str = "", container_args: str = "", command: str = ""
     ) -> bool:
         """
         Create a container.
@@ -377,7 +417,7 @@ class ContainerTestLib:
             True if container created successfully, False otherwise
         """
         if not container_args:
-            container_args = getattr(self, 'container_args', '')
+            container_args = getattr(self, "container_args", "")
         if not self.cid_file_dir.exists():
             self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
@@ -395,11 +435,7 @@ class ContainerTestLib:
             return False
 
     def scl_usage_old(
-            self,
-            cid_file_name: str,
-            command: str,
-            expected: str,
-            image_name: str = ""
+        self, cid_file_name: str, command: str, expected: str, image_name: str = ""
     ) -> bool:
         """
         Test SCL usage in three different ways.
@@ -418,10 +454,12 @@ class ContainerTestLib:
         try:
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c '{command}'",
-                return_output=True
+                return_output=True,
             )
             if expected not in output:
-                logging.error(f"ERROR[/bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(
+                    f"ERROR[/bin/bash -c '{command}'] Expected '{expected}', got '{output}'"
+                )
                 return False
         except subprocess.CalledProcessError:
             return False
@@ -430,11 +468,12 @@ class ContainerTestLib:
         try:
             container_id = self.get_cid(cid_file_name=cid_file_name)
             output = PodmanCLIWrapper.call_podman_command(
-                cmd=f"exec {container_id} /bin/bash -c '{command}'",
-                return_output=True
+                cmd=f"exec {container_id} /bin/bash -c '{command}'", return_output=True
             )
             if expected not in output:
-                logging.error(f"ERROR[exec /bin/bash -c '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(
+                    f"ERROR[exec /bin/bash -c '{command}'] Expected '{expected}', got '{output}'"
+                )
                 return False
         except subprocess.CalledProcessError:
             return False
@@ -443,22 +482,19 @@ class ContainerTestLib:
         try:
             container_id = self.get_cid(cid_file_name=cid_file_name)
             output = PodmanCLIWrapper.call_podman_command(
-                cmd=f"exec {container_id} /bin/sh -ic '{command}'",
-                return_output=True
+                cmd=f"exec {container_id} /bin/sh -ic '{command}'", return_output=True
             )
             if expected not in output:
-                logging.error(f"ERROR[exec /bin/sh -ic '{command}'] Expected '{expected}', got '{output}'")
+                logging.error(
+                    f"ERROR[exec /bin/sh -ic '{command}'] Expected '{expected}', got '{output}'"
+                )
                 return False
         except subprocess.CalledProcessError:
             return False
 
         return True
 
-    def doc_content_old(
-            self,
-            strings: List[str],
-            image_name: str = ""
-    ) -> bool:
+    def doc_content_old(self, strings: List[str], image_name: str = "") -> bool:
         """
         Check documentation content in container.
         Args:
@@ -476,17 +512,19 @@ class ContainerTestLib:
                 try:
                     content = PodmanCLIWrapper.call_podman_command(
                         cmd=f"run --rm {image_name} /bin/bash -c 'cat /{filename}'",
-                        return_output=True
+                        return_output=True,
                     )
 
                     help_file = tmpdir / filename
-                    with open(help_file, 'w') as f:
+                    with open(help_file, "w") as f:
                         f.write(content)
 
                     # Check for required strings
                     for term in strings:
                         if term not in content:
-                            logging.error(f"ERROR: File /{filename} does not include '{term}'.")
+                            logging.error(
+                                f"ERROR: File /{filename} does not include '{term}'."
+                            )
                             return False
 
                     # Check format
@@ -549,14 +587,15 @@ class ContainerTestLib:
                 cmd = f"run --rm {image_name} /bin/bash -c 'npm --version'"
                 logging.debug(f"Podman command for getting npm version is: '{cmd}'")
                 version_output = PodmanCLIWrapper.call_podman_command(
-                    cmd=cmd,
-                    return_output=True
+                    cmd=cmd, return_output=True
                 )
                 version_file = tmpdir / "version"
-                with open(version_file, 'w') as f:
+                with open(version_file, "w") as f:
                     f.write(version_output)
             except subprocess.CalledProcessError:
-                logging.error(f"ERROR: 'npm --version' does not work inside the image {image_name}.")
+                logging.error(
+                    f"ERROR: 'npm --version' does not work inside the image {image_name}."
+                )
                 return False
 
             # Start test container
@@ -565,10 +604,7 @@ class ContainerTestLib:
             try:
                 cmd = f"run -d {get_mount_ca_file()} --rm --cidfile={cid_file_name} {test_app_image}"
                 logging.info(f"Podman command for running in daemon is: '{cmd}'")
-                PodmanCLIWrapper.call_podman_command(
-                    cmd=cmd,
-                    return_output=False
-                )
+                PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=False)
             except subprocess.CalledProcessError:
                 logging.error(f"ERROR: Could not start {test_app_image}")
                 return False
@@ -581,32 +617,39 @@ class ContainerTestLib:
 
             # Test npm install
             try:
-                cmd = (f"exec {container_id} /bin/bash -c "
-                       f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'")
+                cmd = (
+                    f"exec {container_id} /bin/bash -c "
+                    f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'"
+                )
                 logging.info(f"Podman command for testing npm is: '{cmd}'")
                 jquery_output = PodmanCLIWrapper.call_podman_command(
-                    cmd=cmd,
-                    return_output=True
+                    cmd=cmd, return_output=True
                 )
 
                 jquery_file = tmpdir / "jquery"
-                with open(jquery_file, 'w') as f:
+                with open(jquery_file, "w") as f:
                     f.write(jquery_output)
 
             except subprocess.CalledProcessError:
-                logging.error(f"ERROR: npm could not install jquery inside the image {image_name}.")
+                logging.error(
+                    f"ERROR: npm could not install jquery inside the image {image_name}."
+                )
                 return False
 
             # Check NPM registry if configured
             if npm_registry and get_full_ca_file_path().exists():
                 if npm_registry not in jquery_output:
-                    logging.debug("ERROR: Internal repository is NOT set. Even it is requested.")
+                    logging.debug(
+                        "ERROR: Internal repository is NOT set. Even it is requested."
+                    )
                     return False
 
             # Stop container
             if cid_file_name.exists():
                 try:
-                    PodmanCLIWrapper.call_podman_command(cmd=f"stop {container_id}", ignore_error=True)
+                    PodmanCLIWrapper.call_podman_command(
+                        cmd=f"stop {container_id}", ignore_error=True
+                    )
                 except subprocess.CalledProcessError:
                     pass
 
@@ -617,10 +660,7 @@ class ContainerTestLib:
             shutil.rmtree(tmpdir)
 
     def binary_found_from_df(
-        self,
-        binary: str,
-        binary_path: str = "^/opt/rh",
-        image_name: str = ""
+        self, binary: str, binary_path: str = "^/opt/rh", image_name: str = ""
     ) -> bool:
         """
         Check if binary can be found during Dockerfile build.
@@ -638,16 +678,16 @@ class ContainerTestLib:
 
             # Create Dockerfile
             dockerfile = tmpdir / "Dockerfile"
-            with open(dockerfile, 'w') as f:
+            with open(dockerfile, "w") as f:
                 f.write(f"FROM {image_name}\n")
                 f.write(f"RUN command -v {binary} | grep '{binary_path}'\n")
 
             # Build image
             if self.build_image_and_parse_id(str(dockerfile), str(tmpdir)):
                 # Store image ID for cleanup
-                if hasattr(self, 'app_image_id'):
+                if hasattr(self, "app_image_id"):
                     id_file = self.app_id_file_dir / str(hash(binary))
-                    with open(id_file, 'w') as f:
+                    with open(id_file, "w") as f:
                         f.write(self.app_image_id)
                 return True
             else:
@@ -658,9 +698,7 @@ class ContainerTestLib:
             shutil.rmtree(tmpdir)
 
     def check_exec_env_vars(
-            self,
-            env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root",
-            image_name: str = ""
+        self, env_filter: str = "^X_SCLS=|/opt/rh|/opt/app-root", image_name: str = ""
     ) -> bool:
         """
         Check if environment variables from 'docker run' are available in 'docker exec'.
@@ -674,16 +712,19 @@ class ContainerTestLib:
         try:
             # Get environment variables from docker run
             run_envs = PodmanCLIWrapper.call_podman_command(
-                cmd=f"run --rm {image_name} /bin/bash -c env",
-                return_output=True
+                cmd=f"run --rm {image_name} /bin/bash -c env", return_output=True
             )
             # Create container for exec test
-            if not self.create_container("test_exec_envs", "bash -c 'sleep 1000'", image_name):
+            if not self.create_container(
+                "test_exec_envs", "bash -c 'sleep 1000'", image_name
+            ):
                 return False
 
             container_id = self.get_cid("test_exec_envs")
             # Get environment variables from docker exec
-            exec_envs = PodmanCLIWrapper.call_podman_command(cmd=f"exec {container_id} env", return_output=True)
+            exec_envs = PodmanCLIWrapper.call_podman_command(
+                cmd=f"exec {container_id} env", return_output=True
+            )
             # Check environment variables
             result = self.check_envs_set(env_filter, exec_envs, run_envs)
             if result:
@@ -709,7 +750,7 @@ class ContainerTestLib:
             # Get enabled SCLs
             enabled_scls = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c 'echo $X_SCLS'",
-                return_output=True
+                return_output=True,
             ).strip()
             if not env_filter:
                 # Build filter from enabled SCLs
@@ -719,15 +760,16 @@ class ContainerTestLib:
 
             # Get environment variables
             loop_envs = PodmanCLIWrapper.call_podman_command(
-                cmd=f"run --rm {image_name} /bin/bash -c env",
-                return_output=True
+                cmd=f"run --rm {image_name} /bin/bash -c env", return_output=True
             )
             run_envs = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {image_name} /bin/bash -c 'X_SCLS= scl enable {enabled_scls} env'",
-                return_output=True
+                return_output=True,
             )
             # Check if values are set twice
-            result = self.check_envs_set(env_filter, run_envs, loop_envs, "*VALUE*VALUE*")
+            result = self.check_envs_set(
+                env_filter, run_envs, loop_envs, "*VALUE*VALUE*"
+            )
             if result:
                 print("All scl_enable values present")
             return result
@@ -770,13 +812,13 @@ class ContainerTestLib:
             ContainerTestLibUtils.run_command(
                 f"openssl req -newkey rsa:2048 -nodes -keyout {key_file} "
                 f"-subj '/C=GB/ST=Berkshire/L=Newbury/O=My Server Company' > {req_file}",
-                return_output=False
+                return_output=False,
             )
 
             # Generate self-signed certificate
             ContainerTestLibUtils.run_command(
                 f"openssl req -new -x509 -nodes -key {key_file} -batch > {cert_file}",
-                return_output=False
+                return_output=False,
             )
 
             return True
@@ -797,27 +839,33 @@ class ContainerTestLib:
         """
         # Determine file extension
         extension = ""
-        if '.' in input_path:
-            ext_part = input_path.split('.')[-1]
-            if re.match(r'^[a-z0-9]*$', ext_part):
+        if "." in input_path:
+            ext_part = input_path.split(".")[-1]
+            if re.match(r"^[a-z0-9]*$", ext_part):
                 extension = f".{ext_part}"
 
         # Create temporary file/directory
         if Path(input_path).is_file():
             # Local file
-            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-file")
+            temp_file = tempfile.mktemp(
+                suffix=extension, dir="/var/tmp", prefix="test-input-file"
+            )
             shutil.copy2(input_path, temp_file)
             return temp_file
 
         elif Path(input_path).is_dir():
             # Local directory
-            temp_dir = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-dir")
+            temp_dir = tempfile.mktemp(
+                suffix=extension, dir="/var/tmp", prefix="test-input-dir"
+            )
             shutil.copytree(input_path, temp_dir, symlinks=True)
             return temp_dir
 
-        elif input_path.startswith(('http://', 'https://')):
+        elif input_path.startswith(("http://", "https://")):
             # URL
-            temp_file = tempfile.mktemp(suffix=extension, dir="/var/tmp", prefix="test-input-url")
+            temp_file = tempfile.mktemp(
+                suffix=extension, dir="/var/tmp", prefix="test-input-url"
+            )
             try:
                 urllib.request.urlretrieve(input_path, temp_file)
                 return temp_file
@@ -829,15 +877,16 @@ class ContainerTestLib:
             return None
 
     def test_response(
-        self, url: str,
+        self,
+        url: str,
         expected_code: int = 200,
         port: int = 8080,
         expected_output: str = "",
-        max_attempts: int = 20, ignore_error_attempts: int = 10,
+        max_attempts: int = 20,
+        ignore_error_attempts: int = 10,
         page: str = "",
         host: str = "localhost",
         debug: bool = False,
-
     ) -> bool:
         """
         Test HTTP response from application container.
@@ -870,12 +919,13 @@ class ContainerTestLib:
             print(f"Trying to connect ... {attempt}")
             try:
                 # Create temporary file for response
-                response_file = tempfile.NamedTemporaryFile(mode='w+', prefix='test_response_')
+                response_file = tempfile.NamedTemporaryFile(
+                    mode="w+", prefix="test_response_"
+                )
                 # Use curl to get response
                 curl_cmd = f"curl {insecure} -is {host_header} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'"
                 result = ContainerTestLibUtils.run_command(
-                    cmd=curl_cmd,
-                    return_output=True
+                    cmd=curl_cmd, return_output=True
                 )
                 if debug:
                     print(result)
@@ -889,9 +939,15 @@ class ContainerTestLib:
                         if code_int == expected_code:
                             if debug:
                                 print("Expected code from curl PASSED.")
-                                print(f"Let's check {expected_output} in response: '{response_body}'")
-                            if not expected_output or re.search(expected_output, response_body):
-                                print(f"Expected output '{expected_output}' found in response")
+                                print(
+                                    f"Let's check {expected_output} in response: '{response_body}'"
+                                )
+                            if not expected_output or re.search(
+                                expected_output, response_body
+                            ):
+                                print(
+                                    f"Expected output '{expected_output}' found in response"
+                                )
                                 return True
                     except ValueError:
                         pass
@@ -921,7 +977,9 @@ class ContainerTestLib:
         """
         return "registry.redhat.io" if os_name.startswith("rhel") else "quay.io"
 
-    def get_public_image_name(self, os_name: str, base_image_name: str, version: str) -> str:
+    def get_public_image_name(
+        self, os_name: str, base_image_name: str, version: str
+    ) -> str:
         """
         Transform arguments into public image name.
         Args:
@@ -932,7 +990,7 @@ class ContainerTestLib:
             Public image name
         """
         registry = ContainerTestLib.registry_from_os(os_name)
-        version_no_dots = version.replace('.', '')
+        version_no_dots = version.replace(".", "")
 
         if os_name == "rhel8":
             return f"{registry}/rhel8/{base_image_name}-{version_no_dots}"
@@ -956,7 +1014,7 @@ class ContainerTestLib:
         Returns:
             True if command succeeds, False otherwise
         """
-        cmd_str = ' '.join(str(arg) for arg in cmd)
+        cmd_str = " ".join(str(arg) for arg in cmd)
         print(f"Checking '{cmd_str}' for success ...")
 
         try:
@@ -976,7 +1034,7 @@ class ContainerTestLib:
         Returns:
             True if command fails, False otherwise
         """
-        cmd_str = ' '.join(str(arg) for arg in cmd)
+        cmd_str = " ".join(str(arg) for arg in cmd)
         print(f"Checking '{cmd_str}' for failure ...")
 
         try:
@@ -998,7 +1056,7 @@ class ContainerTestLib:
         import random
         import string
 
-        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
     def s2i_usage(self) -> str:
         """
@@ -1010,7 +1068,7 @@ class ContainerTestLib:
         try:
             return PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {self.image_name} bash -c {usage_command}",
-                return_output=True
+                return_output=True,
             )
         except subprocess.CalledProcessError as e:
             logger.error(f"S2I usage failed: {e}")
@@ -1038,8 +1096,12 @@ class ContainerTestLib:
         print(LINE)
         print(f"Image {self.image_name} information:")
         print(LINE)
-        print(f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}")
-        print(f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}")
+        print(
+            f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}"
+        )
+        print(
+            f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}"
+        )
 
     def get_image_size_uncompressed(self, image_name: str) -> str:
         """
@@ -1051,8 +1113,7 @@ class ContainerTestLib:
         """
         try:
             size_bytes = PodmanCLIWrapper.call_podman_command(
-                cmd=f"inspect {image_name} -f '{{{{.Size}}}}'",
-                return_output=True
+                cmd=f"inspect {image_name} -f '{{{{.Size}}}}'", return_output=True
             ).strip()
             size_mb = int(size_bytes) // (1024 * 1024)
             return f"{size_mb}MB"
@@ -1070,8 +1131,7 @@ class ContainerTestLib:
         try:
             # Save image and compress to get size
             result = PodmanCLIWrapper.call_podman_command(
-                cmd=f"save {image_name} | gzip - | wc --bytes",
-                return_output=True
+                cmd=f"save {image_name} | gzip - | wc --bytes", return_output=True
             )
             size_bytes = int(result.strip())
             size_mb = size_bytes // (1024 * 1024)
@@ -1121,7 +1181,7 @@ class ContainerTestLib:
         try:
             user_id = PodmanCLIWrapper.call_podman_command(
                 cmd=f"run --rm {src_image} bash -c 'id -u {user}' 2>/dev/null",
-                return_output=True
+                return_output=True,
             ).strip()
             return user_id
         except subprocess.CalledProcessError:
@@ -1134,7 +1194,7 @@ class ContainerTestLib:
         src_image: str,
         dst_image: str,
         build_args: str = "",
-        s2i_args: str = ""
+        s2i_args: str = "",
     ):
         """
         Create a new S2I app image from local sources using Dockerfile approach.
@@ -1161,11 +1221,15 @@ class ContainerTestLib:
             df_name = Path(tempfile.mktemp(dir=str(tmpdir), prefix="Dockerfile."))
             # Check if the image is available locally and try to pull it if it is not
             try:
-                PodmanCLIWrapper.call_podman_command(cmd=f"images {src_image}", return_output=True)
+                PodmanCLIWrapper.call_podman_command(
+                    cmd=f"images {src_image}", return_output=True
+                )
             except subprocess.CalledProcessError:
                 if "pull-policy=never" not in s2i_args:
                     try:
-                        PodmanCLIWrapper.call_podman_command(cmd=f"pull {src_image}", return_output=False)
+                        PodmanCLIWrapper.call_podman_command(
+                            cmd=f"pull {src_image}", return_output=False
+                        )
                     except subprocess.CalledProcessError:
                         print(f"Failed to pull source image {src_image}")
                         return False
@@ -1173,7 +1237,7 @@ class ContainerTestLib:
             try:
                 user = PodmanCLIWrapper.call_podman_command(
                     cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
-                    return_output=True
+                    return_output=True,
                 ).strip()
                 user = user or "0"  # Default to root if no user is set
             except subprocess.CalledProcessError:
@@ -1188,10 +1252,14 @@ class ContainerTestLib:
                 inc_tmp = Path(tempfile.mkdtemp(prefix="incremental."))
                 try:
                     # Set permissions for incremental directory
-                    ContainerTestLibUtils.run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
+                    ContainerTestLibUtils.run_command(
+                        f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}"
+                    )
                     # Check if the destination image exists
                     try:
-                        PodmanCLIWrapper.call_podman_command(cmd=f"images {dst_image}", return_output=True)
+                        PodmanCLIWrapper.call_podman_command(
+                            cmd=f"images {dst_image}", return_output=True
+                        )
                     except subprocess.CalledProcessError:
                         print(f"Image {dst_image} not found.")
                         return False
@@ -1202,11 +1270,13 @@ class ContainerTestLib:
                         f"else touch '{inc_tmp}/artifacts.tar'; fi"
                     )
                     PodmanCLIWrapper.call_podman_command(
-                        cmd=f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c \"{cmd}\"",
-                        return_output=True
+                        cmd=f'run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c "{cmd}"',
+                        return_output=True,
                     )
                     # Move artifacts to build directory
-                    shutil.move(str(inc_tmp / "artifacts.tar"), str(tmpdir / "artifacts.tar"))
+                    shutil.move(
+                        str(inc_tmp / "artifacts.tar"), str(tmpdir / "artifacts.tar")
+                    )
                 except subprocess.CalledProcessError as e:
                     print(f"Incremental build setup failed: {e}")
                     return False
@@ -1225,7 +1295,9 @@ class ContainerTestLib:
                 # Copy all contents from source to destination
                 for item in Path(clean_app_path).iterdir():
                     if item.is_dir():
-                        shutil.copytree(item, local_app_path / item.name, dirs_exist_ok=True)
+                        shutil.copytree(
+                            item, local_app_path / item.name, dirs_exist_ok=True
+                        )
                     else:
                         shutil.copy2(item, local_app_path)
             else:
@@ -1239,26 +1311,28 @@ class ContainerTestLib:
             # Create Dockerfile content
             dockerfile_lines = [
                 f"FROM {src_image}",
-                f"LABEL \"io.openshift.s2i.build.image\"=\"{src_image}\" \\",
-                f"      \"io.openshift.s2i.build.source-location\"=\"{app_path}\"",
+                f'LABEL "io.openshift.s2i.build.image"="{src_image}" \\',
+                f'      "io.openshift.s2i.build.source-location"="{app_path}"',
                 "USER root",
-                f"COPY {local_app} /tmp/src"
+                f"COPY {local_app} /tmp/src",
             ]
             # Add scripts copy if directory exists
             if local_scripts_path.exists():
-                dockerfile_lines.extend([
-                    f"COPY {local_scripts} /tmp/scripts",
-                    f"RUN chown -R {user_id}:0 /tmp/scripts"
-                ])
+                dockerfile_lines.extend(
+                    [
+                        f"COPY {local_scripts} /tmp/scripts",
+                        f"RUN chown -R {user_id}:0 /tmp/scripts",
+                    ]
+                )
             dockerfile_lines.append(f"RUN chown -R {user_id}:0 /tmp/src")
             # Check for custom environment variables inside .s2i/ folder
             env_file = local_app_path / ".s2i" / "environment"
             if env_file.exists():
                 try:
-                    with open(env_file, 'r') as f:
+                    with open(env_file, "r") as f:
                         for line in f:
                             line = line.strip()
-                            if line and not line.startswith('#'):
+                            if line and not line.startswith("#"):
                                 dockerfile_lines.append(f"ENV {line}")
                 except Exception as e:
                     print(f"Warning: Could not read environment file: {e}")
@@ -1267,17 +1341,24 @@ class ContainerTestLib:
             dockerfile_lines.extend(env_commands)
             # Check if CA authority is present on host and add it into Dockerfile
             if get_full_ca_file_path().exists():
-                dockerfile_lines.append("RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract")
+                dockerfile_lines.append(
+                    "RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract"
+                )
             # Add artifacts if doing an incremental build
             if incremental:
-                dockerfile_lines.extend([
-                    "RUN mkdir /tmp/artifacts",
-                    "ADD artifacts.tar /tmp/artifacts",
-                    f"RUN chown -R {user_id}:0 /tmp/artifacts"
-                ])
+                dockerfile_lines.extend(
+                    [
+                        "RUN mkdir /tmp/artifacts",
+                        "ADD artifacts.tar /tmp/artifacts",
+                        f"RUN chown -R {user_id}:0 /tmp/artifacts",
+                    ]
+                )
             dockerfile_lines.append(f"USER {user_id}")
             # Add assemble script
-            if local_scripts_path.exists() and (local_scripts_path / "assemble").exists():
+            if (
+                local_scripts_path.exists()
+                and (local_scripts_path / "assemble").exists()
+            ):
                 dockerfile_lines.append("RUN /tmp/scripts/assemble")
             else:
                 dockerfile_lines.append("RUN /usr/libexec/s2i/assemble")
@@ -1287,8 +1368,8 @@ class ContainerTestLib:
             else:
                 dockerfile_lines.append("CMD /usr/libexec/s2i/run")
             # Write Dockerfile
-            with open(df_name, 'w') as f:
-                f.write('\n'.join(dockerfile_lines))
+            with open(df_name, "w") as f:
+                f.write("\n".join(dockerfile_lines))
             # Get mount options from s2i_args
             mount_options = get_mount_options_from_s2i_args(s2i_args)
             # Build the image
@@ -1301,16 +1382,15 @@ class ContainerTestLib:
                 print(f"ERROR: Failed to build {df_name}")
                 return None
             # Store image ID for cleanup
-            if hasattr(self, 'app_image_id') and self.app_image_id:
+            if hasattr(self, "app_image_id") and self.app_image_id:
                 id_file = self.app_id_file_dir / str(hash(dst_image))
-                with open(id_file, 'w') as f:
+                with open(id_file, "w") as f:
                     f.write(self.app_image_id)
             return ContainerTestLib(
                 dst_image,
                 s2i_image=True,
                 app_name=os.path.basename(app_path),
-                podman_build_log=self.podman_build_log
-
+                podman_build_log=self.podman_build_log,
             )
         except Exception as e:
             print(f"S2I build failed: {e}")
@@ -1323,11 +1403,7 @@ class ContainerTestLib:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
     def build_as_df(
-        self,
-        app_path: Path,
-        src_image: str,
-        dst_image: str,
-        s2i_args: str = ""
+        self, app_path: Path, src_image: str, dst_image: str, s2i_args: str = ""
     ):
         """
         Create a new S2I app image from local sources (wrapper function).
@@ -1348,7 +1424,7 @@ class ContainerTestLib:
         src_image: str,
         sec_image: str,
         dst_image: str,
-        s2i_args: str = ""
+        s2i_args: str = "",
     ) -> bool:
         """
         Create a new S2I app image from local sources using multistage build.
@@ -1380,7 +1456,7 @@ class ContainerTestLib:
             try:
                 user = PodmanCLIWrapper.call_podman_command(
                     cmd=f"inspect -f '{{{{.Config.User}}}}' {src_image}",
-                    return_output=True
+                    return_output=True,
                 ).strip()
                 user = user or "0"  # Default to root if no user is set
             except subprocess.CalledProcessError:
@@ -1404,7 +1480,9 @@ class ContainerTestLib:
                 # Copy all contents from source to destination
                 for item in Path(clean_app_path).iterdir():
                     if item.is_dir():
-                        shutil.copytree(item, local_app_path / item.name, dirs_exist_ok=True)
+                        shutil.copytree(
+                            item, local_app_path / item.name, dirs_exist_ok=True
+                        )
                     else:
                         shutil.copy2(item, local_app_path)
             else:
@@ -1421,7 +1499,7 @@ class ContainerTestLib:
                 "# and set permissions so that the container runs without root access",
                 "USER 0",
                 f"ADD {local_app} /tmp/src",
-                "RUN chown -R 1001:0 /tmp/src"
+                "RUN chown -R 1001:0 /tmp/src",
             ]
 
             # Filter out env var definitions from s2i_args and create Dockerfile ENV commands
@@ -1430,23 +1508,27 @@ class ContainerTestLib:
 
             # Check if CA authority is present on host and add it into Dockerfile
             if get_full_ca_file_path().exists():
-                dockerfile_lines.append("RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract")
+                dockerfile_lines.append(
+                    "RUN cd /etc/pki/ca-trust/source/anchors && update-ca-trust extract"
+                )
 
-            dockerfile_lines.extend([
-                f"USER {user_id}",
-                "# Install the dependencies",
-                "RUN /usr/libexec/s2i/assemble",
-                "# Second stage copies the application to the minimal image",
-                f"FROM {sec_image}",
-                "# Copy the application source and build artifacts from the builder image to this one",
-                "COPY --from=builder $HOME $HOME",
-                "# Set the default command for the resulting image",
-                "CMD /usr/libexec/s2i/run"
-            ])
+            dockerfile_lines.extend(
+                [
+                    f"USER {user_id}",
+                    "# Install the dependencies",
+                    "RUN /usr/libexec/s2i/assemble",
+                    "# Second stage copies the application to the minimal image",
+                    f"FROM {sec_image}",
+                    "# Copy the application source and build artifacts from the builder image to this one",
+                    "COPY --from=builder $HOME $HOME",
+                    "# Set the default command for the resulting image",
+                    "CMD /usr/libexec/s2i/run",
+                ]
+            )
 
             # Write Dockerfile
-            with open(df_name, 'w') as f:
-                f.write('\n'.join(dockerfile_lines))
+            with open(df_name, "w") as f:
+                f.write("\n".join(dockerfile_lines))
 
             # Get mount options from s2i_args
             mount_options = get_mount_options_from_s2i_args(s2i_args)
@@ -1463,9 +1545,9 @@ class ContainerTestLib:
                 return False
 
             # Store image ID for cleanup
-            if hasattr(self, 'app_image_id') and self.app_image_id:
+            if hasattr(self, "app_image_id") and self.app_image_id:
                 id_file = self.app_id_file_dir / str(hash(dst_image))
-                with open(id_file, 'w') as f:
+                with open(id_file, "w") as f:
                     f.write(self.app_image_id)
 
             return True
