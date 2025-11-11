@@ -251,7 +251,7 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def update_dockerfile(dockerfile: str, original_string, string_to_replace) -> Any:
-        local_temp_dir = tempfile.mktemp(prefix="/tmp/new_dockerfile")
+        local_temp_file = tempfile.mktemp(prefix="/tmp/new_dockerfile")
         if not Path(dockerfile).exists():
             print(f"ERROR: Dockerfile '{dockerfile}' do not exists")
             return None
@@ -261,9 +261,9 @@ class ContainerTestLibUtils:
         content = re.sub(
             original_string, string_to_replace, content, flags=re.MULTILINE
         )
-        with open(local_temp_dir, "w") as f:
+        with open(local_temp_file, "w") as f:
             f.write(content)
-        return True
+        return local_temp_file
 
 
 def get_response_request(
