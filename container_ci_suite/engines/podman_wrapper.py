@@ -111,11 +111,13 @@ class PodmanCLIWrapper(object):
         Calling is `podman run --rm {cid_file_name} /bin/bash -c "{cmd}"
         :param cid_file_name: image to check specified by cid_file_name
         :param cmd: command that will be executed in image
+        :param return_output: True for return output, false for exit
+        :param debug: command on steroids
         :return True: In case if image is present
                 False: In case if image is not present
         """
         cmd = f'run --rm {cid_file_name} /bin/bash -c "{cmd}"'
-        print(f"podman exec command is: {cmd}")
+        print(f"podman command is: '{cmd}'")
         try:
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd,
@@ -146,9 +148,12 @@ class PodmanCLIWrapper(object):
             print("Pulled image already exists.")
             return True
         for loop in range(loops):
-            ret_val = PodmanCLIWrapper.call_podman_command(
-                cmd=f"pull {image_name}", return_output=False
-            )
+            try:
+                ret_val = PodmanCLIWrapper.call_podman_command(
+                    cmd=f"pull {image_name}", return_output=False
+                )
+            except subprocess.CalledProcessError:
+                ret_val = 1
             if ret_val == 0 and PodmanCLIWrapper.podman_image_exists(
                 image_name=image_name
             ):
