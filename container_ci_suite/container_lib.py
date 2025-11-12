@@ -188,7 +188,7 @@ class ContainerTestLib:
                     ).strip()
                     if containers:
                         PodmanCLIWrapper.call_podman_command(
-                            cmd=" rm -f {containers}", ignore_error=True
+                            cmd=f" rm -f {containers}", ignore_error=True
                         )
                 except subprocess.CalledProcessError:
                     pass
@@ -250,7 +250,7 @@ class ContainerTestLib:
                     pass
                 # Remove container
                 PodmanCLIWrapper.call_podman_command(
-                    cmd=f"rm -v {container_id}", ignore_error=True
+                    cmd=f"rm -f -v {container_id}", ignore_error=True
                 )
                 if cid_file.exists():
                     cid_file.unlink()
