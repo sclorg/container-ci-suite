@@ -71,10 +71,20 @@ class ContainerTestLib:
         s2i_image: bool = False,
         app_name: str = "",
         podman_build_log: Path = None,
+        app_id_file_dir: Path = None,
+        cid_file_dir: Path = None,
     ):
         """Initialize the container test library."""
-        self.app_id_file_dir = Path(tempfile.mkdtemp(prefix="app_ids_"))
-        self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
+        self.app_id_file_dir = (
+            app_id_file_dir
+            if app_id_file_dir
+            else Path(tempfile.mkdtemp(prefix="app_ids_"))
+        )
+        self.cid_file_dir = (
+            cid_file_dir
+            if cid_file_dir
+            else Path(tempfile.mkdtemp(prefix="cid_files_"))
+        )
         self.image_name = image_name
         self.s2i_image: bool = s2i_image
         self._lib = None
@@ -87,7 +97,7 @@ class ContainerTestLib:
             self._lib = ContainerImage(
                 image_name=self.image_name,
                 cid_file_dir=self.cid_file_dir,
-                cid_file=self.app_id_file_dir,
+                app_id_file_dir=self.app_id_file_dir,
             )
         return self._lib
 
@@ -143,13 +153,15 @@ class ContainerTestLib:
                 log_content = ContainerTestLibUtils.run_command(
                     timeout_cmd, return_output=True
                 )
-                logging.info(log_content)
                 with open(self.podman_build_log, "w") as f:
                     f.write(log_content)
                 # Extract image ID from last line
                 lines = log_content.strip().split("\n")
-                if lines:
-                    self.app_image_id = lines[-1].strip()
+                logging.info(
+                    f"build_image_and_parse_id: Build log content: '{log_content.strip()}'"
+                )
+                self.app_image_id = lines[-1].strip()
+                print(f"build_image_and_parse_id: App image ID: {self.app_image_id}")
                 return True
 
             except subprocess.CalledProcessError:
@@ -177,14 +189,14 @@ class ContainerTestLib:
                 # Check if image exists
                 try:
                     PodmanCLIWrapper.call_podman_command(
-                        cmd=f"inspect {image_id}", return_output=False
+                        cmd=f"inspect {image_id} > /dev/null 2>&1", return_output=False
                     )
                 except subprocess.CalledProcessError:
                     continue
                 # Remove containers using this image
                 try:
                     containers = PodmanCLIWrapper.call_podman_command(
-                        cmd=f"ps -q -a -f ancestor={image_id}", return_output=True
+                        cmd=f"ps -q -a -f ancestor={image_id}"
                     ).strip()
                     if containers:
                         PodmanCLIWrapper.call_podman_command(
@@ -685,10 +697,10 @@ class ContainerTestLib:
             # Build image
             if self.build_image_and_parse_id(str(dockerfile), str(tmpdir)):
                 # Store image ID for cleanup
-                if hasattr(self, "app_image_id"):
-                    id_file = self.app_id_file_dir / str(hash(binary))
-                    with open(id_file, "w") as f:
-                        f.write(self.app_image_id)
+                id_file = self.app_id_file_dir / self.random_string(length=20)
+                print(f"Binary found from Dockerfile: ID file:{id_file}")
+                with open(id_file, "w") as f:
+                    f.write(self.app_image_id)
                 return True
             else:
                 print(f"ERROR: Failed to find {binary} in $PATH!")
@@ -1382,8 +1394,11 @@ class ContainerTestLib:
                 print(f"ERROR: Failed to build {df_name}")
                 return None
             # Store image ID for cleanup
-            if hasattr(self, "app_image_id") and self.app_image_id:
-                id_file = self.app_id_file_dir / str(hash(dst_image))
+            if self.app_image_id:
+                id_file = self.app_id_file_dir / self.random_string(length=20)
+                print(
+                    f"build_as_df_build_args: Destination image ID file: {id_file} and image ID: {self.app_image_id}"
+                )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
             return ContainerTestLib(
@@ -1391,6 +1406,8 @@ class ContainerTestLib:
                 s2i_image=True,
                 app_name=os.path.basename(app_path),
                 podman_build_log=self.podman_build_log,
+                app_id_file_dir=self.app_id_file_dir,
+                cid_file_dir=self.cid_file_dir,
             )
         except Exception as e:
             print(f"S2I build failed: {e}")
@@ -1545,8 +1562,11 @@ class ContainerTestLib:
                 return False
 
             # Store image ID for cleanup
-            if hasattr(self, "app_image_id") and self.app_image_id:
-                id_file = self.app_id_file_dir / str(hash(dst_image))
+            if self.app_image_id:
+                id_file = self.app_id_file_dir / self.random_string(length=20)
+                print(
+                    f"Multistage build:Destination image ID file: {id_file} and image ID: {self.app_image_id}"
+                )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
 
