@@ -199,3 +199,9 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(
             cmd=f"exec {cid_file_name} cat {filename}"
         )
+
+    @staticmethod
+    def podman_logs(
+        container_id: str,
+    ):
+        return PodmanCLIWrapper.call_podman_command(f"logs {container_id}")

@@ -38,12 +38,13 @@ import subprocess
 import logging
 import urllib.request
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 from container_ci_suite import utils
 from container_ci_suite.engines.container import ContainerImage
+from container_ci_suite.engines.database import DatabaseWrapper
 from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
     get_full_ca_file_path,
@@ -73,6 +74,7 @@ class ContainerTestLib:
         podman_build_log: Path = None,
         app_id_file_dir: Path = None,
         cid_file_dir: Path = None,
+        db_type: str = "mysql",
     ):
         """Initialize the container test library."""
         self.app_id_file_dir = (
@@ -86,10 +88,12 @@ class ContainerTestLib:
             else Path(tempfile.mkdtemp(prefix="cid_files_"))
         )
         self.image_name = image_name
+        self.db_type = db_type
         self.s2i_image: bool = s2i_image
         self._lib = None
         self.app_name = app_name
         self.podman_build_log: Path = podman_build_log
+        self._db_lib = None
 
     @property
     def lib(self):
@@ -101,8 +105,23 @@ class ContainerTestLib:
             )
         return self._lib
 
+    @property
+    def db_lib(self):
+        if not self._db_lib:
+            self._db_lib = DatabaseWrapper(
+                image_name=self.image_name, db_type=self.db_type
+            )
+        return self._db_lib
+
     def set_new_image(self, image_name):
         self.image_name = image_name
+        self.db_lib.image_name = image_name
+
+    def set_new_db_type(
+        self, db_type: Literal["mysql", "mariadb", "postgresql", "postgres"] = "mysql"
+    ):
+        self.db_lib.db_type = db_type
+        self.db_type = db_type
 
     def cleanup(self) -> None:
         """
@@ -335,60 +354,227 @@ class ContainerTestLib:
     def get_cip(self, cid_file_name: str = "app_dockerfile") -> str:
         return self.lib.get_cip(cid_file_name=cid_file_name)
 
-    def assert_container_creation_fails(self, container_args: str) -> bool:
+    def test_db_connection(
+        self,
+        container_ip: str = "",
+        username: str = "user",
+        password: str = "pass",
+        database: str = "db",
+        max_attempts: int = 60,
+        sleep_time: int = 3,
+    ) -> bool:
+        return self.db_lib.test_connection(
+            container_ip=container_ip,
+            username=username,
+            password=password,
+            database=database,
+            max_attempts=max_attempts,
+            sleep_time=sleep_time,
+        )
+
+    def assert_container_creation_fails(
+        self, cid_file_name: str, container_args: List[str] | str, command: str
+    ) -> bool:
         """
         Assert that container creation should fail.
 
         Args:
+            cid_file_name: Name for the cid_file_name
             container_args: Container arguments
 
         Returns:
             True if container creation failed as expected, False otherwise
         """
-        cid_file = "assert"
         max_attempts = 10
+        if isinstance(container_args, list):
+            container_args = " ".join(container_args)
 
-        old_container_args = getattr(self, "container_args", "")
-        self.container_args = container_args
+        if self.create_container(
+            cid_file_name=cid_file_name, container_args=container_args, command=command
+        ):
+            container_id = self.get_cid(cid_file_name)
+            attempt = 1
+            while attempt <= max_attempts:
+                if not ContainerImage.is_container_running(container_id):
+                    break
+                time.sleep(2)
+                attempt += 1
+                if attempt > max_attempts:
+                    PodmanCLIWrapper.call_podman_command(
+                        cmd=f"stop {container_id}", ignore_error=True
+                    )
+                    return False
+            # Check exit status
+            try:
+                exit_status = PodmanCLIWrapper.call_podman_command(
+                    cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
+                    return_output=True,
+                ).strip()
+                if exit_status == "0":
+                    return False
+            except subprocess.CalledProcessError:
+                pass
+
+            # Clean up
+            PodmanCLIWrapper.call_podman_command(
+                cmd=f"rm -v {container_id}", ignore_error=True
+            )
+            cid_path = self.cid_file_dir / cid_file_name
+            if cid_path.exists():
+                cid_path.unlink()
+            return True
+        return False
+
+    def assert_container_creation_succeeds(
+        self,
+        container_args: List[str] | str,
+        command: str = "",
+        test_connection_func=None,
+        connection_params: dict = None,
+    ) -> bool:
+        """
+        Assert that container creation succeeds and optionally test connection.
+
+        This is a Python/PyTest conversion of the bash function from
+        postgresql-container/test/run_test (lines 247-283):
+
+        ```bash
+        assert_container_creation_succeeds ()
+        {
+          local check_env=false
+          local name=pg-success-"$(ct_random_string)"
+          local PGUSER='' PGPASS=''  DB=''  ADMIN_PASS=
+          local docker_args=
+          local ret=0
+
+          for arg; do
+            docker_args+=" $(printf "%q" "$arg")"
+            if $check_env; then
+              local env=${arg//=*/}
+              local val=${arg//$env=/}
+              case $env in
+                POSTGRESQL_ADMIN_PASSWORD)  ADMIN_PASS=$val ;;
+                POSTGRESQL_USER)            PGUSER=$val ;;
+                POSTGRESQL_PASSWORD)        PGPASS=$val ;;
+                POSTGRESQL_DATABASE)        DB=$val ;;
+              esac
+              check_env=false
+            elif test "$arg" = -e; then
+              check_env=:
+            fi
+          done
+
+          DOCKER_ARGS=$docker_args create_container "$name" || ret=1
+
+          if test -n "$PGUSER" && test -n "$PGPASS"; then
+            PGUSER=$PGUSER PASS=$PGPASS DB=$DB test_connection "$name" || ret=2
+          fi
+
+          if test -n "$ADMIN_PASS"; then
+            PGUSER=postgres PASS=$ADMIN_PASS DB=$DB test_connection "$name" || ret=3
+          fi
+
+          return $ret
+        }
+        ```
+
+        Args:
+            container_args: Container arguments (can be list or string)
+            command: Command to run in container (optional)
+            test_connection_func: Optional function to test connection after creation
+            connection_params: Optional parameters for connection test function
+
+        Returns:
+            True if container creation succeeded, False otherwise
+
+        Example:
+            >>> ct = ContainerTestLib(image_name="postgres:13")
+            >>> # Basic usage - just test creation
+            >>> assert ct.assert_container_creation_succeeds(
+            ...     "-e POSTGRESQL_USER=user -e POSTGRESQL_PASSWORD=pass -e POSTGRESQL_DATABASE=db"
+            ... )
+
+            >>> # With connection testing
+            >>> from container_ci_suite.engines.database import DatabaseWrapper
+            >>> db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
+            >>> def test_conn(cid_file, params):
+            ...     ct = params['ct']
+            ...     db = params['db']
+            ...     container_ip = ct.get_cip(cid_file)
+            ...     return db.test_connection(container_ip, params['user'], params['pass'])
+            >>>
+            >>> assert ct.assert_container_creation_succeeds(
+            ...     "-e POSTGRESQL_USER=user -e POSTGRESQL_PASSWORD=pass",
+            ...     test_connection_func=test_conn,
+            ...     connection_params={'ct': ct, 'db': db, 'user': 'user', 'pass': 'pass'}
+            ... )
+        """
+        # Generate unique container name
+        cid_file = f"success-{self.random_string(length=10)}"
+
+        # Convert list to string if needed
+        if isinstance(container_args, list):
+            container_args = " ".join(container_args)
+
+        if not container_args:
+            logging.error("Container arguments cannot be empty")
+            return False
 
         try:
-            if self.create_container(cid_file):
-                container_id = self.get_cid(cid_file)
+            # Create the container
+            logging.info(f"Creating container with args: {container_args}")
+            if not self.create_container(
+                cid_file_name=cid_file, container_args=container_args, command=command
+            ):
+                logging.error("Failed to create container")
+                return False
 
-                attempt = 1
-                while attempt <= max_attempts:
-                    if not ContainerImage.is_container_running(container_id):
-                        break
-                    time.sleep(2)
-                    attempt += 1
-                    if attempt > max_attempts:
-                        PodmanCLIWrapper.call_podman_command(
-                            cmd=f"stop {container_id}", ignore_error=True
-                        )
-                        return False
+            # Get container ID
+            container_id = self.get_cid(cid_file)
+            logging.info(f"Container created successfully: {container_id}")
 
-                # Check exit status
+            # Wait a bit for container to start
+            time.sleep(2)
+
+            # Check if container is running
+            if not ContainerImage.is_container_running(container_id):
+                logging.error("Container is not running")
+                # Check exit status for debugging
                 try:
                     exit_status = PodmanCLIWrapper.call_podman_command(
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                         return_output=True,
                     ).strip()
-                    if exit_status == "0":
-                        return False
+                    logging.error(f"Container exited with status: {exit_status}")
+                    # Dump logs for debugging
+                    logs = PodmanCLIWrapper.call_podman_command(
+                        cmd=f"logs {container_id}",
+                        return_output=True,
+                        ignore_error=True,
+                    )
+                    logging.error(f"Container logs:\n{logs}")
                 except subprocess.CalledProcessError:
                     pass
+                return False
 
-                # Clean up
-                PodmanCLIWrapper.call_podman_command(
-                    cmd=f"rm -v {container_id}", ignore_error=True
-                )
-                cid_path = self.cid_file_dir / cid_file
-                if cid_path.exists():
-                    cid_path.unlink()
-        finally:
-            if old_container_args:
-                self.container_args = old_container_args
-        return True
+            # If connection test function is provided, test the connection
+            if test_connection_func and connection_params:
+                logging.info("Testing connection...")
+                try:
+                    if not test_connection_func(cid_file, connection_params):
+                        logging.error("Connection test failed")
+                        return False
+                    logging.info("Connection test passed")
+                except Exception as e:
+                    logging.error(f"Connection test raised exception: {e}")
+                    return False
+
+            logging.info("Container creation succeeded")
+            return True
+
+        except Exception as e:
+            logging.error(f"Error during container creation test: {e}")
+            return False
 
     def run_command(
         self, cmd: str, return_output: bool = True, ignore_errors: bool = False
@@ -417,24 +603,29 @@ class ContainerTestLib:
         return self.lib.test_app_dockerfile()
 
     def create_container(
-        self, cid_file_name: str = "", container_args: str = "", command: str = ""
+        self,
+        cid_file_name: str = "",
+        container_args: str = "",
+        docker_args: str = "",
+        command: str = "",
     ) -> bool:
         """
         Create a container.
         Args:
             cid_file_name: Name for the cid_file_name
+            docker_args: Docker arguments to run in container
             command: Command to run in container
             container_args: Additional container arguments
         Returns:
             True if container created successfully, False otherwise
         """
-        if not container_args:
-            container_args = getattr(self, "container_args", "")
+        if isinstance(container_args, list):
+            container_args = " ".join(container_args)
         if not self.cid_file_dir.exists():
             self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
         try:
-            cmd = f"run --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
+            cmd = f"run {docker_args} --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
             logging.info(f"Command to create container is '{cmd}'.")
             PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
             if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
