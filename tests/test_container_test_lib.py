@@ -13,6 +13,7 @@ from container_ci_suite.engines.container import ContainerImage
 
 class TestContainerTestLibUtilities:
     """Test utility functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -49,18 +50,19 @@ class TestContainerTestLibUtilities:
 
     def test_path_append_new_variable(self, clean_environment):
         """Test appending to a new path variable."""
-        self.lib.path_append('TEST_PATH', '/usr/local/bin')
-        assert os.environ['TEST_PATH'] == '/usr/local/bin'
+        self.lib.path_append("TEST_PATH", "/usr/local/bin")
+        assert os.environ["TEST_PATH"] == "/usr/local/bin"
 
     def test_path_append_existing_variable(self, clean_environment):
         """Test appending to an existing path variable."""
-        os.environ['TEST_PATH'] = '/usr/bin'
-        self.lib.path_append('TEST_PATH', '/usr/local/bin')
-        assert os.environ['TEST_PATH'] == '/usr/local/bin:/usr/bin'
+        os.environ["TEST_PATH"] = "/usr/bin"
+        self.lib.path_append("TEST_PATH", "/usr/local/bin")
+        assert os.environ["TEST_PATH"] == "/usr/local/bin:/usr/bin"
 
 
 class TestRegistryFunctions:
     """Test registry and image name functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -98,38 +100,42 @@ class TestRegistryFunctions:
 
 class TestCommandAssertions:
     """Test command assertion functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
     def test_assert_cmd_success_with_success(self, mock_docker_commands):
         """Test successful command assertion."""
-        result = self.lib.assert_cmd_success('true')
+        result = self.lib.assert_cmd_success("true")
         assert result is True
 
     def test_assert_cmd_success_with_failure(self, mock_docker_commands):
         """Test failed command assertion."""
-        result = self.lib.assert_cmd_success('false')
+        result = self.lib.assert_cmd_success("false")
         assert result is False
 
     def test_assert_cmd_failure_with_success(self, mock_docker_commands):
         """Test command failure assertion with successful command."""
-        result = self.lib.assert_cmd_failure('true')
+        result = self.lib.assert_cmd_failure("true")
         assert result is False
 
     def test_assert_cmd_failure_with_failure(self, mock_docker_commands):
         """Test command failure assertion with failing command."""
-        result = self.lib.assert_cmd_failure('false')
+        result = self.lib.assert_cmd_failure("false")
         assert result is True
 
 
 class TestContainerOperations:
     """Test container-related operations."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
     def test_container_exists_false(self):
         """Test container exists check when container doesn't exist."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.return_value = ""
             result = ContainerImage.is_container_exists("test_container")
             assert result is False
@@ -155,6 +161,7 @@ class TestContainerOperations:
 
 class TestImageOperations:
     """Test image-related operations."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -170,10 +177,12 @@ class TestImageOperations:
 
     def test_pull_image_failure(self):
         """Test image pull failure."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.side_effect = [
                 "",  # docker images -q (not found)
-                CalledProcessError(1, "docker pull")  # pull fails
+                CalledProcessError(1, "docker pull"),  # pull fails
             ]
             result = self.lib.pull_image("nonexistent:latest", loops=1)
             assert result is False
@@ -182,11 +191,13 @@ class TestImageOperations:
         """Test successful image build."""
         result = self.lib.build_image_and_parse_id("Dockerfile", ".")
         assert result is True
-        assert hasattr(self.lib, 'app_image_id')
+        assert hasattr(self.lib, "app_image_id")
 
     def test_build_image_and_parse_id_failure(self):
         """Test failed image build."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.side_effect = CalledProcessError(1, "docker build")
             result = self.lib.build_image_and_parse_id("Dockerfile", ".")
             assert result is False
@@ -194,6 +205,7 @@ class TestImageOperations:
 
 class TestEnvironmentChecks:
     """Test environment variable checking functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -228,6 +240,7 @@ class TestEnvironmentChecks:
 
 class TestFileOperations:
     """Test file and directory operations."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -255,9 +268,12 @@ class TestFileOperations:
 
         # Cleanup
         import shutil
+
         shutil.rmtree(result)
 
-    def test_obtain_input_nonexistent(self, ):
+    def test_obtain_input_nonexistent(
+        self,
+    ):
         """Test obtaining input from nonexistent path."""
         result = self.lib.obtain_input("/nonexistent/path")
         assert result is None
@@ -265,6 +281,7 @@ class TestFileOperations:
 
 class TestWaitFunctions:
     """Test wait and timing functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
@@ -294,33 +311,200 @@ class TestWaitFunctions:
 
 class TestImageSizeFunctions:
     """Test image size calculation functions."""
+
     def setup_method(self):
         self.lib = ContainerTestLib()
 
-    def test_get_image_size_uncompressed_success(self, ):
+    def test_get_image_size_uncompressed_success(
+        self,
+    ):
         """Test getting uncompressed image size."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.return_value = "1048576000"  # 1GB in bytes
             size = self.lib.get_image_size_uncompressed("test:latest")
             assert size == "1000MB"
 
-    def test_get_image_size_uncompressed_error(self, ):
+    def test_get_image_size_uncompressed_error(
+        self,
+    ):
         """Test getting uncompressed image size with error."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.side_effect = CalledProcessError(1, "docker inspect")
             size = self.lib.get_image_size_uncompressed("test:latest")
             assert size == "Unknown"
 
-    def test_get_image_size_compressed_success(self, ):
+    def test_get_image_size_compressed_success(
+        self,
+    ):
         """Test getting compressed image size."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.return_value = "524288000"  # 500MB in bytes
             size = self.lib.get_image_size_compressed("test:latest")
             assert size == "500MB"
 
-    def test_get_image_size_compressed_error(self, ):
+    def test_get_image_size_compressed_error(
+        self,
+    ):
         """Test getting compressed image size with error."""
-        with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock_cmd:
+        with patch(
+            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
+        ) as mock_cmd:
             mock_cmd.side_effect = CalledProcessError(1, "docker save")
             size = self.lib.get_image_size_compressed("test:latest")
             assert size == "Unknown"
+
+
+class TestContainerCreationAssertions:
+    """Test container creation assertion functions."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.lib = ContainerTestLib(image_name="test:latest")
+
+    @patch("container_ci_suite.engines.container.ContainerImage.is_container_running")
+    @patch(
+        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
+    )
+    @patch("container_ci_suite.container_lib.ContainerTestLib.get_cid")
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_basic(
+        self, mock_create, mock_get_cid, mock_podman, mock_running
+    ):
+        """Test assert_container_creation_succeeds with basic arguments."""
+        # Setup mocks
+        mock_create.return_value = True
+        mock_get_cid.return_value = "container123"
+        mock_running.return_value = True
+
+        # Test
+        result = self.lib.assert_container_creation_succeeds(
+            container_args="-e TEST=value"
+        )
+
+        assert result is True
+        mock_create.assert_called_once()
+        mock_get_cid.assert_called_once()
+        mock_running.assert_called_once_with("container123")
+
+    @patch("container_ci_suite.engines.container.ContainerImage.is_container_running")
+    @patch(
+        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
+    )
+    @patch("container_ci_suite.container_lib.ContainerTestLib.get_cid")
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_with_list_args(
+        self, mock_create, mock_get_cid, mock_podman, mock_running
+    ):
+        """Test assert_container_creation_succeeds with list arguments."""
+        # Setup mocks
+        mock_create.return_value = True
+        mock_get_cid.return_value = "container123"
+        mock_running.return_value = True
+
+        # Test with list
+        result = self.lib.assert_container_creation_succeeds(
+            container_args=["-e", "TEST=value", "-e", "ANOTHER=test"]
+        )
+
+        assert result is True
+        mock_create.assert_called_once()
+
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_empty_args(self, mock_create):
+        """Test assert_container_creation_succeeds with empty arguments."""
+        result = self.lib.assert_container_creation_succeeds(container_args="")
+
+        assert result is False
+        mock_create.assert_not_called()
+
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_creation_fails(self, mock_create):
+        """Test assert_container_creation_succeeds when creation fails."""
+        mock_create.return_value = False
+
+        result = self.lib.assert_container_creation_succeeds(
+            container_args="-e TEST=value"
+        )
+
+        assert result is False
+
+    @patch("container_ci_suite.engines.container.ContainerImage.is_container_running")
+    @patch(
+        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
+    )
+    @patch("container_ci_suite.container_lib.ContainerTestLib.get_cid")
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_not_running(
+        self, mock_create, mock_get_cid, mock_podman, mock_running
+    ):
+        """Test assert_container_creation_succeeds when container is not running."""
+        # Setup mocks
+        mock_create.return_value = True
+        mock_get_cid.return_value = "container123"
+        mock_running.return_value = False
+        mock_podman.return_value = "1"  # Exit code
+
+        result = self.lib.assert_container_creation_succeeds(
+            container_args="-e TEST=value"
+        )
+
+        assert result is False
+
+    @patch("container_ci_suite.engines.container.ContainerImage.is_container_running")
+    @patch(
+        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
+    )
+    @patch("container_ci_suite.container_lib.ContainerTestLib.get_cid")
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_with_connection_test(
+        self, mock_create, mock_get_cid, mock_podman, mock_running
+    ):
+        """Test assert_container_creation_succeeds with connection test."""
+        # Setup mocks
+        mock_create.return_value = True
+        mock_get_cid.return_value = "container123"
+        mock_running.return_value = True
+
+        # Create a mock connection test function
+        def mock_test_connection(cid_file, params):
+            return params.get("should_succeed", True)
+
+        # Test with successful connection
+        result = self.lib.assert_container_creation_succeeds(
+            container_args="-e TEST=value",
+            test_connection_func=mock_test_connection,
+            connection_params={"should_succeed": True},
+        )
+
+        assert result is True
+
+    @patch("container_ci_suite.engines.container.ContainerImage.is_container_running")
+    @patch(
+        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
+    )
+    @patch("container_ci_suite.container_lib.ContainerTestLib.get_cid")
+    @patch("container_ci_suite.container_lib.ContainerTestLib.create_container")
+    def test_assert_container_creation_succeeds_with_command(
+        self, mock_create, mock_get_cid, mock_podman, mock_running
+    ):
+        """Test assert_container_creation_succeeds with custom command."""
+        # Setup mocks
+        mock_create.return_value = True
+        mock_get_cid.return_value = "container123"
+        mock_running.return_value = True
+
+        # Test with command
+        result = self.lib.assert_container_creation_succeeds(
+            container_args="-e TEST=value", command="bash -c 'sleep 100'"
+        )
+
+        assert result is True
+        # Verify command was passed to create_container
+        call_args = mock_create.call_args
+        assert call_args[1]["command"] == "bash -c 'sleep 100'"
