@@ -67,8 +67,10 @@ class PodmanCLIWrapper(object):
         return PodmanCLIWrapper.call_podman_command(f"inspect -f '{field}' {src_image}")
 
     @staticmethod
-    def podman_run_command(cmd):
-        return PodmanCLIWrapper.call_podman_command(f"run {cmd}")
+    def podman_run_command(cmd, ignore_error: bool = False, return_output: bool = True):
+        return PodmanCLIWrapper.call_podman_command(
+            f"run {cmd}", ignore_error=ignore_error, return_output=return_output
+        )
 
     @staticmethod
     def podman_exec_shell_command(

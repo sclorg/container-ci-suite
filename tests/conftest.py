@@ -169,14 +169,14 @@ def temp_dir():
 @pytest.fixture
 def mock_run_command():
     """Mock the run_command function."""
-    with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command') as mock:
+    with patch("container_ci_suite.utils.ContainerTestLibUtils.run_command") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_podman_wrapper():
     """Mock the PodmanCLIWrapper."""
-    with patch('container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper') as mock:
+    with patch("container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper") as mock:
         yield mock
 
 
@@ -195,49 +195,54 @@ CMD ["node", "server.js"]
 def sample_environment_vars():
     """Sample environment variables for testing."""
     return {
-        'X_SCLS': 'nodejs16',
-        'PATH': '/opt/rh/nodejs16/bin:/usr/local/bin:/usr/bin:/bin',
-        'LD_LIBRARY_PATH': '/opt/rh/nodejs16/lib64',
-        'NODEJS_VERSION': '16'
+        "X_SCLS": "nodejs16",
+        "PATH": "/opt/rh/nodejs16/bin:/usr/local/bin:/usr/bin:/bin",
+        "LD_LIBRARY_PATH": "/opt/rh/nodejs16/lib64",
+        "NODEJS_VERSION": "16",
     }
 
 
 @pytest.fixture
 def mock_docker_commands():
     """Mock common docker commands."""
+
     def mock_command(cmd, return_output=True, ignore_error=False, **kwargs):
-        if 'podman images -q' in cmd:
+        if "podman images -q" in cmd:
             return "sha256:abc123" if return_output else 0
-        elif 'podman inspect' in cmd and 'State.Running' in cmd:
+        elif "podman inspect" in cmd and "State.Running" in cmd:
             return "true" if return_output else 0
-        elif 'podman inspect' in cmd and 'State.ExitCode' in cmd:
+        elif "podman inspect" in cmd and "State.ExitCode" in cmd:
             return "0" if return_output else 0
-        elif 'podman inspect' in cmd and 'NetworkSettings.IPAddress' in cmd:
+        elif "podman inspect" in cmd and "NetworkSettings.IPAddress" in cmd:
             return "172.27.0.2" if return_output else 0
-        elif 'podman ps -q -a' in cmd:
+        elif "podman ps -q -a" in cmd:
             return "container123" if return_output else 0
-        elif 'podman pull' in cmd:
+        elif "podman pull" in cmd:
             return "Successfully pulled" if return_output else 0
-        elif 'podman build' in cmd:
+        elif "podman build" in cmd:
             return "Successfully built abc123\nabc123" if return_output else 0
-        elif 'podman run' in cmd and 'env' in cmd:
+        elif "podman run" in cmd and "env" in cmd:
             return "PATH=/usr/bin\nX_SCLS=nodejs16" if return_output else 0
-        elif 'podman run' in cmd and 'npm --version' in cmd:
+        elif "podman run" in cmd and "npm --version" in cmd:
             return "8.19.2" if return_output else 0
-        elif 'curl' in cmd:
+        elif "curl" in cmd:
             return "Welcome to the app200" if return_output else 0
-        elif cmd in ['true']:
+        elif cmd in ["true"]:
             return "" if return_output else 0
-        elif cmd in ['false']:
+        elif cmd in ["false"]:
             if ignore_error:
                 return "" if return_output else 1
             else:
                 from subprocess import CalledProcessError
+
                 raise CalledProcessError(1, cmd)
         else:
             return "" if return_output else 0
 
-    with patch('container_ci_suite.utils.ContainerTestLibUtils.run_command', side_effect=mock_command) as mock:
+    with patch(
+        "container_ci_suite.utils.ContainerTestLibUtils.run_command",
+        side_effect=mock_command,
+    ) as mock:
         yield mock
 
 
@@ -250,18 +255,23 @@ def mock_file_operations():
         path_str = str(filename)
         if path_str in mock_files:
             return mock_files[path_str]
-        elif 'cid' in path_str:
+        elif "cid" in path_str:
             return "container123"
         else:
             return "mock_content"
 
     def mock_file_exists(self):
-        return str(self) in mock_files or 'test' in str(self)
+        return str(self) in mock_files or "test" in str(self)
 
-    with patch('container_ci_suite.utils.get_file_content', side_effect=mock_get_file_content), \
-         patch('pathlib.Path.exists', mock_file_exists), \
-         patch('pathlib.Path.is_file', lambda self: True), \
-         patch('pathlib.Path.is_dir', lambda self: False):
+    with (
+        patch(
+            "container_ci_suite.utils.get_file_content",
+            side_effect=mock_get_file_content,
+        ),
+        patch("pathlib.Path.exists", mock_file_exists),
+        patch("pathlib.Path.is_file", lambda self: True),
+        patch("pathlib.Path.is_dir", lambda self: False),
+    ):
         yield mock_files
 
 
@@ -270,7 +280,7 @@ def clean_environment():
     """Clean environment variables for testing."""
     original_env = os.environ.copy()
     # Remove test-related environment variables
-    test_vars = ['NPM_REGISTRY', 'DEBUG', 'IGNORE_UNSTABLE_TESTS']
+    test_vars = ["NPM_REGISTRY", "DEBUG", "IGNORE_UNSTABLE_TESTS"]
     for var in test_vars:
         if var in os.environ:
             del os.environ[var]
@@ -286,6 +296,7 @@ def clean_environment():
 def mock_subprocess_error():
     """Mock subprocess.CalledProcessError for testing."""
     from subprocess import CalledProcessError
+
     return CalledProcessError(1, "mock_command", "mock_output")
 
 
@@ -295,12 +306,8 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: mark test as integration test (requires docker)"
     )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
-    config.addinivalue_line(
-        "markers", "network: mark test as requiring network access"
-    )
+    config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "network: mark test as requiring network access")
 
 
 @pytest.fixture
@@ -312,10 +319,7 @@ def temp_directories():
     app_id_dir = tempfile.mkdtemp(prefix="test_app_ids_")
     cid_dir = tempfile.mkdtemp(prefix="test_cids_")
 
-    yield {
-        'app_id_dir': app_id_dir,
-        'cid_dir': cid_dir
-    }
+    yield {"app_id_dir": app_id_dir, "cid_dir": cid_dir}
 
     # Cleanup
     shutil.rmtree(app_id_dir, ignore_errors=True)
@@ -326,15 +330,15 @@ def temp_directories():
 def mock_docker_responses():
     """Fixture providing common docker command responses."""
     return {
-        'container_running_true': "true",
-        'container_running_false': "false",
-        'container_exists': "container_id_12345",
-        'container_not_exists': "",
-        'image_inspect_size': "1073741824",  # 1GB
-        'image_inspect_created': "2024-01-01T12:00:00.123456789Z",
-        'docker_build_success': "Successfully built sha256:abcdef123456",
-        'npm_version': "v16.14.0",
-        'scl_enabled': "nodejs14 python38"
+        "container_running_true": "true",
+        "container_running_false": "false",
+        "container_exists": "container_id_12345",
+        "container_not_exists": "",
+        "image_inspect_size": "1073741824",  # 1GB
+        "image_inspect_created": "2024-01-01T12:00:00.123456789Z",
+        "docker_build_success": "Successfully built sha256:abcdef123456",
+        "npm_version": "v16.14.0",
+        "scl_enabled": "nodejs14 python38",
     }
 
 
@@ -342,11 +346,11 @@ def mock_docker_responses():
 def sample_s2i_app_structure():
     """Fixture providing sample S2I application structure."""
     return {
-        'app.js': 'console.log("Hello World");',
-        'package.json': '{"name": "test-app", "version": "1.0.0"}',
-        '.s2i/environment': 'NODE_ENV=production\nPORT=8080',
-        '.s2i/bin/assemble': '#!/bin/bash\nnpm install',
-        '.s2i/bin/run': '#!/bin/bash\nnode app.js'
+        "app.js": 'console.log("Hello World");',
+        "package.json": '{"name": "test-app", "version": "1.0.0"}',
+        ".s2i/environment": "NODE_ENV=production\nPORT=8080",
+        ".s2i/bin/assemble": "#!/bin/bash\nnpm install",
+        ".s2i/bin/run": "#!/bin/bash\nnode app.js",
     }
 
 
@@ -368,12 +372,29 @@ bGUuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC7vbqajDw4o6gJy8I8
 def environment_variables():
     """Fixture providing common environment variables for testing."""
     return {
-        'IMAGE_NAME': 'test-image:latest',
-        'VERSION': '1.0',
-        'OS': 'rhel8',
-        'NPM_REGISTRY': 'https://registry.example.com',
-        'CONTAINER_ARGS': '--rm -p 8080:8080',
-        'TEST_SET': 'test_basic test_advanced test_integration',
-        'UNSTABLE_TESTS': 'test_flaky',
-        'IGNORE_UNSTABLE_TESTS': 'true'
+        "IMAGE_NAME": "test-image:latest",
+        "VERSION": "1.0",
+        "OS": "rhel8",
+        "NPM_REGISTRY": "https://registry.example.com",
+        "CONTAINER_ARGS": "--rm -p 8080:8080",
+        "TEST_SET": "test_basic test_advanced test_integration",
+        "UNSTABLE_TESTS": "test_flaky",
+        "IGNORE_UNSTABLE_TESTS": "true",
     }
+
+
+# Test fixtures for test_lib module
+@pytest.fixture
+def mock_container_test_lib():
+    """Fixture providing a mocked ContainerTestLib instance."""
+    from container_ci_suite.test_lib import ContainerTestLib
+
+    return ContainerTestLib()
+
+
+@pytest.fixture
+def mock_container_test_lib_extended():
+    """Fixture providing a mocked ContainerTestLibExtended instance."""
+    from container_ci_suite.test_lib import ContainerTestLibExtended
+
+    return ContainerTestLibExtended()
