@@ -362,6 +362,7 @@ class ContainerTestLib:
         database: str = "db",
         max_attempts: int = 60,
         sleep_time: int = 3,
+        sql_cmd: Optional[str] = None,
     ) -> bool:
         return self.db_lib.test_connection(
             container_ip=container_ip,
@@ -370,6 +371,7 @@ class ContainerTestLib:
             database=database,
             max_attempts=max_attempts,
             sleep_time=sleep_time,
+            sql_cmd=sql_cmd,
         )
 
     def assert_container_creation_fails(
