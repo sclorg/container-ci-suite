@@ -37,7 +37,7 @@ Converted from bash functions in:
 import logging
 import subprocess
 import time
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from enum import Enum
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
@@ -95,8 +95,9 @@ class DatabaseWrapper:
         self.image_name = image_name
         self.db_type = db_type.lower()
         logger.debug(
-            f"DatabaseWrapper initialized with image: {image_name}, "
-            f"type: {self.db_type}"
+            "DatabaseWrapper initialized with image: %s, type: %s",
+            image_name,
+            self.db_type,
         )
 
     def assert_login_success(
@@ -180,8 +181,11 @@ class DatabaseWrapper:
             >>> assert db.assert_login_access("172.17.0.2", "user", "wrong", False)
         """
         logger.info(
-            f"Testing {self.db_type} login as {username}:{password}; "
-            f"expected_success={expected_success}"
+            "Testing %s login as %s:%s; expected_success=%s",
+            self.db_type,
+            username,
+            password,
+            expected_success,
         )
 
         try:
@@ -195,22 +199,22 @@ class DatabaseWrapper:
                 )
 
             if success and expected_success:
-                logger.info(f"    {username}({password}) access granted as expected")
+                logger.info("    %s(%s) access granted as expected", username, password)
                 return True
             elif not success and not expected_success:
-                logger.info(f"    {username}({password}) access denied as expected")
+                logger.info("    %s(%s) access denied as expected", username, password)
                 return True
             else:
-                logger.error(f"    {username}({password}) login assertion failed")
+                logger.error("    %s(%s) login assertion failed", username, password)
                 return False
 
         except Exception as e:
-            logger.error(f"Error during login test: {e}")
+            logger.error("Error during login test: %s", e)
             if not expected_success:
-                logger.info(f"    {username}({password}) access denied as expected")
+                logger.info("    %s(%s) access denied as expected", username, password)
                 return True
             else:
-                logger.error(f"    {username}({password}) login assertion failed")
+                logger.error("    %s(%s) login assertion failed", username, password)
                 return False
 
     def _test_mysql_login(
@@ -287,6 +291,8 @@ class DatabaseWrapper:
         port: int = 3306,
         extra_args: str = "",
         sql_command: Optional[str] = None,
+        container_id: Optional[str] = None,
+        podman_run_command: Optional[str] = "run --rm",
     ) -> str:
         """
         Execute a MySQL command against a container.
@@ -310,7 +316,8 @@ class DatabaseWrapper:
             port: Port number (default: 3306)
             extra_args: Additional arguments to pass to mysql command
             sql_command: SQL command to execute (e.g., "-e 'SELECT 1;'")
-
+            podman_run_command: Podman run command to use (default: "run --rm")
+            ignore_error: Ignore error and return output (default: False)
         Returns:
             Command output as string
 
@@ -322,9 +329,13 @@ class DatabaseWrapper:
             >>> output = db.mysql_cmd("172.17.0.2", "user", "pass",
             ...                       sql_command="-e 'SELECT 1;'")
         """
+        if not container_id:
+            container_id = self.image_name
+        if not sql_command:
+            sql_command = "-e 'SELECT 1;'"
         cmd_parts = [
-            "run --rm",
-            self.image_name,
+            podman_run_command,
+            container_id,
             "mysql",
             f"--host {container_ip}",
             f"--port {port}",
@@ -341,19 +352,23 @@ class DatabaseWrapper:
         cmd_parts.append(database)
 
         cmd = " ".join(cmd_parts)
-        logging.debug(f"Executing command: {cmd}")
+        logging.debug("Executing command: %s", cmd)
 
-        return PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
+        return PodmanCLIWrapper.call_podman_command(
+            cmd=cmd, return_output=True, ignore_error=False
+        )
 
     def postgresql_cmd(
         self,
         container_ip: str,
         username: str,
         password: str,
+        container_id: Optional[str] = None,
         database: str = "db",
         port: int = 5432,
         extra_args: str = "",
         sql_command: Optional[str] = None,
+        podman_run_command: Optional[str] = "run --rm",
     ) -> str:
         """
         Execute a PostgreSQL command against a container.
@@ -387,9 +402,10 @@ class DatabaseWrapper:
             ...                            sql_command="-c 'SELECT 1;'")
         """
         connection_string = f"postgresql://{username}@{container_ip}:{port}/{database}"
-
+        if not container_id:
+            container_id = self.image_name
         cmd_parts = [
-            "run --rm",
+            podman_run_command,
             f"-e PGPASSWORD={password}",
             self.image_name,
             "psql",
@@ -432,7 +448,7 @@ class DatabaseWrapper:
             port: Port number (default: 3306 for MySQL, 5432 for PostgreSQL)
             max_attempts: Maximum number of connection attempts (default: 60)
             sleep_time: Seconds to wait between attempts (default: 3)
-
+            sql_cmd: SQL command to execute (e.g., "SELECT 1;")
         Returns:
             True if connection successful, False otherwise
 
@@ -441,7 +457,7 @@ class DatabaseWrapper:
             >>> if db.test_connection("172.17.0.2", "user", "pass"):
             ...     print("Database is ready!")
         """
-        logger.info(f"Testing {self.db_type} connection to {container_ip}...")
+        logger.info("Testing %s connection to %s...", self.db_type, container_ip)
         logger.info("Trying to connect...")
         for attempt in range(1, max_attempts + 1):
             try:
@@ -463,16 +479,16 @@ class DatabaseWrapper:
                         database=database,
                         sql_command=sql_cmd,
                     )
-                logging.debug(f"Output: {return_output}")
-                logger.info(f"Connection successful on attempt {attempt}")
+                logging.debug("Output: %s", return_output)
+                logger.info("Connection successful on attempt %s", attempt)
                 return True
 
             except subprocess.CalledProcessError:
                 if attempt < max_attempts:
-                    logger.debug(f"Attempt {attempt} failed, retrying...")
+                    logger.debug("Attempt %s failed, retrying...", attempt)
                     time.sleep(sleep_time)
                 else:
-                    logger.error(f"Failed to connect after {max_attempts} attempts")
+                    logger.error("Failed to connect after %s attempts", max_attempts)
                     return False
 
         return False
@@ -526,27 +542,118 @@ class DatabaseWrapper:
             logger.error("    Local access assertion failed")
             return False
 
-    # def run_db_command(
-    #     self, container_id: str, username: str, password: str, db_command: str
-    # ) -> str:
-    #     """
-    #     Run a database command inside the container.
+    def run_sql_command(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        container_ip: str = None,
+        port: int = 3306,
+        sql_cmd: Optional[Union[list[str], str]] = None,
+        database: str = "db",
+        max_attempts: int = 60,
+        sleep_time: int = 3,
+        container_id: Optional[str] = None,
+        podman_run_command: Optional[str] = "run --rm",
+        ignore_error: bool = False,
+    ) -> str | bool:
+        """
+        Run a database command inside the container.
 
-    #     Args:
-    #         container_id: Container ID or name
-    #         command: Command to run like mysql or psql
+        Bash equivalent:
+        ```bash
+        docker exec -i $(get_cid "$id") bash -c psql <<< "SELECT 1;"
+        ```
 
-    #     Returns:
-    #         Command output as string
-    #     """
-    #     if self.db_type in ["postgresql", "postgres"]:
-    #         db_cmd = (
-    #             f"psql -h {container_ip} -u{username} -p{password} -e '{db_command};'"
-    #         )
-    #     else:
-    #         db_cmd = (
-    #             f"mysql -h {container_ip} -u{username} -p{password}  -e '{db_command};'"
-    #         )
-    #     return PodmanCLIWrapper.call_podman_command(
-    #         cmd=f"run --rm {container_id} {db_cmd}", return_output=True
-    #     )
+        Args:
+            username: Username to test with (default: "root" for MySQL, None for PostgreSQL)
+            password: Password to test with
+            container_ip: IP address of the container
+            sql_cmd: SQL command to execute (e.g., "SELECT 1;")
+            database: Database name (default: "db")
+            port: Port number (default: 3306 for MySQL, 5432 for PostgreSQL)
+            max_attempts: Maximum number of attempts (default: 60)
+            sleep_time: Time to sleep between attempts (default: 3)
+            container_id: Container ID or name
+            podman_run_command: Podman run command to use (default: "run --rm")
+
+        Returns:
+            Command output as string or False if command failed
+        """
+        if not container_id:
+            container_id = self.image_name
+        if not sql_cmd:
+            sql_cmd = "SELECT 1;"
+        if isinstance(sql_cmd, str):
+            sql_cmd = [sql_cmd]
+        logger.debug(
+            "Podman run command: %s with image: %s", podman_run_command, container_id
+        )
+        logger.debug("Database type: %s", self.db_type)
+        logger.debug("SQL command: %s", sql_cmd)
+        logger.debug("Database: %s", database)
+        logger.debug("Username: %s", username)
+        logger.debug("Password: %s", password)
+        logger.debug("Container IP: %s", container_ip)
+        logger.debug("Port: %s", port)
+        logger.debug("Max attempts: %s", max_attempts)
+        logger.debug("Sleep time: %s", sleep_time)
+        return_output = None
+        for cmd in sql_cmd:
+            for attempt in range(1, max_attempts + 1):
+                if self.db_type in ["postgresql", "postgres"]:
+                    return_output = self.postgresql_cmd(
+                        container_ip=container_ip,
+                        username=username,
+                        password=password,
+                        database=database,
+                        sql_command=f"-e '{cmd}'",
+                        container_id=container_id,
+                        podman_run_command=podman_run_command,
+                    )
+                else:
+                    try:
+                        return_output = self.mysql_cmd(
+                            container_ip=container_ip,
+                            username=username,
+                            password=password,
+                            database=database,
+                            sql_command=f"-e '{cmd}'",
+                            container_id=container_id,
+                            podman_run_command=podman_run_command,
+                        )
+                    except subprocess.CalledProcessError as cpe:
+                        # In case of ignore_error, we return the output
+                        # This is useful for commands that are expected to fail, like wrong login
+                        if ignore_error:
+                            return_output = cpe.output
+                        else:
+                            logger.error(
+                                "Failed to execute command, output: %s, error: %s",
+                                cpe.output,
+                                cpe.stderr,
+                            )
+                            return False
+                if return_output or return_output == "":
+                    logger.info("Command executed successfully on attempt %s", attempt)
+                    # Let's break out of the loop and return the output
+                    break
+                else:
+                    if attempt < max_attempts:
+                        logger.debug(
+                            "Attempt %s failed, output: '%s', retrying...",
+                            attempt,
+                            return_output,
+                        )
+                        time.sleep(sleep_time)
+                    else:
+                        logger.error(
+                            "Failed to execute command after %s attempts, output: %s",
+                            max_attempts,
+                            return_output,
+                        )
+                        return False
+        if return_output:
+            logger.info("All commands executed successfully")
+            logger.debug("Output:\n%s", return_output)
+            return return_output
+        return False

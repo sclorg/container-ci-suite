@@ -394,10 +394,14 @@ class ContainerTestLib:
         if self.create_container(
             cid_file_name=cid_file_name, container_args=container_args, command=command
         ):
+            logging.info(f"Container creation succeeded for {cid_file_name}")
             container_id = self.get_cid(cid_file_name)
             attempt = 1
             while attempt <= max_attempts:
                 if not ContainerImage.is_container_running(container_id):
+                    logging.info(
+                        f"Container {container_id} is not running after {attempt} attempts."
+                    )
                     break
                 time.sleep(2)
                 attempt += 1
@@ -412,6 +416,7 @@ class ContainerTestLib:
                     cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                     return_output=True,
                 ).strip()
+                logging.info(f"Exit status for {container_id} is {exit_status}")
                 if exit_status == "0":
                     return False
             except subprocess.CalledProcessError:
@@ -629,7 +634,10 @@ class ContainerTestLib:
         try:
             cmd = f"run {docker_args} --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
             logging.info(f"Command to create container is '{cmd}'.")
-            PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
+            ret_value = PodmanCLIWrapper.call_podman_command(
+                cmd=cmd, return_output=True
+            )
+            logging.info(f"Return value for command '{cmd}' is '{ret_value}'.")
             if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
                 return False
             container_id = utils.get_file_content(full_cid_file_name).strip()
