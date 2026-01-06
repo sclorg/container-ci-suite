@@ -79,17 +79,22 @@ class PodmanCLIWrapper(object):
         used_shell: str = "/bin/bash",
         return_output: bool = True,
         debug: bool = False,
+        not_shell: bool = False,
     ):
         """
         Function executes shell command if image_name is present in system.
         :param cid_file_name: image to check specified by cid_file_name
         :param cmd: command that will be executed in image
         :param used_shell: which shell will be used /bin/bash or /bin/sh
+        :param not_shell: if True, the command will be executed without a shell
         :return True: In case if image is present
                 False: In case if image is not present
         """
-        cmd = f'exec {cid_file_name} {used_shell} -c "{cmd}"'
-        print(f"podman exec command is: {cmd}")
+        if not_shell:
+            cmd = f"exec {cid_file_name} {cmd}"
+        else:
+            cmd = f"exec {cid_file_name} {used_shell} -c '{cmd}'"
+        print(f"podman command is: {cmd}")
         try:
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd, return_output=return_output, debug=debug
@@ -118,7 +123,7 @@ class PodmanCLIWrapper(object):
         :return True: In case if image is present
                 False: In case if image is not present
         """
-        cmd = f'run --rm {cid_file_name} /bin/bash -c "{cmd}"'
+        cmd = f"run --rm {cid_file_name} /bin/bash -c '{cmd}'"
         print(f"podman command is: '{cmd}'")
         try:
             output = PodmanCLIWrapper.call_podman_command(

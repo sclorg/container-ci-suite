@@ -35,6 +35,7 @@ Converted from bash functions in:
 """
 
 import logging
+import re
 import subprocess
 import time
 from typing import Optional, Literal, Union
@@ -99,6 +100,50 @@ class DatabaseWrapper:
             image_name,
             self.db_type,
         )
+
+    def wait_for_database(
+        self,
+        container_id: str,
+        command: str,
+        max_attempts: int = 10,
+        sleep_time: int = 3,
+    ) -> bool:
+        """
+        Wait for the database to be ready.
+        Args:
+            container_id: Container ID or name
+            command: Command to execute to test if the database is ready
+            max_attempts: Maximum number of attempts to wait for the database to be ready
+            sleep_time: Time to sleep between attempts
+        Returns:
+            True if database is ready, False otherwise
+        """
+        logger.debug("Waiting for database to be ready...")
+        logger.debug("Container ID: %s", container_id)
+        logger.debug("Command: %s", command)
+        logger.debug("Max attempts: %s", max_attempts)
+        logger.debug("Sleep time: %s", sleep_time)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                output = PodmanCLIWrapper.podman_exec_shell_command(
+                    cid_file_name=container_id, cmd=command, not_shell=True
+                )
+                if isinstance(output, bool) and not output:
+                    logger.debug(
+                        "Database not ready, attempt %s, retrying... (output: '%s')",
+                        attempt,
+                        output,
+                    )
+                    time.sleep(sleep_time)
+                    continue
+                if isinstance(output, str) and output.strip() == "":
+                    logger.info("Database is ready (output: %s)", output)
+                    return True
+            except subprocess.CalledProcessError as cpe:
+                logger.error("Error waiting for database: %s", cpe)
+            time.sleep(sleep_time)
+        logger.error("Database not ready after %s attempts", max_attempts)
+        return False
 
     def assert_login_success(
         self,
@@ -369,6 +414,7 @@ class DatabaseWrapper:
         extra_args: str = "",
         sql_command: Optional[str] = None,
         podman_run_command: Optional[str] = "run --rm",
+        docker_args: str = "",
     ) -> str:
         """
         Execute a PostgreSQL command against a container.
@@ -389,7 +435,8 @@ class DatabaseWrapper:
             port: Port number (default: 5432)
             extra_args: Additional arguments to pass to psql command
             sql_command: SQL command to execute (e.g., "-c 'SELECT 1;'")
-
+            podman_run_command: Podman run command to use (default: "run --rm")
+            docker_args: Docker arguments to pass to podman run command
         Returns:
             Command output as string
 
@@ -406,11 +453,12 @@ class DatabaseWrapper:
             container_id = self.image_name
         cmd_parts = [
             podman_run_command,
+            docker_args,
             f"-e PGPASSWORD={password}",
-            self.image_name,
+            container_id,
             "psql",
             "-v ON_ERROR_STOP=1",
-            f"'{connection_string}'",
+            connection_string,
         ]
 
         if extra_args:
@@ -550,11 +598,14 @@ class DatabaseWrapper:
         port: int = 3306,
         sql_cmd: Optional[Union[list[str], str]] = None,
         database: str = "db",
-        max_attempts: int = 60,
+        max_attempts: int = 10,
         sleep_time: int = 3,
         container_id: Optional[str] = None,
+        docker_args: Optional[Union[list[str], str]] = "",
         podman_run_command: Optional[str] = "run --rm",
         ignore_error: bool = False,
+        expected_output: Optional[str] = None,
+        use_bash: bool = False,
     ) -> str | bool:
         """
         Run a database command inside the container.
@@ -575,7 +626,8 @@ class DatabaseWrapper:
             sleep_time: Time to sleep between attempts (default: 3)
             container_id: Container ID or name
             podman_run_command: Podman run command to use (default: "run --rm")
-
+            ignore_error: Ignore error and return output (default: False)
+            expected_output: Expected output of the command (default: None)
         Returns:
             Command output as string or False if command failed
         """
@@ -585,10 +637,13 @@ class DatabaseWrapper:
             sql_cmd = "SELECT 1;"
         if isinstance(sql_cmd, str):
             sql_cmd = [sql_cmd]
+        if isinstance(docker_args, list):
+            docker_args = " ".join(docker_args)
         logger.debug(
             "Podman run command: %s with image: %s", podman_run_command, container_id
         )
         logger.debug("Database type: %s", self.db_type)
+        logger.debug("Docker arguments: %s", docker_args)
         logger.debug("SQL command: %s", sql_cmd)
         logger.debug("Database: %s", database)
         logger.debug("Username: %s", username)
@@ -599,28 +654,22 @@ class DatabaseWrapper:
         logger.debug("Sleep time: %s", sleep_time)
         return_output = None
         for cmd in sql_cmd:
+            if use_bash:
+                cmd = f'bash -c "{cmd}"'
             for attempt in range(1, max_attempts + 1):
                 if self.db_type in ["postgresql", "postgres"]:
-                    return_output = self.postgresql_cmd(
-                        container_ip=container_ip,
-                        username=username,
-                        password=password,
-                        database=database,
-                        sql_command=f"-e '{cmd}'",
-                        container_id=container_id,
-                        podman_run_command=podman_run_command,
-                    )
-                else:
                     try:
-                        return_output = self.mysql_cmd(
+                        return_output = self.postgresql_cmd(
                             container_ip=container_ip,
                             username=username,
                             password=password,
                             database=database,
-                            sql_command=f"-e '{cmd}'",
+                            sql_command=cmd,
                             container_id=container_id,
                             podman_run_command=podman_run_command,
+                            docker_args=docker_args,
                         )
+                        logger.info("PostgreSQL return output: %s", return_output)
                     except subprocess.CalledProcessError as cpe:
                         # In case of ignore_error, we return the output
                         # This is useful for commands that are expected to fail, like wrong login
@@ -633,27 +682,49 @@ class DatabaseWrapper:
                                 cpe.stderr,
                             )
                             return False
-                if return_output or return_output == "":
-                    logger.info("Command executed successfully on attempt %s", attempt)
-                    # Let's break out of the loop and return the output
-                    break
                 else:
-                    if attempt < max_attempts:
-                        logger.debug(
-                            "Attempt %s failed, output: '%s', retrying...",
-                            attempt,
-                            return_output,
+                    try:
+                        return_output = self.mysql_cmd(
+                            container_ip=container_ip,
+                            username=username,
+                            password=password,
+                            database=database,
+                            sql_command=f"-e '{cmd}'",
+                            container_id=container_id,
+                            podman_run_command=podman_run_command,
                         )
-                        time.sleep(sleep_time)
-                    else:
-                        logger.error(
-                            "Failed to execute command after %s attempts, output: %s",
-                            max_attempts,
-                            return_output,
-                        )
-                        return False
+                        logger.info("MySQL return output: %s", return_output)
+                    except subprocess.CalledProcessError as cpe:
+                        # In case of ignore_error, we return the output
+                        # This is useful for commands that are expected to fail, like wrong login
+                        if ignore_error:
+                            return_output = cpe.output
+                        else:
+                            logger.error(
+                                "Failed to execute command, output: %s, error: %s",
+                                cpe.output,
+                                cpe.stderr,
+                            )
+                            return False
+                if (
+                    return_output
+                    and expected_output
+                    and re.search(expected_output, return_output)
+                ):
+                    logger.info("Command executed successfully on attempt %s", attempt)
+                    break
+                if return_output and not expected_output:
+                    logger.info(
+                        "Command executed successfully without checking for expected output on attempt %s"
+                        % attempt
+                    )
+                    break
+                if attempt < max_attempts:
+                    time.sleep(sleep_time)
+                else:
+                    return False
         if return_output:
             logger.info("All commands executed successfully")
-            logger.debug("Output:\n%s", return_output)
+            logger.debug("Output:\n'%s'", return_output)
             return return_output
         return False
