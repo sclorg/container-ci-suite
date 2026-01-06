@@ -38,7 +38,7 @@ import subprocess
 import logging
 import urllib.request
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 from datetime import datetime
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
@@ -360,7 +360,7 @@ class ContainerTestLib:
         username: str = "user",
         password: str = "pass",
         database: str = "db",
-        max_attempts: int = 60,
+        max_attempts: int = 10,
         sleep_time: int = 3,
         sql_cmd: Optional[str] = None,
     ) -> bool:
@@ -613,7 +613,7 @@ class ContainerTestLib:
         self,
         cid_file_name: str = "",
         container_args: str = "",
-        docker_args: str = "",
+        docker_args: Union[list[str], str] = "",
         command: str = "",
     ) -> bool:
         """
@@ -626,8 +626,11 @@ class ContainerTestLib:
         Returns:
             True if container created successfully, False otherwise
         """
+
         if isinstance(container_args, list):
             container_args = " ".join(container_args)
+        if isinstance(docker_args, list):
+            docker_args = " ".join(docker_args)
         if not self.cid_file_dir.exists():
             self.cid_file_dir = Path(tempfile.mkdtemp(prefix="cid_files_"))
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
@@ -1609,6 +1612,7 @@ class ContainerTestLib:
                 podman_build_log=self.podman_build_log,
                 app_id_file_dir=self.app_id_file_dir,
                 cid_file_dir=self.cid_file_dir,
+                db_type=self.db_type,
             )
         except Exception as e:
             print(f"S2I build failed: {e}")
