@@ -693,7 +693,7 @@ class DatabaseWrapper:
                             container_id=container_id,
                             podman_run_command=podman_run_command,
                         )
-                        logger.info("MySQL return output: %s", return_output)
+                        logger.info("MySQL return output: '%s'", return_output)
                     except subprocess.CalledProcessError as cpe:
                         # In case of ignore_error, we return the output
                         # This is useful for commands that are expected to fail, like wrong login
@@ -706,19 +706,17 @@ class DatabaseWrapper:
                                 cpe.stderr,
                             )
                             return False
-                if (
-                    return_output
-                    and expected_output
-                    and re.search(expected_output, return_output)
-                ):
-                    logger.info("Command executed successfully on attempt %s", attempt)
-                    break
-                if return_output and not expected_output:
+                if expected_output is None:
                     logger.info(
                         "Command executed successfully without checking for expected output on attempt %s"
                         % attempt
                     )
                     break
+                if re.search(expected_output, return_output):
+                    logger.info("Command executed successfully on attempt %s", attempt)
+                    break
+                else:
+                    logger.debug("Expected output not found in return output")
                 if attempt < max_attempts:
                     time.sleep(sleep_time)
                 else:
