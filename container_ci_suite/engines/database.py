@@ -38,9 +38,9 @@ import logging
 import re
 import subprocess
 import time
-from typing import Optional, Literal, Union
+from typing import Optional, Literal, Union, Dict
 from enum import Enum
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 
@@ -411,6 +411,7 @@ class DatabaseWrapper:
         password: str,
         container_id: Optional[str] = None,
         database: str = "db",
+        uri_params: Dict[str, str] = {},
         port: int = 5432,
         extra_args: str = "",
         sql_command: Optional[str] = None,
@@ -451,7 +452,8 @@ class DatabaseWrapper:
         """
         encoded_username = quote(username)
         encoded_database = quote(database)
-        connection_string = f"postgresql://{encoded_username}@{container_ip}:{port}/{encoded_database}"
+        encoded_params = f"?{urlencode(uri_params)}" if uri_params else ""
+        connection_string = f"postgresql://{encoded_username}@{container_ip}:{port}/{encoded_database}{encoded_params}"
         if not container_id:
             container_id = self.image_name
         cmd_parts = [
@@ -480,6 +482,7 @@ class DatabaseWrapper:
         username: str,
         password: str,
         database: str = "db",
+        uri_params: Dict[str, str] = {},
         max_attempts: int = 60,
         sleep_time: int = 3,
         sql_cmd: Optional[str] = None,
@@ -519,6 +522,7 @@ class DatabaseWrapper:
                         username=username,
                         password=password,
                         database=database,
+                        uri_params=uri_params,
                         sql_command=sql_cmd,
                     )
                 else:  # mysql or mariadb
