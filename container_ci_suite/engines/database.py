@@ -40,6 +40,7 @@ import subprocess
 import time
 from typing import Optional, Literal, Union
 from enum import Enum
+from urllib.parse import quote
 
 from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 
@@ -448,13 +449,15 @@ class DatabaseWrapper:
             >>> output = db.postgresql_cmd("172.17.0.2", "user", "pass",
             ...                            sql_command="-c 'SELECT 1;'")
         """
-        connection_string = f"postgresql://{username}@{container_ip}:{port}/{database}"
+        encoded_username = quote(username)
+        encoded_database = quote(database)
+        connection_string = f"postgresql://{encoded_username}@{container_ip}:{port}/{encoded_database}"
         if not container_id:
             container_id = self.image_name
         cmd_parts = [
             podman_run_command,
             docker_args,
-            f"-e PGPASSWORD={password}",
+            f'-e PGPASSWORD="{password}"',
             container_id,
             "psql",
             "-v ON_ERROR_STOP=1",
