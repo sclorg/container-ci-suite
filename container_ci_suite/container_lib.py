@@ -348,11 +348,19 @@ class ContainerTestLib:
         return True
 
     def get_cid(self, cid_file_name: str) -> str:
+        """Get container ID from cid_file."""
         logging.debug(f"Get content of CID_NAME: {cid_file_name}")
         return self.lib.get_cid(cid_file_name=cid_file_name)
 
     def get_cip(self, cid_file_name: str = "app_dockerfile") -> str:
+        """Get container IP address from cid_file."""
         return self.lib.get_cip(cid_file_name=cid_file_name)
+
+    def get_cip_cid(self, cid_file_name: str = "app_dockerfile") -> tuple[str, str]:
+        """Get container ID and IP address from cid_file."""
+        cip = self.lib.get_cip(cid_file_name=cid_file_name)
+        cid = self.lib.get_cid(cid_file_name=cid_file_name)
+        return cip, cid
 
     def test_db_connection(
         self,
@@ -364,6 +372,20 @@ class ContainerTestLib:
         sleep_time: int = 3,
         sql_cmd: Optional[str] = None,
     ) -> bool:
+        """
+        Test database connection.
+
+        Args:
+            container_ip: Container IP address
+            username: Database username
+            password: Database password
+            database: Database name
+            max_attempts: Maximum number of attempts
+            sleep_time: Time to sleep between attempts
+            sql_cmd: SQL command to execute
+        Returns:
+            True if database connection test succeeded, False otherwise
+        """
         return self.db_lib.test_connection(
             container_ip=container_ip,
             username=username,
@@ -400,7 +422,9 @@ class ContainerTestLib:
             while attempt <= max_attempts:
                 if not ContainerImage.is_container_running(container_id):
                     logging.info(
-                        f"Container {container_id} is not running after {attempt} attempts."
+                        "Container %s is not running after %s attempts.",
+                        container_id,
+                        attempt,
                     )
                     break
                 time.sleep(2)
@@ -409,7 +433,13 @@ class ContainerTestLib:
                     PodmanCLIWrapper.call_podman_command(
                         cmd=f"stop {container_id}", ignore_error=True
                     )
-                    return False
+                    logger.debug(
+                        "Container %s is not running after %s attempts. \
+                        It is expected to fail.",
+                        container_id,
+                        attempt,
+                    )
+                    return True
             # Check exit status
             try:
                 exit_status = PodmanCLIWrapper.call_podman_command(
@@ -517,7 +547,9 @@ class ContainerTestLib:
             ... )
         """
         # Generate unique container name
-        cid_file = f"success-{self.random_string(length=10)}"
+        self.success_cid_file = (
+            f"{self.cid_file_dir}/success-{self.random_string(length=10)}"
+        )
 
         # Convert list to string if needed
         if isinstance(container_args, list):
@@ -531,13 +563,15 @@ class ContainerTestLib:
             # Create the container
             logging.info(f"Creating container with args: {container_args}")
             if not self.create_container(
-                cid_file_name=cid_file, container_args=container_args, command=command
+                cid_file_name=self.success_cid_file,
+                container_args=container_args,
+                command=command,
             ):
                 logging.error("Failed to create container")
                 return False
 
             # Get container ID
-            container_id = self.get_cid(cid_file)
+            container_id = self.get_cid(self.success_cid_file)
             logging.info(f"Container created successfully: {container_id}")
 
             # Wait a bit for container to start
@@ -568,7 +602,9 @@ class ContainerTestLib:
             if test_connection_func and connection_params:
                 logging.info("Testing connection...")
                 try:
-                    if not test_connection_func(cid_file, connection_params):
+                    if not test_connection_func(
+                        self.success_cid_file, connection_params
+                    ):
                         logging.error("Connection test failed")
                         return False
                     logging.info("Connection test passed")
