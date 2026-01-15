@@ -75,11 +75,11 @@ class DatabaseWrapper:
     Example:
         >>> # MySQL
         >>> db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
-        >>> assert db.assert_login_success("172.17.0.2", "user", "pass")
+        >>> assert db.assert_login_access("172.17.0.2", "user", "pass", expected_success=True)
 
         >>> # PostgreSQL
         >>> db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
-        >>> assert db.assert_login_success("172.17.0.2", "user", "pass")
+        >>> assert db.assert_login_access("172.17.0.2", "user", "pass", expected_success=True)
     """
 
     def __init__(
@@ -145,48 +145,6 @@ class DatabaseWrapper:
             time.sleep(sleep_time)
         logger.error("Database not ready after %s attempts", max_attempts)
         return False
-
-    def assert_login_success(
-        self,
-        container_ip: str,
-        username: str,
-        password: str,
-        database: str = "db",
-        port: int = None,
-    ) -> bool:
-        """
-        Assert that login succeeds for the given credentials.
-
-        This is a convenience function that calls assert_login_access with
-        expected_success=True. It works for both MySQL and PostgreSQL.
-
-        Args:
-            container_ip: IP address of the container
-            username: Username to test login with
-            password: Password to test login with
-            database: Database name to connect to (default: "db")
-            port: Port number (default: 3306 for MySQL, 5432 for PostgreSQL)
-
-        Returns:
-            True if login succeeds, False otherwise
-
-        Example:
-            >>> # MySQL
-            >>> db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
-            >>> assert db.assert_login_success("172.17.0.2", "user", "pass")
-
-            >>> # PostgreSQL
-            >>> db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
-            >>> assert db.assert_login_success("172.17.0.2", "user", "pass")
-        """
-        return self.assert_login_access(
-            container_ip=container_ip,
-            username=username,
-            password=password,
-            expected_success=True,
-            database=database,
-            port=port,
-        )
 
     def assert_login_access(
         self,
@@ -310,18 +268,15 @@ class DatabaseWrapper:
           "postgresql://$PGUSER@$CONTAINER_IP:5432/${DB-db}" -At -c 'SELECT 1;'
         """
         try:
-            str_port = str(port) if port else "5432"
-            connection_string = (
-                f"postgresql://{username}@{container_ip}:{str_port}/{database}"
-            )
-
-            cmd = (
-                f"run --rm -e PGPASSWORD={password} {self.image_name} "
-                f"psql -v ON_ERROR_STOP=1 '{connection_string}' -At -c 'SELECT 1;'"
-            )
-
-            output = PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=True)
-
+            output = self.postgresql_cmd(container_ip,
+                                         username,
+                                         password,
+                                         container_id=self.image_name,
+                                         database=database,
+                                         port=port if port else 5432,
+                                         extra_args="-At",
+                                         sql_command="-c 'SELECT 1;'"
+                                        )
             # PostgreSQL returns "1" on successful query
             return "1" in output.strip()
 
@@ -362,8 +317,8 @@ class DatabaseWrapper:
             port: Port number (default: 3306)
             extra_args: Additional arguments to pass to mysql command
             sql_command: SQL command to execute (e.g., "-e 'SELECT 1;'")
+            container_id: The container ID (usually the image name)
             podman_run_command: Podman run command to use (default: "run --rm")
-            ignore_error: Ignore error and return output (default: False)
         Returns:
             Command output as string
 
@@ -411,10 +366,10 @@ class DatabaseWrapper:
         password: str,
         container_id: Optional[str] = None,
         database: str = "db",
-        uri_params: Dict[str, str] = {},
+        uri_params: Dict[str, str] = None,
         port: int = 5432,
         extra_args: str = "",
-        sql_command: Optional[str] = None,
+        sql_command: Optional[str] = "",
         podman_run_command: Optional[str] = "run --rm",
         docker_args: str = "",
     ) -> str:
@@ -433,7 +388,9 @@ class DatabaseWrapper:
             container_ip: IP address of the PostgreSQL container
             username: PostgreSQL username
             password: PostgreSQL password
+            container_id: Container ID
             database: Database name (default: "db")
+            uri_params: Extra parameters in the postgreSQL connection URI
             port: Port number (default: 5432)
             extra_args: Additional arguments to pass to psql command
             sql_command: SQL command to execute (e.g., "-c 'SELECT 1;'")
@@ -464,13 +421,9 @@ class DatabaseWrapper:
             "psql",
             "-v ON_ERROR_STOP=1",
             connection_string,
+            extra_args,
+            sql_command
         ]
-
-        if extra_args:
-            cmd_parts.append(extra_args)
-
-        if sql_command:
-            cmd_parts.append(sql_command)
 
         cmd = " ".join(cmd_parts)
 
@@ -482,7 +435,7 @@ class DatabaseWrapper:
         username: str,
         password: str,
         database: str = "db",
-        uri_params: Dict[str, str] = {},
+        uri_params: Dict[str, str] = None,
         max_attempts: int = 60,
         sleep_time: int = 3,
         sql_cmd: Optional[str] = None,
@@ -499,7 +452,6 @@ class DatabaseWrapper:
             username: Database username
             password: Database password
             database: Database name (default: "db")
-            port: Port number (default: 3306 for MySQL, 5432 for PostgreSQL)
             max_attempts: Maximum number of connection attempts (default: 60)
             sleep_time: Seconds to wait between attempts (default: 3)
             sql_cmd: SQL command to execute (e.g., "SELECT 1;")
@@ -632,9 +584,11 @@ class DatabaseWrapper:
             max_attempts: Maximum number of attempts (default: 60)
             sleep_time: Time to sleep between attempts (default: 3)
             container_id: Container ID or name
+            docker_args: Additional arguments for the `podman run` command
             podman_run_command: Podman run command to use (default: "run --rm")
             ignore_error: Ignore error and return output (default: False)
             expected_output: Expected output of the command (default: None)
+            use_bash: Set to true to execute each command in `sql_cmd` in bash
         Returns:
             Command output as string or False if command failed
         """
