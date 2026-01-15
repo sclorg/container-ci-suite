@@ -57,27 +57,6 @@ class TestDatabaseWrapperMySQL:
     @patch(
         "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
     )
-    def test_assert_login_success_mysql(self, mock_podman):
-        """Test assert_login_success for MySQL when login succeeds."""
-        mock_podman.return_value = "1\n"
-
-        result = self.db.assert_login_success(
-            container_ip=self.container_ip,
-            username=self.username,
-            password=self.password,
-        )
-
-        assert result is True
-        mock_podman.assert_called_once()
-        call_args = mock_podman.call_args[1]["cmd"]
-        assert "mysql" in call_args
-        assert f"--host {self.container_ip}" in call_args
-        assert f"-u{self.username}" in call_args
-        assert f"-p{self.password}" in call_args
-
-    @patch(
-        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
-    )
     def test_assert_login_access_mysql_success(self, mock_podman):
         """Test assert_login_access for MySQL when login succeeds."""
         mock_podman.return_value = "1\n"
@@ -143,26 +122,6 @@ class TestDatabaseWrapperPostgreSQL:
         """Test DatabaseWrapper initialization for PostgreSQL."""
         assert self.db.image_name == self.image_name
         assert self.db.db_type == "postgresql"
-
-    @patch(
-        "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
-    )
-    def test_assert_login_success_postgresql(self, mock_podman):
-        """Test assert_login_success for PostgreSQL when login succeeds."""
-        mock_podman.return_value = "1"
-
-        result = self.db.assert_login_success(
-            container_ip=self.container_ip,
-            username=self.username,
-            password=self.password,
-        )
-
-        assert result is True
-        mock_podman.assert_called_once()
-        call_args = mock_podman.call_args[1]["cmd"]
-        assert "psql" in call_args
-        assert f"PGPASSWORD={self.password}" in call_args
-        assert f"postgresql://{self.username}@{self.container_ip}" in call_args
 
     @patch(
         "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
@@ -369,8 +328,8 @@ class TestDatabaseWrapperEdgeCases:
         db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
 
         special_password = "p@ss!w0rd#123"
-        result = db.assert_login_success(
-            container_ip="172.17.0.2", username="user", password=special_password
+        result = db.assert_login_access(
+            container_ip="172.17.0.2", username="user", password=special_password, expected_success=True
         )
 
         assert result is True
@@ -384,8 +343,8 @@ class TestDatabaseWrapperEdgeCases:
         db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
 
         special_password = "p@ss!w0rd#123"
-        result = db.assert_login_success(
-            container_ip="172.17.0.2", username="user", password=special_password
+        result = db.assert_login_access(
+            container_ip="172.17.0.2", username="user", password=special_password, expected_success=True
         )
 
         assert result is True
@@ -399,11 +358,12 @@ class TestDatabaseWrapperEdgeCases:
         db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
 
         custom_port = 3307
-        result = db.assert_login_success(
+        result = db.assert_login_access(
             container_ip="172.17.0.2",
             username="user",
             password="pass",
             port=custom_port,
+            expected_success=True
         )
 
         assert result is True
@@ -419,11 +379,12 @@ class TestDatabaseWrapperEdgeCases:
         db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
 
         custom_port = 5433
-        result = db.assert_login_success(
+        result = db.assert_login_access(
             container_ip="172.17.0.2",
             username="user",
             password="pass",
             port=custom_port,
+            expected_success=True
         )
 
         assert result is True
@@ -446,7 +407,7 @@ class TestDatabaseWrapperIntegration:
         password = "rootpass"
 
         assert db.test_connection(container_ip, username, password, max_attempts=10)
-        assert db.assert_login_success(container_ip, username, password)
+        assert db.assert_login_access(container_ip, username, password, True)
 
     @pytest.mark.integration
     @pytest.mark.skip(reason="Requires actual PostgreSQL container running")
@@ -460,7 +421,7 @@ class TestDatabaseWrapperIntegration:
         password = "postgres"
 
         assert db.test_connection(container_ip, username, password, max_attempts=10)
-        assert db.assert_login_success(container_ip, username, password)
+        assert db.assert_login_access(container_ip, username, password, True)
 
 
 class TestDatabaseWrapperDocumentation:
@@ -474,7 +435,7 @@ class TestDatabaseWrapperDocumentation:
         mock_podman.return_value = "1\n"
 
         db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
-        assert db.assert_login_success("172.17.0.2", "user", "pass")
+        assert db.assert_login_access("172.17.0.2", "user", "pass", True)
 
     @patch(
         "container_ci_suite.engines.podman_wrapper.PodmanCLIWrapper.call_podman_command"
@@ -484,7 +445,7 @@ class TestDatabaseWrapperDocumentation:
         mock_podman.return_value = "1"
 
         db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
-        assert db.assert_login_success("172.17.0.2", "user", "pass")
+        assert db.assert_login_access("172.17.0.2", "user", "pass", True)
 
 
 # Run tests with: pytest tests/test_database_wrapper.py -v
