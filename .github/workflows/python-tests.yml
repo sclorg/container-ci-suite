@@ -24,3 +24,49 @@ jobs:
       with:
         tox_env: ${{ matrix.tox_env }}
         dnf_install: gcc rpm-devel git python3-devel
+
+  coverage-unit:
+    name: Coverage (unit tests)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install -r tests/requirements-test.txt
+    - name: Run unit tests with coverage
+      run: make test-coverage-unit
+    - name: Upload unit test coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        flags: unit-tests
+        files: coverage-unit.xml
+        fail_ci_if_error: false
+
+  coverage-integration:
+    name: Coverage (integration tests)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install -r tests/requirements-test.txt
+    - name: Run integration tests with coverage
+      run: make test-coverage-integration
+    - name: Upload integration test coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        flags: integration-tests
+        files: coverage-integration.xml
+        fail_ci_if_error: false
