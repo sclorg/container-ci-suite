@@ -1237,8 +1237,13 @@ class ContainerTestLib:
                         time.sleep(sleep_time)
                     continue
 
-            except requests.RequestException:
-                pass
+            except requests.RequestException as exc:
+                logger.debug(
+                    "Request attempt %s to %s failed with RequestException: %s",
+                    attempt,
+                    full_url,
+                    exc,
+                )
 
             if attempt < max_attempts:
                 time.sleep(sleep_time)
