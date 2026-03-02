@@ -5,6 +5,8 @@ These tests require Docker to be available and may be slower.
 
 import pytest
 
+from requests import Response
+from flexmock import flexmock
 from unittest.mock import patch
 from subprocess import CalledProcessError
 
@@ -169,29 +171,29 @@ class TestNetworkIntegration:
     def setup_method(self):
         self.lib = ContainerTestLib()
 
-    def test_test_response_success(self):
+    def test_response_success(self):
         """Test HTTP response testing."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.return_value = "Welcome to the app200"
+        response = Response()
+        response.status_code = 200
+        response.reason = "Welcome to the app200"
+        response.headers = {"Content-Type": "text/html"}
+        flexmock(self.lib).should_receive("_get_response").and_return(response)
+        result = self.lib.test_response(
+            "http://localhost:8080", 200, "Welcome", max_attempts=1, debug=True
+        )
+        assert result is True
 
-            result = self.lib.test_response(
-                "http://localhost:8080", 200, "Welcome", max_attempts=1
-            )
-            assert result is True
-
-    def test_test_response_failure(self):
+    def test_response_failure(self):
         """Test HTTP response testing with failure."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.return_value = "Error404"
-
-            result = self.lib.test_response(
-                "http://localhost:8080", 200, "Welcome", max_attempts=1
-            )
-            assert result is False
+        response = Response()
+        response.status_code = 404
+        response.reason = "Error404"
+        response.headers = {"Content-Type": "text/html"}
+        flexmock(self.lib).should_receive("_get_response").and_return(response)
+        result = self.lib.test_response(
+            "http://localhost:8080", 200, "Welcome", max_attempts=1
+        )
+        assert result is False
 
 
 @pytest.mark.integration
