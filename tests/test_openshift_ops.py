@@ -33,7 +33,9 @@ class TestOpenShiftOpsSuite(object):
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
 
     def test_check_is_version(self, oc_get_is_ruby_json):
-        flexmock(OpenShiftOperations).should_receive("oc_get_is").and_return(oc_get_is_ruby_json)
+        flexmock(OpenShiftOperations).should_receive("oc_get_is").and_return(
+            oc_get_is_ruby_json
+        )
         assert self.oc_ops.check_is_exists("ruby", "2.5-ubi8")
         assert not self.oc_ops.check_is_exists("ruby", "333-ubi9")
 
@@ -44,25 +46,35 @@ class TestOpenShiftOpsSuite(object):
         assert self.oc_ops.get_pod_count() == 1
 
     def test_is_pod_running(self, oc_is_pod_running):
-        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(oc_is_pod_running)
+        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(
+            oc_is_pod_running
+        )
         flexmock(OpenShiftOperations).should_receive("get_pod_count").and_return(1)
         flexmock(OpenShiftOperations).should_receive("get_logs").and_return("something")
         assert self.oc_ops.is_pod_running(pod_name_prefix="python-311", loops=2)
 
     def test_build_pod_not_finished(self, oc_build_pod_not_finished_json):
-        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(oc_build_pod_not_finished_json)
+        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(
+            oc_build_pod_not_finished_json
+        )
         assert not self.oc_ops.is_build_pod_finished(cycle_count=2)
 
     def test_build_pod_finished(self, oc_build_pod_finished_json):
-        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(oc_build_pod_finished_json)
+        flexmock(OpenShiftOperations).should_receive("get_pod_status").and_return(
+            oc_build_pod_finished_json
+        )
         assert self.oc_ops.is_build_pod_finished(cycle_count=2)
 
     def test_get_service_ip(self, get_svc_ip):
-        flexmock(OpenShiftOperations).should_receive("oc_get_services").and_return(get_svc_ip)
+        flexmock(OpenShiftOperations).should_receive("oc_get_services").and_return(
+            get_svc_ip
+        )
         assert self.oc_ops.get_service_ip("python-testing") == "172.30.224.217"
 
     def test_get_service_ip_not_available(self, get_svc_ip_empty):
-        flexmock(OpenShiftOperations).should_receive("oc_get_services").and_return(get_svc_ip_empty)
+        flexmock(OpenShiftOperations).should_receive("oc_get_services").and_return(
+            get_svc_ip_empty
+        )
         assert self.oc_ops.get_service_ip("python-testing") is None
 
     def test_get_pod_status(self):

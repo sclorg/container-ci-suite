@@ -40,15 +40,32 @@ class TestOpenShiftCISuite(object):
         self.oc_ops = OpenShiftOperations()
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
 
-    def test_openshift_api_create_project(self):
-        self.oc_api.create_prj = True
-        flexmock(OpenShiftOperations).should_receive("is_project_exits").and_return(
+    def test_create_project_not_shared(self):
+        self.oc_api.create_prj = False
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
             True
         )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_return(
+            "project 'container-ci-suite-test' created"
+        ).once()
         if self.oc_api.create_project():
             assert self.oc_api.project_created
         else:
             assert not self.oc_api.project_created
+
+    def test_create_project_shared(self):
+        self.oc_api.create_prj = True
+        self.oc_api.shared_cluster = False
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
+            True
+        )
+        assert self.oc_api.create_project()
 
     @pytest.mark.parametrize(
         "container,dir_name,filename,branch",

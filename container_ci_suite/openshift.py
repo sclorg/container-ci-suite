@@ -78,6 +78,24 @@ class OpenShiftAPI:
             self.create_prj = False
         print(f"Namespace is: {namespace} and shared cluster is: {self.shared_cluster}")
 
+    def _create_openshift_project(self) -> bool:
+        """
+        Create an OpenShift project.
+        Returns:
+            True if the project was created, False otherwise
+        """
+        print(f"Trying to create project with the name '{self.namespace}'")
+        try:
+            ContainerTestLibUtils.run_oc_command(
+                f"new-project {self.namespace}",
+                json_output=False,
+                return_output=True,
+            )
+            return True
+        except subprocess.CalledProcessError:
+            print(f"Project with the name '{self.namespace}' were not created.")
+            return False
+
     def create_project(self):
         """
         Create a project.
@@ -95,20 +113,10 @@ class OpenShiftAPI:
                 for _ in range(3):
                     self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
                     self.openshift_ops.set_namespace(self.namespace)
-                    print(f"Trying to create project with the name '{self.namespace}'")
-                    try:
-                        ContainerTestLibUtils.run_oc_command(
-                            f"new-project {self.namespace}",
-                            json_output=False,
-                            return_output=True,
-                        )
-                        break
-                    except subprocess.CalledProcessError:
-                        print(
-                            f"Project with the name '{self.namespace}' were not created."
-                        )
+                    if not self._create_openshift_project():
                         sleep(3)
                         continue
+                    break
                 else:
                     print(
                         f"Project with the name '{self.namespace}' were not created after 3 attempts."
@@ -120,7 +128,7 @@ class OpenShiftAPI:
                 f"project {self.namespace}", json_output=False
             )
         self.project_created = True
-        return self.openshift_ops.is_project_exits()
+        return self.openshift_ops.is_project_exists()
 
     def create_tenant_namespace(self) -> bool:
         """
@@ -156,7 +164,7 @@ class OpenShiftAPI:
         print(f"Check if TenantNamespace {self.shared_random_name} really exists")
         for count in range(50):
             print(".", sep="", end="")
-            if not self.openshift_ops.is_project_exits():
+            if not self.openshift_ops.is_project_exists():
                 sleep(5)
                 continue
             is_tenant_namespace_created = True
@@ -204,7 +212,7 @@ class OpenShiftAPI:
         """
         tenant_limit_file = utils.save_tenant_limit_yaml()
         is_applied = False
-        for count in range(30):
+        for _ in range(10):
             tentant_output = ContainerTestLibUtils.run_oc_command(
                 cmd=f"apply -f {tenant_limit_file}",
                 json_output=False,
