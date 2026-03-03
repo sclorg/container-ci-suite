@@ -593,3 +593,18 @@ def cwd(path):
         yield
     finally:
         os.chdir(prev_cwd)
+
+
+def redact_secrets(value: str) -> str:
+    """
+    Redact secrets from a string.
+    Args:
+        value: The string to redact secrets from
+    Returns:
+        The string with secrets redacted
+    """
+    return re.sub(
+        r"(?i)(\b(?:PASSWORD|PASS|TOKEN|SECRET|KEY)\b[=\s:]*)([^\s]+)",
+        r"\1***",
+        value,
+    )
