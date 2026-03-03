@@ -174,9 +174,9 @@ class ContainerTestLib:
         Returns:
             The podman build log file
         """
-        if not self.podman_build_log.exists():
+        if not self.podman_build_log or not self.podman_build_log.exists():
             return ""
-        return utils.get_file_content(self.podman_build_log)
+        return utils.get_file_content(filename=self.podman_build_log)
 
     def build_image_and_parse_id(
         self, dockerfile: str = "", build_params: str = ""
