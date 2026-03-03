@@ -42,21 +42,43 @@ logger = logging.getLogger(__name__)
 
 
 class S2IContainerImage:
+    """
+    S2I Container Image - Class representing an S2I container image.
+    """
+
     def __init__(self, image_name: str):
+        """
+        Initialize the S2I container image.
+
+        Args:
+            image_name: Name of the image to test
+        """
         self.image_name: str = image_name
         self.container_args: str = ""
         self.cid_file: Path = None
         self.cid_file_dir: Path = None
-        logger.info("Image name to test: %s", image_name)
+        logger.info(f"Image name to test: {image_name}")
 
     # Replacement for ct_s2i_usage
     def s2i_usage(self) -> str:
+        """
+        Run the usage script inside the container.
+
+        Returns:
+            The usage script output
+        """
         return PodmanCLIWrapper.call_podman_command(
             f"run --rm {self.image_name} bash -c /usr/libexec/s2i/usage"
         )
 
     # Replacement for
     def is_image_available(self):
+        """
+        Check if the image is available.
+
+        Returns:
+            True if the image is available, False otherwise
+        """
         return PodmanCLIWrapper.call_podman_command(f"inspect {self.image_name}")
 
     # Replacement for ct_s2i_build_as_df
@@ -67,6 +89,18 @@ class S2IContainerImage:
         dst_image: str,
         s2i_args: str = "--pull-policy=never",
     ):
+        """
+        Build an S2I image from a Dockerfile.
+
+        Args:
+            app_path: Path to the application
+            src_image: Source image
+            dst_image: Destination image
+            s2i_args: S2I build arguments
+
+        Returns:
+            The S2I container image
+        """
         named_tmp_dir = mkdtemp()
         tmp_dir = Path(named_tmp_dir)
         if tmp_dir.exists():
@@ -94,7 +128,7 @@ class S2IContainerImage:
             try:
                 PodmanCLIWrapper.call_podman_command(cmd=build_cmd)
             except subprocess.CalledProcessError as cpe:
-                print("Building S2I Image failed: %s with %s.", cpe.stderr, cpe.output)
+                print(f"Building S2I Image failed: {cpe.stderr} with {cpe.output}")
                 return None
             return S2IContainerImage(image_name=dst_image)
 
@@ -102,6 +136,19 @@ class S2IContainerImage:
     def s2i_create_df(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
     ) -> str:
+        """
+        Create a Dockerfile for an S2I build.
+
+        Args:
+            tmp_dir: Temporary directory to create the Dockerfile in
+            app_path: Path to the application
+            s2i_args: S2I build arguments
+            src_image: Source image
+            dst_image: Destination image
+
+        Returns:
+            The Dockerfile content
+        """
         real_app_path = app_path.replace("file://", "")
         df_content: List = []
         local_scripts: Path = Path("upload/scripts")
@@ -112,7 +159,6 @@ class S2IContainerImage:
                 PodmanCLIWrapper.call_podman_command(f"pull {src_image}")
 
         user = PodmanCLIWrapper.podman_get_user(src_image)
-        print(f"User name from container {src_image} is {user}")
         if not user:
             user = "0"
 
@@ -209,6 +255,12 @@ class S2IContainerImage:
 
     # Replacement for ct_clean_containers
     def cleanup_container(self):
+        """
+        Clean up containers referenced by CID_FILE_DIR.
+
+        Returns:
+            None
+        """
         logger.info("Cleaning CID_FILE_DIR %s is ongoing.", self.cid_file_dir)
         p = Path(self.cid_file_dir)
         cid_files = p.glob("*")
@@ -231,6 +283,16 @@ class S2IContainerImage:
 
     # Replacement for ct_binary_found_from_df
     def binary_found_from_df(self, binary: str = "", binary_path: str = "^/opt/rh"):
+        """
+        Check if a binary can be found in PATH during Dockerfile build.
+
+        Args:
+            binary: Name of the binary to check
+            binary_path: Path to the binary
+
+        Returns:
+            True if binary found, False otherwise
+        """
         tempdir = mkdtemp(suffix=f"{self.image_name}_binary")
         dockerfile = Path(tempdir) / "Dockerfile"
         logger.info("Testing %s in build from Dockerfile", binary)
@@ -247,6 +309,15 @@ RUN which {binary} | grep {binary_path}
         return True
 
     def doc_content_old(self, strings: List) -> bool:
+        """
+        Test documentation content in the container image.
+
+        Args:
+            strings: List of strings to check for
+
+        Returns:
+            True if all strings found and format is correct, False otherwise
+        """
         logger.info("Testing documentation in the container image")
         files_to_check = ["help.1"]
         for f in files_to_check:
