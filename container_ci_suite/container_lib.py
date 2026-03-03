@@ -202,7 +202,7 @@ class ContainerTestLib:
                     log_content.strip(),
                 )
                 self.app_image_id = lines[-1].strip()
-                print("build_image_and_parse_id: App image ID: %s", self.app_image_id)
+                print(f"build_image_and_parse_id: App image ID: {self.app_image_id}")
                 return True
 
             except subprocess.CalledProcessError:
@@ -780,7 +780,11 @@ class ContainerTestLib:
             ret_value = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd, return_output=True
             )
-            logging.info("Return value for command '%s' is '%s'.", cmd, ret_value)
+            logging.info(
+                "Return value for command '%s' is '%s'.",
+                utils.redact_secrets(cmd),
+                ret_value,
+            )
             if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
                 return False
             container_id = utils.get_file_content(full_cid_file_name).strip()
@@ -1264,10 +1268,7 @@ class ContainerTestLib:
         Returns:
             The response from the URL
         """
-        try:
-            return requests.get(url, headers=headers, timeout=timeout, verify=verify)
-        except requests.RequestException:
-            return None
+        return requests.get(url, headers=headers, timeout=timeout, verify=verify)
 
     def test_response(
         self,
@@ -1950,16 +1951,14 @@ class ContainerTestLib:
             build_command = " ".join(filter(None, build_command_parts))
 
             if not self.build_image_and_parse_id(str(df_name), build_command):
-                print("ERROR: Failed to build %s", df_name)
+                print(f"ERROR: Failed to build {df_name}")
                 return False
 
             # Store image ID for cleanup
             if self.app_image_id:
                 id_file = self.app_id_file_dir / self.random_string(length=20)
                 print(
-                    "Multistage build:Destination image ID file: %s and image ID: %s",
-                    id_file,
-                    self.app_image_id,
+                    f"Multistage build:Destination image ID file: {id_file} and image ID: {self.app_image_id}",
                 )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
@@ -1967,7 +1966,7 @@ class ContainerTestLib:
             return True
 
         except Exception as e:
-            print("S2I multistage build failed: %r", e)
+            print(f"S2I multistage build failed: {e}")
             return False
 
         finally:
