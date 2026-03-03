@@ -63,7 +63,9 @@ class TestContainerCISuiteUtils(object):
 
     def test_get_npm_variables(self):
         create_ca_file()
-        flexmock(utils).should_receive("get_full_ca_file_path").and_return(Path("/tmp/CA_FILE_PATH"))
+        flexmock(utils).should_receive("get_full_ca_file_path").and_return(
+            Path("/tmp/CA_FILE_PATH")
+        )
         assert get_npm_variables() == f"-e NPM_MIRROR=foobar {get_mount_ca_file()}"
         delete_ca_file()
 
@@ -126,11 +128,14 @@ class TestContainerCISuiteUtils(object):
             ("rhel8/httpd-24:1", "2.4", "httpd-24:2.4"),
             ("/httpd-24:1", "2.4", "httpd-24:2.4"),
             ("", "2.4", None),
-            ("rhel8/httpd", "2.4", "httpd:2.4")
+            ("rhel8/httpd", "2.4", "httpd:2.4"),
         ],
     )
     def test_tagged_image(self, image_name, version, expected_output):
-        assert utils.get_tagged_image(image_name=image_name, version=version) == expected_output
+        assert (
+            utils.get_tagged_image(image_name=image_name, version=version)
+            == expected_output
+        )
 
     @pytest.mark.parametrize(
         "image_name,expected_output",
@@ -138,7 +143,7 @@ class TestContainerCISuiteUtils(object):
             ("rhel8/httpd-24:1", "httpd-24-testing"),
             ("/httpd-24:1", "httpd-24-testing"),
             ("", None),
-            ("rhel8/httpd", "httpd-testing")
+            ("rhel8/httpd", "httpd-testing"),
         ],
     )
     def test_get_service_image(self, image_name, expected_output):
@@ -149,24 +154,18 @@ class TestContainerCISuiteUtils(object):
             "apiVersion": "tenant.paas.redhat.com/v1alpha1",
             "kind": "TenantNamespace",
             "metadata": {
-                'labels': {
-                    'tenant.paas.redhat.com/namespace-type': 'build',
-                    'tenant.paas.redhat.com/tenant': 'core-services-ocp',
+                "labels": {
+                    "tenant.paas.redhat.com/namespace-type": "build",
+                    "tenant.paas.redhat.com/tenant": "core-services-ocp",
                 },
                 "name": "123456",
-                "namespace": "core-services-ocp--config"
+                "namespace": "core-services-ocp--config",
             },
             "spec": {
                 "type": "build",
-                "roles": [
-                        "namespace-admin",
-                        "tenant-egress-admin"
-                ],
-                "network": {
-                    "security-zone": "internal"
-                }
-
-            }
+                "roles": ["namespace-admin", "tenant-egress-admin"],
+                "network": {"security-zone": "internal"},
+            },
         }
         tenant_yaml = utils.save_tenant_namespace_yaml(project_name="123456")
         with open(tenant_yaml) as fd:
@@ -189,7 +188,10 @@ class TestContainerCISuiteUtils(object):
             if "cidrSelector" in egress["to"]:
                 if egress["to"]["cidrSelector"] == "52.92.128.0/17":
                     check_address = True
-                if egress["to"]["cidrSelector"] == "0.0.0.0/0" and egress["type"] == "Deny":
+                if (
+                    egress["to"]["cidrSelector"] == "0.0.0.0/0"
+                    and egress["type"] == "Deny"
+                ):
                     check_deny = True
             if "dnsName" in egress["to"]:
                 if egress["to"]["dnsName"] == "registry.npmjs.org":
@@ -249,4 +251,4 @@ class TestContainerCISuiteUtils(object):
     def test_is_shared_cluster(self, json_data, expected_output):
         flexmock(utils).should_receive("get_json_data").and_return(json_data)
         test = json_data.keys()
-        assert utils.is_shared_cluster(test_type=''.join(test)) == expected_output
+        assert utils.is_shared_cluster(test_type="".join(test)) == expected_output

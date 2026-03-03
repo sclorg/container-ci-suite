@@ -144,7 +144,7 @@ class OpenShiftOperations:
             )
             print(oc_logs)
 
-    def is_project_exits(self) -> bool:
+    def is_project_exists(self) -> bool:
         """
         Check if the project exists.
         Returns:
