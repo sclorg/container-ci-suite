@@ -111,7 +111,12 @@ class ContainerTestLib:
 
     @property
     def db_lib(self):
-        """Get the database library."""
+        """
+        Get the database library.
+
+        Returns:
+            The database library
+        """
         if not self._db_lib:
             self._db_lib = DatabaseWrapper(
                 image_name=self.image_name, db_type=self.db_type
@@ -119,7 +124,15 @@ class ContainerTestLib:
         return self._db_lib
 
     def set_new_image(self, image_name):
-        """Set a new image name."""
+        """
+        Set a new image name.
+
+        Args:
+            image_name: Name of the image to set
+
+        Returns:
+            None
+        """
         self.image_name = image_name
         self.db_lib.image_name = image_name
 
@@ -142,6 +155,9 @@ class ContainerTestLib:
         """
         Clean up containers and images used during tests.
         Stops and removes all containers and cleans up temporary directories.
+
+        Returns:
+            None
         """
         logging.info(LINE)
         logging.info("Cleaning of testing containers and images started.")
@@ -1898,7 +1914,7 @@ class ContainerTestLib:
             else:
                 # Clone git repository
                 if not utils.clone_git_repository(str(app_path), str(local_app_path)):
-                    print("Failed to clone git repository: %s", app_path)
+                    print(f"Failed to clone git repository: {app_path}")
                     return False
 
             # Create Dockerfile content for multistage build
