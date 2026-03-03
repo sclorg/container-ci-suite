@@ -28,6 +28,10 @@ from container_ci_suite.utils import ContainerTestLibUtils
 
 
 class PodmanCLIWrapper(object):
+    """
+    Podman CLI Wrapper - Class for wrapping podman commands.
+    """
+
     @staticmethod
     def call_podman_command(
         cmd,
@@ -39,6 +43,17 @@ class PodmanCLIWrapper(object):
     ):
         """
         Run docker command:
+
+        Args:
+            cmd: The command to run
+            return_output: Whether to return the output of the command
+            ignore_error: Whether to ignore errors
+            shell: Whether to run the command in a shell
+            debug: Whether to print the command
+            stderr: The stderr to use
+
+        Returns:
+            The output of the command
         """
         return ContainerTestLibUtils.run_command(
             f"podman {cmd}",
@@ -64,10 +79,30 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_inspect(field: str, src_image: str) -> str:
+        """
+        Inspect the container or image.
+
+        Args:
+            field: The field to inspect
+            src_image: The image to inspect
+
+        Returns:
+            The output of the command
+        """
         return PodmanCLIWrapper.call_podman_command(f"inspect -f '{field}' {src_image}")
 
     @staticmethod
     def podman_run_command(cmd, ignore_error: bool = False, return_output: bool = True):
+        """
+        Run a podman command.
+
+        Args:
+            cmd: The command to run
+            ignore_error: Whether to ignore errors
+            return_output: Whether to return the output of the command
+        Returns:
+            The output of the command
+        """
         return PodmanCLIWrapper.call_podman_command(
             f"run {cmd}", ignore_error=ignore_error, return_output=return_output
         )
@@ -83,12 +118,17 @@ class PodmanCLIWrapper(object):
     ):
         """
         Function executes shell command if image_name is present in system.
-        :param cid_file_name: image to check specified by cid_file_name
-        :param cmd: command that will be executed in image
-        :param used_shell: which shell will be used /bin/bash or /bin/sh
-        :param not_shell: if True, the command will be executed without a shell
-        :return True: In case if image is present
-                False: In case if image is not present
+
+        Args:
+            cid_file_name: image to check specified by cid_file_name
+            cmd: command that will be executed in image
+            used_shell: which shell will be used /bin/bash or /bin/sh
+            return_output: Whether to return the output of the command
+            debug: Whether to print the command
+            not_shell: if True, the command will be executed without a shell
+
+        Returns:
+            The output of the command
         """
         if not_shell:
             cmd = f"exec {cid_file_name} {cmd}"
@@ -114,14 +154,18 @@ class PodmanCLIWrapper(object):
         ignore_error: bool = False,
     ):
         """
-        Function run shell command if image_name is present in system.
-        Calling is `podman run --rm {cid_file_name} /bin/bash -c "{cmd}"
-        :param cid_file_name: image to check specified by cid_file_name
-        :param cmd: command that will be executed in image
-        :param return_output: True for return output, false for exit
-        :param debug: command on steroids
-        :return True: In case if image is present
-                False: In case if image is not present
+        Run a shell command if the image name is present in the system.
+
+        Args:
+            cid_file_name: image to check specified by cid_file_name
+            cmd: command that will be executed in image
+            return_output: Whether to return the output of the command
+            debug: Whether to print the command
+            ignore_error: Whether to ignore errors
+
+        Returns:
+            True if the command was executed successfully, False otherwise
+            The output of the command
         """
         cmd = f"run --rm {cid_file_name} /bin/bash -c '{cmd}'"
         print(f"podman command is: '{cmd}'")
@@ -140,6 +184,17 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_get_user_id(src_image, user):
+        """
+        Get the user ID of a user in a container.
+
+        Args:
+            src_image: The image to get the user ID from
+            user: The user to get the user ID of
+
+        Returns:
+            The user ID of the user
+            The output of the command
+        """
         return PodmanCLIWrapper.call_podman_command(
             f"--rm {src_image} /bin/bash -c 'id -u {user}' 2>/dev/null"
         ).strip()
@@ -150,6 +205,13 @@ class PodmanCLIWrapper(object):
         Function checks if image_name is present in system.
         In case it isn't, try to pull it for specific count of loops
         Default is 10.
+
+        Args:
+            image_name: The name of the image to pull
+            loops: The number of loops to try to pull the image
+
+        Returns:
+            True if the image was pulled successfully, False otherwise
         """
         if PodmanCLIWrapper.podman_image_exists(image_name=image_name):
             print("Pulled image already exists.")
@@ -174,6 +236,15 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_inspect_ip_address(container_id: str) -> Any:
+        """
+        Get the IP address of a container.
+
+        Args:
+            container_id: The ID of the container to get the IP address of
+
+        Returns:
+            The IP address of the container
+        """
         output = PodmanCLIWrapper.call_podman_command(f"inspect {container_id}")
 
         json_output = json.loads(output)
@@ -185,6 +256,15 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_exit_status(image_name: str) -> str:
+        """
+        Get the exit status of a container.
+
+        Args:
+            image_name: The name of the image to get the exit status of
+
+        Returns:
+            The exit status of the container
+        """
         return PodmanCLIWrapper.call_podman_command(
             cmd=f"inspect --format='{{{{.State.ExitCode}}}}' {image_name}",
             return_output=True,
@@ -192,6 +272,15 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_get_user(image_name: str) -> Any:
+        """
+        Get the user of a container.
+
+        Args:
+            image_name: The name of the image to get the user of
+
+        Returns:
+            The user of the container
+        """
         output = PodmanCLIWrapper.call_podman_command(f"inspect {image_name}")
 
         json_output = json.loads(output)
@@ -203,6 +292,16 @@ class PodmanCLIWrapper(object):
 
     @staticmethod
     def podman_get_file_content(cid_file_name: str, filename: str) -> str:
+        """
+        Get the content of a file in a container.
+
+        Args:
+            cid_file_name: The name of the container to get the file content of
+            filename: The name of the file to get the content of
+
+        Returns:
+            The content of the file
+        """
         return PodmanCLIWrapper.call_podman_command(
             cmd=f"exec {cid_file_name} cat {filename}"
         )
@@ -211,4 +310,13 @@ class PodmanCLIWrapper(object):
     def podman_logs(
         container_id: str,
     ):
+        """
+        Get the logs of a container.
+
+        Args:
+            container_id: The ID of the container to get the logs of
+
+        Returns:
+            The logs of the container
+        """
         return PodmanCLIWrapper.call_podman_command(f"logs {container_id}")

@@ -44,57 +44,97 @@ logger = logging.getLogger(__name__)
 
 
 def get_file_content(filename: Path) -> str:
+    """
+    Get the content of a file.
+    Args:
+        filename: The path to the file
+    Returns:
+        The content of the file
+    """
     with open(str(filename)) as f:
         return f.read()
 
 
 def save_file_content(content: str, filename: Path):
+    """
+    Save the content of a file.
+    Args:
+        content: The content to save
+        filename: The path to the file
+    """
     with open(str(filename), "w") as f:
         f.write(content)
 
 
 def get_full_ca_file_path() -> Path:
+    """
+    Get the full CA file path.
+    Returns:
+        The full CA file path
+    """
     return Path(CA_FILE_PATH)
-
-
-def get_os_environment(variable: str) -> str:
-    return os.getenv(variable)
 
 
 # Replacement for ct_mount_ca_file
 def get_mount_ca_file() -> str:
-    if get_os_environment("NPM_REGISTRY") and get_full_ca_file_path().exists():
+    if os.getenv("NPM_REGISTRY") and get_full_ca_file_path().exists():
         return f"-v {CA_FILE_PATH}:{CA_FILE_PATH}:Z"
     return ""
 
 
 # Replacement for ct_mount_ca_file
 def get_npm_variables():
-    npm_registry = get_os_environment("NPM_REGISTRY")
+    """
+    Get the NPM variables.
+    Returns:
+        The NPM variables
+    """
+    npm_registry = os.getenv("NPM_REGISTRY")
     if npm_registry and get_full_ca_file_path().exists():
         return f"-e NPM_MIRROR={npm_registry} {get_mount_ca_file()}"
     return ""
 
 
 def get_registry_name(os_name: str) -> str:
+    """
+    Get the registry name.
+    Args:
+        os_name: The operating system name
+    Returns:
+        The registry name
+    """
     return "registry.redhat.io" if os_name.startswith("rhel") else "docker.io"
 
 
 def get_mount_options_from_s2i_args(s2i_args: str) -> str:
+    """
+    Get the mount options from the S2I arguments.
+    Args:
+        s2i_args: The S2I arguments
+    Returns:
+        The mount options
+    """
     # Check if -v parameter is present in s2i_args and add it into docker build command
     searchObj = re.search(r"(-v \.*\S*)", s2i_args)
-    logger.debug(searchObj)
+    logger.debug("Search object: %s", searchObj)
     if not searchObj:
         return ""
 
     logger.debug(searchObj.group(1))
     mount_options = searchObj.group()
 
-    logger.info(f"Mount options: {mount_options}")
+    logger.debug("Mount options: %s", mount_options)
     return searchObj.group()
 
 
 def get_env_commands_from_s2i_args(s2i_args: str) -> List:
+    """
+    Get the environment commands from the S2I arguments.
+    Args:
+        s2i_args: The S2I arguments
+    Returns:
+        The environment commands
+    """
     matchObj = re.findall(r"(-e|--env)=?\s*(\S*)=(\S*)", s2i_args)
     logger.debug(matchObj)
     env_content: List = []
@@ -109,6 +149,15 @@ def get_env_commands_from_s2i_args(s2i_args: str) -> List:
 
 
 def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
+    """
+    Get the public image name.
+    Args:
+        os: The operating system
+        base_image_name: The base image name
+        version: The version
+    Returns:
+        The public image name
+    """
     registry = get_registry_name(os)
     if os == "rhel8":
         return f"{registry}/rhel8/{base_image_name}-{version}"
@@ -121,6 +170,14 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
 
 
 def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
+    """
+    Download a template file.
+    Args:
+        template_name: The name of the template to download
+        dir_name: The directory to download the template to
+    Returns:
+        The path to the downloaded template
+    """
     ext = ""
     file_ext_field = template_name.split(".")
     if len(file_ext_field) > 1:
@@ -150,6 +207,10 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
 
 
 class ContainerTestLibUtils:
+    """
+    Container Test Library Utilities - Utility functions for container testing.
+    """
+
     @staticmethod
     def run_command(
         cmd,
@@ -210,6 +271,16 @@ class ContainerTestLibUtils:
     ):
         """
         Run docker command:
+        Args:
+            cmd: The command to run
+            json_output: Whether to return the output as JSON
+            return_output: Whether to return the output
+            ignore_error: Whether to ignore errors
+            shell: Whether to run the command in a shell
+            namespace: The namespace to run the command in
+            debug: Whether to print the command
+        Returns:
+            The output of the command
         """
         json_cmd = "-o json" if json_output else ""
         namespace_cmd = f"-n {namespace}" if namespace != "" else ""
@@ -224,6 +295,13 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def commands_to_run(commands_to_run: List[str]) -> bool:
+        """
+        Run the commands.
+        Args:
+            commands_to_run: The commands to run
+        Returns:
+            True if the commands were successful, False otherwise
+        """
         command_failed: bool = True
         for cmd in commands_to_run:
             try:
@@ -240,6 +318,14 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def check_files_are_present(dir_name: str, file_name_to_check: List[str]) -> bool:
+        """
+        Check if the files are present in the directory.
+        Args:
+            dir_name: The directory name
+            file_name_to_check: The files to check
+        Returns:
+            True if the files are present, False otherwise
+        """
         file_present: bool = True
         for f in file_name_to_check:
             if not (Path(dir_name) / f).exists():
@@ -251,7 +337,18 @@ class ContainerTestLibUtils:
 
     @staticmethod
     def update_dockerfile(dockerfile: str, original_string, string_to_replace) -> Any:
-        local_temp_file = tempfile.mktemp(prefix="/tmp/new_dockerfile")
+        """
+        Update the Dockerfile.
+        Args:
+            dockerfile: The Dockerfile
+            original_string: The original string
+            string_to_replace: The string to replace
+        Returns:
+            The path to the temporary file
+        """
+        local_temp_file = tempfile.NamedTemporaryFile(
+            prefix="new_dockerfile", dir="/tmp", delete=False
+        ).name
         if not Path(dockerfile).exists():
             print(f"ERROR: Dockerfile '{dockerfile}' do not exists")
             return None
@@ -269,7 +366,17 @@ class ContainerTestLibUtils:
 def get_response_request(
     url_address: str, expected_str: str, response_code: int = 200, max_tests: int = 3
 ) -> bool:
-    for count in range(max_tests):
+    """
+    Get the response from a URL.
+    Args:
+        url_address: The URL address
+        expected_str: The expected string
+        response_code: The response code
+        max_tests: The maximum number of tests
+    Returns:
+        True if the response is successful, False otherwise
+    """
+    for _ in range(max_tests):
         try:
             resp = requests.get(url_address, timeout=10, verify=False)
             resp.raise_for_status()
@@ -292,12 +399,26 @@ def get_response_request(
 
 
 def temporary_dir(prefix: str = "helm-chart") -> str:
+    """
+    Create a temporary directory.
+    Args:
+        prefix: The prefix for the temporary directory
+    Returns:
+        The path to the temporary directory
+    """
     temp_file = tempfile.TemporaryDirectory(prefix=prefix)
     print(f"Temporary dir name: {temp_file.name}")
     return temp_file.name
 
 
 def save_command_yaml(image_name: str) -> str:
+    """
+    Save the command YAML file.
+    Args:
+        image_name: The image name
+    Returns:
+        The path to the command YAML file
+    """
     cmd_yaml = {
         "apiVersion": "v1",
         "kind": "Pod",
@@ -322,6 +443,13 @@ def save_command_yaml(image_name: str) -> str:
 
 
 def save_tenant_namespace_yaml(project_name: str) -> str:
+    """
+    Save the tenant namespace YAML file.
+    Args:
+        project_name: The project name
+    Returns:
+        The path to the tenant namespace YAML file
+    """
     cmd_yaml = {
         "apiVersion": "tenant.paas.redhat.com/v1alpha1",
         "kind": "TenantNamespace",
@@ -347,6 +475,14 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
 
 
 def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
+    """
+    Save the tenant egress YAML file.
+    Args:
+        project_name: The project name
+        rules: The rules to save
+    Returns:
+        The path to the tenant egress YAML file
+    """
     if not rules:
         rules = [
             "github.com",
@@ -393,6 +529,11 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
 
 
 def save_tenant_limit_yaml() -> str:
+    """
+    Save the tenant limit YAML file.
+    Returns:
+        The path to the tenant limit YAML file
+    """
     tenant_limit_yaml = {
         "apiVersion": "v1",
         "kind": "LimitRange",
@@ -422,6 +563,14 @@ def save_tenant_limit_yaml() -> str:
 
 
 def get_tagged_image(image_name: str, version: str) -> Any:
+    """
+    Get the tagged image name.
+    Args:
+        image_name: The image name
+        version: The version
+    Returns:
+        The tagged image name
+    """
     try:
         image_no_namespace = image_name.split("/")[1]
         image_no_tag = image_no_namespace.split(":")[0]
@@ -459,6 +608,13 @@ def clone_git_repository(app_url: str, app_dir: str) -> bool:
 
 
 def get_service_image(image_name: str) -> Any:
+    """
+    Get the service image name.
+    Args:
+        image_name: The image name
+    Returns:
+        The service image name
+    """
     try:
         image_no_namespace = image_name.split("/")[1]
         image_no_tag = image_no_namespace.split(":")[0]
@@ -468,6 +624,11 @@ def get_service_image(image_name: str) -> Any:
 
 
 def check_variables() -> bool:
+    """
+    Check if the variables are defined.
+    Returns:
+        True if the variables are defined, False otherwise
+    """
     ret_value: bool = True
     if not os.getenv("VERSION"):
         print("Make sure VERSION is defined")
@@ -481,6 +642,13 @@ def check_variables() -> bool:
 
 
 def get_image_name(path: str) -> Any:
+    """
+    Get the image name from a file.
+    Args:
+        path: The path to the file
+    Returns:
+        The image name
+    """
     image_id_file = Path(path, ".image-id")
     if not image_id_file.exists():
         return None
@@ -493,6 +661,13 @@ def get_image_name(path: str) -> Any:
 
 
 def load_shared_credentials(credential: str) -> Any:
+    """
+    Load shared credentials from the environment.
+    Args:
+        credential: The credential name
+    Returns:
+        The credential value
+    """
     cread_path = os.environ.get(credential, None)
     if not cread_path:
         return None
@@ -505,8 +680,15 @@ def load_shared_credentials(credential: str) -> Any:
 
 
 def get_json_data(file_name: Path = Path("/root/shared_cluster.json")) -> dict:
+    """
+    Get the JSON data from a file.
+    Args:
+        file_name: The path to the file
+    Returns:
+        The JSON data
+    """
     if not file_name.exists():
-        print("File /root/shared_cluster.json does not exist.")
+        logger.error("File %s does not exist.", file_name)
         return {}
     json_data: dict = {}
     with open(file_name) as fd:
@@ -517,11 +699,24 @@ def get_json_data(file_name: Path = Path("/root/shared_cluster.json")) -> dict:
 def dump_json_data(
     json_data: dict, file_name: Path = Path("/root/shared_cluster.json")
 ):
+    """
+    Dump JSON data to a file.
+    Args:
+        json_data: The JSON data to dump
+        file_name: The path to the file
+    """
     with open(file_name, "w") as fd:
         json.dump(json_data, fd)
 
 
 def get_yaml_data(filename_path: Path) -> dict:
+    """
+    Get the YAML data from a file.
+    Args:
+        filename_path: The path to the file
+    Returns:
+        The YAML data
+    """
     if not filename_path.exists():
         return {}
     with open(filename_path) as fd_chart:
@@ -530,6 +725,13 @@ def get_yaml_data(filename_path: Path) -> dict:
 
 
 def is_shared_cluster(test_type: str = "ocp4"):
+    """
+    Check if the test is running on a shared cluster.
+    Args:
+        test_type: The type of test
+    Returns:
+        True if the test is running on a shared cluster, False otherwise
+    """
     json_data = get_json_data()
     if test_type not in json_data:
         print(f"Variable {test_type} is not present in file /root/shared_cluster.json")
@@ -548,6 +750,13 @@ def is_shared_cluster(test_type: str = "ocp4"):
 
 
 def get_shared_variable(variable: str) -> Any:
+    """
+    Get a shared variable from the shared cluster JSON file.
+    Args:
+        variable: The variable name
+    Returns:
+        The value of the variable
+    """
     json_data = get_json_data()
     if variable not in json_data:
         print(f"\nVariable {variable} is not present in file /root/shared_cluster.json")
@@ -558,6 +767,16 @@ def get_shared_variable(variable: str) -> Any:
 def get_raw_url_for_json(
     container: str, dir: str, filename: str, branch: str = "master"
 ) -> str:
+    """
+    Get the raw URL for a JSON file.
+    Args:
+        container: The container name
+        dir: The directory name
+        filename: The filename
+        branch: The branch name
+    Returns:
+        The raw URL for a JSON file
+    """
     RAW_SCL_JSON_URL: str = (
         "https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir}/{filename}"
     )
@@ -567,6 +786,11 @@ def get_raw_url_for_json(
 
 
 def shared_cluster_variables() -> dict:
+    """
+    Get the shared cluster variables.
+    Returns:
+        The shared cluster variables
+    """
     shared_cluster_data = {
         "registry.enabled": "true",
         "registry.name": get_shared_variable("registry_url"),
@@ -577,6 +801,11 @@ def shared_cluster_variables() -> dict:
 
 
 def get_datetime_string() -> str:
+    """
+    Get the current date and time as a string.
+    Returns:
+        The current date and time as a string
+    """
     now = datetime.now()
     return now.strftime("%Y%m%d-%H%M%S")
 
@@ -610,7 +839,7 @@ def redact_secrets(value: str) -> str:
         str: The input string with detected secret values replaced by `***`.
     """
     return re.sub(
-        r"(?i)(\b(?:PASSWORD|PASS|TOKEN|SECRET|KEY)\b[=\s:]*)([^\s]+)",
+        r"(?i)(\b(?:PASSWORD|PASS|TOKEN|SECRET|KEY)\b[=\s:]*)(\"[^\"]*\"|'[^']*'|[^\s]+)",
         r"\1***",
         value,
     )

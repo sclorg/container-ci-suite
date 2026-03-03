@@ -257,9 +257,10 @@ class S2IContainerImage:
     # Replacement for ct_clean_containers
     def cleanup_container(self):
         """
-        Remove and clean up containers whose IDs are stored in the instance's cid_file_dir.
-        
-        Reads each file in cid_file_dir as a container ID, stops the corresponding container, inspects its exit code and logs container output if the exit code is non-zero, removes the container and its volumes, and finally removes the cid_file_dir directory.
+        Clean up containers referenced by CID_FILE_DIR.
+
+        Returns:
+            None
         """
         logger.info("Cleaning CID_FILE_DIR %s is ongoing.", self.cid_file_dir)
         p = Path(self.cid_file_dir)
@@ -272,9 +273,9 @@ class S2IContainerImage:
             PodmanCLIWrapper.call_podman_command(f"stop {container_id}")
             exit_code = PodmanCLIWrapper.podman_inspect(
                 field="{{.State.ExitCode}}", src_image=container_id
-            )
-            if exit_code != 0:
-                logs = PodmanCLIWrapper.podman_logs(f"logs {container_id}")
+            ).strip()
+            if int(exit_code) != 0:
+                logs = PodmanCLIWrapper.podman_logs(container_id=container_id)
                 logger.info(logs)
             PodmanCLIWrapper.call_podman_command(f"rm -v {container_id}")
             # cid_file.unlink()
@@ -301,8 +302,11 @@ RUN which {binary} | grep {binary_path}
         """
         with open(dockerfile, "w") as f:
             f.write(content)
-        if not PodmanCLIWrapper.call_podman_command(
-            f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
+        if (
+            PodmanCLIWrapper.call_podman_command(
+                f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
+            )
+            != 0
         ):
             logger.error("Failed to find %s in Dockerfile!", binary)
             return False

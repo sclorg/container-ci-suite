@@ -50,7 +50,6 @@ from container_ci_suite.engines.database import DatabaseWrapper
 from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
     get_full_ca_file_path,
-    get_os_environment,
     get_mount_ca_file,
     get_env_commands_from_s2i_args,
     get_mount_options_from_s2i_args,
@@ -155,6 +154,9 @@ class ContainerTestLib:
         Remove containers and images created during tests and delete temporary test directories.
         
         Stops and removes containers created by the test run, removes associated images, and cleans up temporary directories used to store container and image ID files.
+
+        Returns:
+            None
         """
         logging.info(LINE)
         logging.info("Cleaning of testing containers and images started.")
@@ -171,9 +173,9 @@ class ContainerTestLib:
         Returns:
             str: Contents of the podman build log file, or an empty string if the file does not exist.
         """
-        if not self.podman_build_log.exists():
+        if not self.podman_build_log or not self.podman_build_log.exists():
             return ""
-        return utils.get_file_content(self.podman_build_log)
+        return utils.get_file_content(filename=self.podman_build_log)
 
     def build_image_and_parse_id(
         self, dockerfile: str = "", build_params: str = ""
@@ -210,7 +212,7 @@ class ContainerTestLib:
                     f.write(log_content)
                 # Extract image ID from last line
                 lines = log_content.strip().split("\n")
-                logging.info(
+                logging.debug(
                     "build_image_and_parse_id: Build log content: '%s'",
                     log_content.strip(),
                 )
@@ -227,9 +229,10 @@ class ContainerTestLib:
 
     def clean_app_images(self) -> None:
         """
-        Remove application images referenced by files in APP_ID_FILE_DIR and delete that directory.
-        
-        For each file in APP_ID_FILE_DIR the file content is treated as an image ID: any containers derived from that image are removed (if present) and the image is forcibly removed. If APP_ID_FILE_DIR does not exist, no action is taken.
+        Clean up application images referenced by APP_ID_FILE_DIR.
+
+        Returns:
+            None
         """
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
             print(
@@ -277,9 +280,10 @@ class ContainerTestLib:
 
     def clean_containers(self) -> None:
         """
-        Clean up containers whose IDs are listed in the instance's CID_FILE_DIR.
-        
-        For each file in CID_FILE_DIR this method reads a container ID, stops the container if it is running, inspects its exit status and dumps logs when the exit code is non-zero, removes the container (including volumes), deletes the per-container cid file, and finally removes the CID_FILE_DIR itself. If CID_FILE_DIR is not set, the method does nothing.
+        Clean up containers referenced by CID_FILE_DIR.
+
+        Returns:
+            None
         """
         if not self.cid_file_dir:
             logging.info(
@@ -890,7 +894,7 @@ class ContainerTestLib:
         Returns:
             NPM variables string
         """
-        npm_registry = get_os_environment("NPM_REGISTRY")
+        npm_registry = os.getenv("NPM_REGISTRY")
         if npm_registry and get_full_ca_file_path().exists():
             return f"-e NPM_MIRROR={npm_registry} {self.mount_ca_file()}"
         return ""
@@ -909,7 +913,7 @@ class ContainerTestLib:
 
         try:
             logging.info("Testing npm in the container image")
-            npm_registry = get_os_environment("NPM_REGISTRY")
+            npm_registry = os.getenv("NPM_REGISTRY")
 
             # Test npm version
             try:
@@ -1273,7 +1277,8 @@ class ContainerTestLib:
                 response = self._get_response(
                     url=full_url, headers=headers, timeout=10, verify=verify_ssl
                 )
-                if not response:
+                logger.info("Response status code: %s", response.status_code)
+                if response.status_code in (404, 500):
                     if attempt < max_attempts:
                         time.sleep(sleep_time)
                     continue
