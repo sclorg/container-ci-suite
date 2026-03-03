@@ -584,8 +584,12 @@ def get_datetime_string() -> str:
 @contextlib.contextmanager
 def cwd(path):
     """
-    Changes CWD to the temporary directory.
-    Yields the temporary directory.
+    Temporarily change the current working directory to the given path for the duration of a with block.
+    
+    The previous working directory is restored when the context exits, even if an exception is raised.
+    
+    Parameters:
+        path (str | pathlib.Path): Directory to use as the current working directory while inside the context.
     """
     prev_cwd = Path.cwd()
     os.chdir(path)
@@ -593,3 +597,20 @@ def cwd(path):
         yield
     finally:
         os.chdir(prev_cwd)
+
+
+def redact_secrets(value: str) -> str:
+    """
+    Redacts sensitive credential-like values in the provided string.
+    
+    Parameters:
+        value (str): Input text that may contain credentials (e.g., keys, tokens, passwords).
+    
+    Returns:
+        str: The input string with detected secret values replaced by `***`.
+    """
+    return re.sub(
+        r"(?i)(\b(?:PASSWORD|PASS|TOKEN|SECRET|KEY)\b[=\s:]*)([^\s]+)",
+        r"\1***",
+        value,
+    )

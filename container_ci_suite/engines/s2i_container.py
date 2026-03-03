@@ -24,7 +24,6 @@
 
 import os
 import logging
-import time
 import subprocess
 import shutil
 
@@ -43,7 +42,17 @@ logger = logging.getLogger(__name__)
 
 
 class S2IContainerImage:
+    """
+    S2I Container Image - Class representing an S2I container image.
+    """
+
     def __init__(self, image_name: str):
+        """
+        Create an S2IContainerImage instance for the specified image name.
+        
+        Parameters:
+            image_name (str): The container image identifier used for testing and subsequent operations.
+        """
         self.image_name: str = image_name
         self.container_args: str = ""
         self.cid_file: Path = None
@@ -52,16 +61,46 @@ class S2IContainerImage:
 
     # Replacement for ct_s2i_usage
     def s2i_usage(self) -> str:
-        return PodmanCLIWrapper.run_docker_command(
+        """
+        Run the usage script inside the container.
+
+        Returns:
+            The usage script output
+        """
+        return PodmanCLIWrapper.call_podman_command(
             f"run --rm {self.image_name} bash -c /usr/libexec/s2i/usage"
         )
 
     # Replacement for
     def is_image_available(self):
-        return PodmanCLIWrapper.run_docker_command(f"inspect {self.image_name}")
+        """
+        Determine whether the image exists by running `podman inspect` for the image name.
+        
+        Returns:
+            The output produced by the `podman inspect <image>` command for this image.
+        """
+        return PodmanCLIWrapper.call_podman_command(f"inspect {self.image_name}")
 
     # Replacement for ct_s2i_build_as_df
-    def s2i_build_as_df(self, app_path: str, src_image: str, dst_image: str, s2i_args: str = "--pull-policy=never"):
+    def s2i_build_as_df(
+        self,
+        app_path: str,
+        src_image: str,
+        dst_image: str,
+        s2i_args: str = "--pull-policy=never",
+    ):
+        """
+        Create and build an S2I image by generating a temporary Dockerfile and invoking Podman to build and tag the resulting image.
+        
+        Parameters:
+            app_path: Filesystem path or URI to the application source to include in the image.
+            src_image: Base/source image used as the S2I builder.
+            dst_image: Image name (and optional tag) to assign to the built image.
+            s2i_args: Additional S2I build options (e.g., environment variables and pull policy) that influence Dockerfile generation and mount options.
+        
+        Returns:
+            S2IContainerImage: Instance representing `dst_image` on successful build, `None` if the build fails.
+        """
         named_tmp_dir = mkdtemp()
         tmp_dir = Path(named_tmp_dir)
         if tmp_dir.exists():
@@ -82,10 +121,12 @@ class S2IContainerImage:
                 f.write(df_content)
             mount_options = utils.get_mount_options_from_s2i_args(s2i_args=s2i_args)
             # Run the build and tag the result
-            build_cmd = f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
+            build_cmd = (
+                f"build {mount_options} -f {df_name} --no-cache=true -t {dst_image}"
+            )
             print(build_cmd)
             try:
-                PodmanCLIWrapper.run_docker_command(cmd=build_cmd)
+                PodmanCLIWrapper.call_podman_command(cmd=build_cmd)
             except subprocess.CalledProcessError as cpe:
                 print(f"Building S2I Image failed: {cpe.stderr} with {cpe.output}")
                 return None
@@ -95,24 +136,37 @@ class S2IContainerImage:
     def s2i_create_df(
         self, tmp_dir: Path, app_path: str, s2i_args: str, src_image, dst_image: str
     ) -> str:
+        """
+        Assembles and returns the Dockerfile content used to perform an S2I build.
+        
+        Parameters:
+            tmp_dir (Path): Temporary build context directory where application and scripts are prepared.
+            app_path (str): Path or URI to the application source to include in the build context.
+            s2i_args (str): S2I build argument string (e.g., environment definitions, `--incremental`, `--pull-policy=...`).
+            src_image (str): Source/base image name for the S2I build.
+            dst_image (str): Destination image name used when extracting incremental artifacts.
+        
+        Returns:
+            str or None: The assembled Dockerfile content as a single string, or `None` if required preconditions
+            (such as user ID lookup or source image availability for incremental builds) are not met.
+        """
         real_app_path = app_path.replace("file://", "")
         df_content: List = []
         local_scripts: Path = Path("upload/scripts")
         local_app: Path = Path("upload/src")
 
-        if not PodmanCLIWrapper.docker_image_exists(src_image):
+        if not PodmanCLIWrapper.podman_image_exists(src_image):
             if "pull-policy=never" not in s2i_args:
-                PodmanCLIWrapper.run_docker_command(f"pull {src_image}")
+                PodmanCLIWrapper.call_podman_command(f"pull {src_image}")
 
-        user = PodmanCLIWrapper.docker_get_user(src_image)
-        print(f"User name from container {src_image} is {user}")
+        user = PodmanCLIWrapper.podman_get_user(src_image)
         if not user:
             user = "0"
 
         assert int(user)
-        user_id = PodmanCLIWrapper.docker_get_user_id(src_image=src_image, user=user)
+        user_id = PodmanCLIWrapper.podman_get_user_id(src_image=src_image, user=user)
         if not user_id:
-            logger.error(f"id of user {user} not found inside image {src_image}.")
+            logger.error("id of user %s not found inside image %s.", user, src_image)
             logger.error("Terminating s2i build.")
             return None
 
@@ -122,7 +176,7 @@ class S2IContainerImage:
             inc_tmp = Path(mktemp(dir=str(tmp_dir), prefix="incremental."))
             ContainerTestLibUtils.run_command(f"setfacl -m 'u:{user_id}:rwx' {inc_tmp}")
             # Check if the image exists, build should fail (for testing use case) if it does not
-            if not PodmanCLIWrapper.docker_image_exists(src_image):
+            if not PodmanCLIWrapper.podman_image_exists(src_image):
                 return None
             # Run the original image with a mounted in volume and get the artifacts out of it
             cmd = (
@@ -130,7 +184,7 @@ class S2IContainerImage:
                 ' then /usr/libexec/s2i/save-artifacts > "$inc_tmp/artifacts.tar";'
                 ' else touch "$inc_tmp/artifacts.tar"; fi'
             )
-            PodmanCLIWrapper.run_docker_command(
+            PodmanCLIWrapper.call_podman_command(
                 f"run --rm -v {inc_tmp}:{inc_tmp}:Z {dst_image} bash -c {cmd}"
             )
             # Move the created content into the $tmpdir for the build to pick it up
@@ -198,11 +252,16 @@ class S2IContainerImage:
         else:
             df_content.append("CMD /usr/libexec/s2i/run")
 
-        return '\n'.join(df_content)
+        return "\n".join(df_content)
 
     # Replacement for ct_clean_containers
     def cleanup_container(self):
-        logger.info(f"Cleaning CID_FILE_DIR {self.cid_file_dir} is ongoing.")
+        """
+        Remove and clean up containers whose IDs are stored in the instance's cid_file_dir.
+        
+        Reads each file in cid_file_dir as a container ID, stops the corresponding container, inspects its exit code and logs container output if the exit code is non-zero, removes the container and its volumes, and finally removes the cid_file_dir directory.
+        """
+        logger.info("Cleaning CID_FILE_DIR %s is ongoing.", self.cid_file_dir)
         p = Path(self.cid_file_dir)
         cid_files = p.glob("*")
         for cid_file in cid_files:
@@ -210,91 +269,72 @@ class S2IContainerImage:
                 continue
             container_id = utils.get_file_content(cid_file)
             logger.info("Stopping container")
-            PodmanCLIWrapper.run_docker_command(f"stop {container_id}")
-            exit_code = PodmanCLIWrapper.docker_inspect(
+            PodmanCLIWrapper.call_podman_command(f"stop {container_id}")
+            exit_code = PodmanCLIWrapper.podman_inspect(
                 field="{{.State.ExitCode}}", src_image=container_id
             )
             if exit_code != 0:
-                logs = PodmanCLIWrapper.run_docker_command(f"logs {container_id}")
+                logs = PodmanCLIWrapper.podman_logs(f"logs {container_id}")
                 logger.info(logs)
-            PodmanCLIWrapper.run_docker_command(f"rm -v {container_id}")
+            PodmanCLIWrapper.call_podman_command(f"rm -v {container_id}")
             # cid_file.unlink()
         os.rmdir(self.cid_file_dir)
-        logger.info(f"Cleanning CID_FILE_DIR {self.cid_file_dir} is DONE.")
+        logger.info("Cleanning CID_FILE_DIR %s is DONE.", self.cid_file_dir)
 
     # Replacement for ct_binary_found_from_df
     def binary_found_from_df(self, binary: str = "", binary_path: str = "^/opt/rh"):
+        """
+        Determines whether a named binary is present in PATH during a container image build.
+        
+        Parameters:
+            binary (str): The executable name to look for inside the image.
+            binary_path (str): A grep-compatible path pattern to match the binary's location (e.g., "^/opt/rh").
+        
+        Returns:
+            bool: `True` if the binary is found during the build, `False` otherwise.
+        """
         tempdir = mkdtemp(suffix=f"{self.image_name}_binary")
         dockerfile = Path(tempdir) / "Dockerfile"
-        logger.info(f"Testing {binary} in build from Dockerfile")
+        logger.info("Testing %s in build from Dockerfile", binary)
         content: str = f"""FROM {self.image_name}
 RUN which {binary} | grep {binary_path}
         """
         with open(dockerfile, "w") as f:
             f.write(content)
-        if not PodmanCLIWrapper.run_docker_command(
+        if not PodmanCLIWrapper.call_podman_command(
             f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
         ):
-            logger.error(f"Failed to find {binary} in Dockerfile!")
+            logger.error("Failed to find %s in Dockerfile!", binary)
             return False
         return True
 
     def doc_content_old(self, strings: List) -> bool:
+        """
+        Verify that the image's packaged help documentation contains the required strings and appears to be in troff/groff format.
+        
+        Parameters:
+            strings (List[str]): Strings that must be present in the documentation (help.1).
+        
+        Returns:
+            bool: `True` if every string is found and the file contains the troff/groff markers `TH`, `PP`, and `SH`; `False` otherwise.
+        """
         logger.info("Testing documentation in the container image")
         files_to_check = ["help.1"]
+        found_strings = True
         for f in files_to_check:
-            doc_content = PodmanCLIWrapper.docker_run_command(f'--rm {self.image_name} /bin/bash -c cat {f}')
+            doc_content = PodmanCLIWrapper.podman_run_command(
+                f"--rm {self.image_name} /bin/bash -c cat {f}"
+            )
             for term in strings:
                 # test = re.search(f"{term}", doc_content)
-                logger.info(f"ERROR: File /{f} does not contain '{term}'.")
-                return False
+                if term not in doc_content:
+                    logger.info("ERROR: File /%s does not contain '%s'.", f, term)
+                    found_strings = False
             for term in ["TH", "PP", "SH"]:
                 if term not in doc_content:
-                    logger.info(f"ERROR: help.1 is probably not in troff or groff format, since {term} is missing")
-                    return False
-        return True
-
-    def test_response(
-            self, url: str = "",
-            expected_code: int = 200, port: int = 8080,
-            expected_output: str = "", max_tests: int = 20
-    ) -> bool:
-        url = f"{url}:{port}"
-        print(f"URL address to get response from container: {url}")
-        cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
-        # Check if application returns proper HTTP_CODE
-        print("Check if HTTP_CODE is valid.")
-        for count in range(max_tests):
-            try:
-                output_code = ContainerTestLibUtils.run_command(cmd=f"{cmd_to_run}", return_output=True)
-                return_code = output_code[-3:]
-                print(f"Output is: {output_code} and Return Code is: {return_code}")
-                try:
-                    int_ret_code = int(return_code)
-                    if int_ret_code == expected_code:
-                        print(f"HTTP_CODE is VALID {int_ret_code}")
-                        break
-                except ValueError:
-                    logger.info(return_code)
-                    time.sleep(1)
-                    continue
-                time.sleep(3)
-                continue
-            except subprocess.CalledProcessError as cpe:
-                print(f"Error from {cmd_to_run} is {cpe.stderr}, {cpe.stdout}")
-                time.sleep(3)
-
-        cmd_to_run = "curl --connect-timeout 10 -k -s " + f"{url}"
-        # Check if application returns proper output
-        for count in range(max_tests):
-            output_code = ContainerTestLibUtils.run_command(cmd=f"{cmd_to_run}", return_output=True)
-            print(f"Check if expected output {expected_output} is in {cmd_to_run}.")
-            if expected_output in output_code:
-                print(f"Expected output '{expected_output}' is present.")
-                return True
-            print(
-                f"check_response_inside_cluster:"
-                f"expected_output {expected_output} not found in output of {cmd_to_run} command. See {output_code}"
-            )
-            time.sleep(5)
-        return False
+                    logger.info(
+                        "ERROR: help.1 is probably not in troff or groff format, since '%s' is missing.",
+                        term,
+                    )
+                    found_strings = False
+        return found_strings

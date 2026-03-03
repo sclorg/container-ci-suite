@@ -37,6 +37,8 @@ import tempfile
 import subprocess
 import logging
 import urllib.request
+import requests
+
 from pathlib import Path
 from typing import List, Optional, Literal, Union
 from datetime import datetime
@@ -97,6 +99,13 @@ class ContainerTestLib:
 
     @property
     def lib(self):
+        """
+        Return the lazily instantiated ContainerImage instance used to interact with the current image.
+        
+        Returns:
+            ContainerImage: The container image library instance; created and cached on first access.
+        """
+
         if not self._lib:
             self._lib = ContainerImage(
                 image_name=self.image_name,
@@ -107,6 +116,12 @@ class ContainerTestLib:
 
     @property
     def db_lib(self):
+        """
+        Lazily create and return the DatabaseWrapper for the current image and database type.
+        
+        Returns:
+            DatabaseWrapper: The DatabaseWrapper instance associated with this ContainerTestLib.
+        """
         if not self._db_lib:
             self._db_lib = DatabaseWrapper(
                 image_name=self.image_name, db_type=self.db_type
@@ -114,19 +129,32 @@ class ContainerTestLib:
         return self._db_lib
 
     def set_new_image(self, image_name):
+        """
+        Update the stored image name and propagate the change to the database wrapper.
+        
+        Parameters:
+            image_name (str): New image name to set.
+        """
         self.image_name = image_name
         self.db_lib.image_name = image_name
 
     def set_new_db_type(
         self, db_type: Literal["mysql", "mariadb", "postgresql", "postgres"] = "mysql"
     ):
+        """
+        Set the database type used by this ContainerTestLib instance and its DatabaseWrapper.
+        
+        Parameters:
+            db_type (Literal["mysql", "mariadb", "postgresql", "postgres"]): New database type to use; updates both the instance's `db_type` and `self.db_lib.db_type`.
+        """
         self.db_lib.db_type = db_type
         self.db_type = db_type
 
     def cleanup(self) -> None:
         """
-        Clean up containers and images used during tests.
-        Stops and removes all containers and cleans up temporary directories.
+        Remove containers and images created during tests and delete temporary test directories.
+        
+        Stops and removes containers created by the test run, removes associated images, and cleans up temporary directories used to store container and image ID files.
         """
         logging.info(LINE)
         logging.info("Cleaning of testing containers and images started.")
@@ -137,6 +165,12 @@ class ContainerTestLib:
         self.clean_containers()
 
     def get_podman_build_log_file(self) -> str:
+        """
+        Return the contents of the podman build log file.
+        
+        Returns:
+            str: Contents of the podman build log file, or an empty string if the file does not exist.
+        """
         if not self.podman_build_log.exists():
             return ""
         return utils.get_file_content(self.podman_build_log)
@@ -177,7 +211,8 @@ class ContainerTestLib:
                 # Extract image ID from last line
                 lines = log_content.strip().split("\n")
                 logging.info(
-                    f"build_image_and_parse_id: Build log content: '{log_content.strip()}'"
+                    "build_image_and_parse_id: Build log content: '%s'",
+                    log_content.strip(),
                 )
                 self.app_image_id = lines[-1].strip()
                 print(f"build_image_and_parse_id: App image ID: {self.app_image_id}")
@@ -187,18 +222,22 @@ class ContainerTestLib:
                 return False
 
         except Exception as e:
-            logger.error(f"Build failed: {e}")
+            logger.error("Build failed: %r", e)
             return False
 
     def clean_app_images(self) -> None:
-        """Clean up application images referenced by APP_ID_FILE_DIR."""
+        """
+        Remove application images referenced by files in APP_ID_FILE_DIR and delete that directory.
+        
+        For each file in APP_ID_FILE_DIR the file content is treated as an image ID: any containers derived from that image are removed (if present) and the image is forcibly removed. If APP_ID_FILE_DIR does not exist, no action is taken.
+        """
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
             print(
                 f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped."
             )
             return
         logging.info(
-            f"Examining image ID files in APP_ID_FILE_DIR={self.app_id_file_dir}"
+            "Examining image ID files in APP_ID_FILE_DIR=%s", self.app_id_file_dir
         )
         for file_path in self.app_id_file_dir.glob("*"):
             if not file_path.is_file():
@@ -231,37 +270,41 @@ class ContainerTestLib:
                 except subprocess.CalledProcessError:
                     pass
             except Exception as e:
-                logger.warning(f"Error cleaning image from {file_path}: {e}")
+                logger.warning("Error cleaning image from %s: %r", file_path, e)
 
         # Remove the directory
         shutil.rmtree(self.app_id_file_dir)
 
     def clean_containers(self) -> None:
-        """Clean up containers referenced by CID_FILE_DIR."""
+        """
+        Clean up containers whose IDs are listed in the instance's CID_FILE_DIR.
+        
+        For each file in CID_FILE_DIR this method reads a container ID, stops the container if it is running, inspects its exit status and dumps logs when the exit code is non-zero, removes the container (including volumes), deletes the per-container cid file, and finally removes the CID_FILE_DIR itself. If CID_FILE_DIR is not set, the method does nothing.
+        """
         if not self.cid_file_dir:
             logging.info(
                 "The CID_FILE_DIR is not set. Container cleaning is to be skipped."
             )
             return
 
-        logging.info(f"Examining CID files in CID_FILE_DIR={self.cid_file_dir}")
+        logging.info("Examining CID files in CID_FILE_DIR=%s", self.cid_file_dir)
 
         for cid_file in self.cid_file_dir.glob("*"):
             if not cid_file.is_file():
                 continue
-            logging.info(f"Let's clean file {cid_file}")
+            logging.info("Let's clean file %s", cid_file)
 
             try:
                 container_id = utils.get_file_content(cid_file).strip()
                 if not ContainerImage.is_container_exists(container_id):
                     continue
-                logging.info(f"Stopping and removing container {container_id}...")
+                logging.info("Stopping and removing container %s...", container_id)
                 # Stop container if running
                 if ContainerImage.is_container_running(container_id):
                     PodmanCLIWrapper.call_podman_command(
                         cmd=f"stop {container_id}", ignore_error=True
                     )
-                    logging.info(f"Container {container_id} stopped")
+                    logging.info("Container %s stopped", container_id)
                 # Check exit status and dump logs if needed
                 try:
                     exit_status = PodmanCLIWrapper.call_podman_command(
@@ -269,7 +312,7 @@ class ContainerTestLib:
                         return_output=True,
                     ).strip()
                     if int(exit_status) != 0:
-                        logging.info(f"Dumping logs for {container_id}")
+                        logging.info("Dumping logs for %s", container_id)
                         try:
                             logs = PodmanCLIWrapper.call_podman_command(
                                 cmd=f"logs {container_id}", return_output=True
@@ -286,7 +329,7 @@ class ContainerTestLib:
                 if cid_file.exists():
                     cid_file.unlink()
             except Exception as e:
-                logger.warning(f"Error cleaning container from {cid_file}: {e}")
+                logger.warning("Error cleaning container from %s: %s", cid_file, e)
         # Remove the directory
         if self.cid_file_dir.exists():
             shutil.rmtree(self.cid_file_dir)
@@ -294,6 +337,17 @@ class ContainerTestLib:
     def pull_image(
         self, image_name: str, exit_on_fail: bool = False, loops: int = 10
     ) -> bool:
+        """
+        Pull an image.
+        
+        Args:
+            image_name (str): Name of the image to pull.
+            exit_on_fail (bool): If True, exit on failure.
+            loops (int): Number of retry attempts.
+        
+        Returns:
+            True if the image was pulled successfully, False otherwise.
+        """
         return self.lib.pull_image(
             image_name=image_name, exit_on_fail=exit_on_fail, loops=loops
         )
@@ -303,16 +357,17 @@ class ContainerTestLib:
         env_filter: str, check_envs: str, loop_envs: str, env_format: str = "*VALUE*"
     ) -> bool:
         """
-        Compare environment variable values between two lists.
-
-        Args:
-            env_filter: Filter for environment variables
-            check_envs: Environment variables to check against
-            loop_envs: Environment variables to check
-            env_format: Format string for value checking
-
+        Determine whether all environment variable values from `loop_envs` that match `env_filter` are present in `check_envs` according to `env_format`.
+        
+        Parameters:
+            env_filter (str): Regular expression used to select which variables/values to check.
+            check_envs (str): Newline-separated environment lines (e.g., "VAR=val:other") to search for expected values.
+            loop_envs (str): Newline-separated environment lines whose values drive the checks.
+            env_format (str): Pattern describing how a value should appear in `check_envs`; the literal token `VALUE` will be replaced
+                with the value being checked and `*` is treated as a wildcard (matches any sequence).
+        
         Returns:
-            True if all environment variables match, False otherwise
+            bool: `True` if every selected value from `loop_envs` is found in the corresponding variable in `check_envs` using `env_format`, `False` otherwise.
         """
         for line in loop_envs.split("\n"):
             line = line.strip()
@@ -328,7 +383,7 @@ class ContainerTestLib:
                 env for env in check_envs.split("\n") if env.startswith(f"{var_name}=")
             ]
             if not filtered_envs:
-                logging.info(f"{var_name} not found during 'docker exec'")
+                logging.info("%s not found during 'docker exec'", var_name)
                 return False
 
             filtered_env = filtered_envs[0]
@@ -341,23 +396,49 @@ class ContainerTestLib:
                 pattern = env_format.replace("VALUE", re.escape(value))
                 pattern = pattern.replace("*", ".*")
                 if not re.search(pattern, filtered_env):
-                    logging.info(f"Value {value} is missing from variable {var_name}")
+                    logging.info(
+                        "Value %s is missing from variable %s", value, var_name
+                    )
                     logging.info(filtered_env)
                     return False
 
         return True
 
     def get_cid(self, cid_file_name: str) -> str:
-        """Get container ID from cid_file."""
-        logging.debug(f"Get content of CID_NAME: {cid_file_name}")
+        """
+        Retrieve the container ID stored in a CID file.
+        
+        Parameters:
+            cid_file_name (str): Name of the CID file to read.
+        
+        Returns:
+            container_id (str): The container ID read from the specified CID file.
+        """
+        logging.debug("Get content of CID_NAME: %s", cid_file_name)
         return self.lib.get_cid(cid_file_name=cid_file_name)
 
     def get_cip(self, cid_file_name: str = "app_dockerfile") -> str:
-        """Get container IP address from cid_file."""
+        """
+        Get container IP address from cid_file.
+
+        Args:
+            cid_file_name: Name of the cid file
+
+        Returns:
+            The container IP address
+        """
         return self.lib.get_cip(cid_file_name=cid_file_name)
 
     def get_cip_cid(self, cid_file_name: str = "app_dockerfile") -> tuple[str, str]:
-        """Get container ID and IP address from cid_file."""
+        """
+        Retrieve the container IP address and container ID associated with a CID file.
+        
+        Parameters:
+            cid_file_name (str): Name of the CID file to read (default: "app_dockerfile").
+        
+        Returns:
+            tuple: (cip, cid) where `cip` is the container's IP address and `cid` is the container ID.
+        """
         cip = self.lib.get_cip(cid_file_name=cid_file_name)
         cid = self.lib.get_cid(cid_file_name=cid_file_name)
         return cip, cid
@@ -400,14 +481,15 @@ class ContainerTestLib:
         self, cid_file_name: str, container_args: List[str] | str, command: str
     ) -> bool:
         """
-        Assert that container creation should fail.
-
-        Args:
-            cid_file_name: Name for the cid_file_name
-            container_args: Container arguments
-
+        Verify that creating a container with the given arguments fails.
+        
+        Parameters:
+            cid_file_name (str): Filename to store the created container ID.
+            container_args (List[str] | str): Arguments passed to container creation (command-line form or list).
+            command (str): Command to run inside the container.
+        
         Returns:
-            True if container creation failed as expected, False otherwise
+            bool: `True` if container creation failed as expected (container did not remain running or exited with a non-zero status), `False` if creation unexpectedly succeeded and exited with status 0.
         """
         max_attempts = 10
         if isinstance(container_args, list):
@@ -416,7 +498,7 @@ class ContainerTestLib:
         if self.create_container(
             cid_file_name=cid_file_name, container_args=container_args, command=command
         ):
-            logging.info(f"Container creation succeeded for {cid_file_name}")
+            logging.info("Container creation succeeded for %s", cid_file_name)
             container_id = self.get_cid(cid_file_name)
             attempt = 1
             while attempt <= max_attempts:
@@ -446,7 +528,7 @@ class ContainerTestLib:
                     cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                     return_output=True,
                 ).strip()
-                logging.info(f"Exit status for {container_id} is {exit_status}")
+                logging.info("Exit status for %s is %s", container_id, exit_status)
                 if exit_status == "0":
                     return False
             except subprocess.CalledProcessError:
@@ -470,81 +552,18 @@ class ContainerTestLib:
         connection_params: dict = None,
     ) -> bool:
         """
-        Assert that container creation succeeds and optionally test connection.
-
-        This is a Python/PyTest conversion of the bash function from
-        postgresql-container/test/run_test (lines 247-283):
-
-        ```bash
-        assert_container_creation_succeeds ()
-        {
-          local check_env=false
-          local name=pg-success-"$(ct_random_string)"
-          local PGUSER='' PGPASS=''  DB=''  ADMIN_PASS=
-          local docker_args=
-          local ret=0
-
-          for arg; do
-            docker_args+=" $(printf "%q" "$arg")"
-            if $check_env; then
-              local env=${arg//=*/}
-              local val=${arg//$env=/}
-              case $env in
-                POSTGRESQL_ADMIN_PASSWORD)  ADMIN_PASS=$val ;;
-                POSTGRESQL_USER)            PGUSER=$val ;;
-                POSTGRESQL_PASSWORD)        PGPASS=$val ;;
-                POSTGRESQL_DATABASE)        DB=$val ;;
-              esac
-              check_env=false
-            elif test "$arg" = -e; then
-              check_env=:
-            fi
-          done
-
-          DOCKER_ARGS=$docker_args create_container "$name" || ret=1
-
-          if test -n "$PGUSER" && test -n "$PGPASS"; then
-            PGUSER=$PGUSER PASS=$PGPASS DB=$DB test_connection "$name" || ret=2
-          fi
-
-          if test -n "$ADMIN_PASS"; then
-            PGUSER=postgres PASS=$ADMIN_PASS DB=$DB test_connection "$name" || ret=3
-          fi
-
-          return $ret
-        }
-        ```
-
-        Args:
-            container_args: Container arguments (can be list or string)
-            command: Command to run in container (optional)
-            test_connection_func: Optional function to test connection after creation
-            connection_params: Optional parameters for connection test function
-
+        Assert that a container can be created and optionally verify an application-level connection.
+        
+        Creates a container using the provided container arguments and command, waits briefly to confirm the container is running, and if supplied calls the given connection test function with the container's cid file and the provided connection parameters.
+        
+        Parameters:
+            container_args: Container run arguments (string or list of strings).
+            command: Optional command to run inside the container.
+            test_connection_func: Optional callable that takes (cid_file: str, params: dict) and returns truthy on successful connection.
+            connection_params: Optional dict passed to `test_connection_func`.
+        
         Returns:
-            True if container creation succeeded, False otherwise
-
-        Example:
-            >>> ct = ContainerTestLib(image_name="postgres:13")
-            >>> # Basic usage - just test creation
-            >>> assert ct.assert_container_creation_succeeds(
-            ...     "-e POSTGRESQL_USER=user -e POSTGRESQL_PASSWORD=pass -e POSTGRESQL_DATABASE=db"
-            ... )
-
-            >>> # With connection testing
-            >>> from container_ci_suite.engines.database import DatabaseWrapper
-            >>> db = DatabaseWrapper(image_name="postgres:13", db_type="postgresql")
-            >>> def test_conn(cid_file, params):
-            ...     ct = params['ct']
-            ...     db = params['db']
-            ...     container_ip = ct.get_cip(cid_file)
-            ...     return db.test_connection(container_ip, params['user'], params['pass'])
-            >>>
-            >>> assert ct.assert_container_creation_succeeds(
-            ...     "-e POSTGRESQL_USER=user -e POSTGRESQL_PASSWORD=pass",
-            ...     test_connection_func=test_conn,
-            ...     connection_params={'ct': ct, 'db': db, 'user': 'user', 'pass': 'pass'}
-            ... )
+            True if the container was created and running and any provided connection test passed, `False` otherwise.
         """
         # Generate unique container name
         self.success_cid_file = (
@@ -561,7 +580,10 @@ class ContainerTestLib:
 
         try:
             # Create the container
-            logging.info(f"Creating container with args: {container_args}")
+            logging.info(
+                "Creating container with args: %s",
+                utils.redact_secrets(container_args),
+            )
             if not self.create_container(
                 cid_file_name=self.success_cid_file,
                 container_args=container_args,
@@ -572,7 +594,7 @@ class ContainerTestLib:
 
             # Get container ID
             container_id = self.get_cid(self.success_cid_file)
-            logging.info(f"Container created successfully: {container_id}")
+            logging.info("Container created successfully: %s", container_id)
 
             # Wait a bit for container to start
             time.sleep(2)
@@ -586,14 +608,14 @@ class ContainerTestLib:
                         cmd=f"inspect -f '{{{{.State.ExitCode}}}}' {container_id}",
                         return_output=True,
                     ).strip()
-                    logging.error(f"Container exited with status: {exit_status}")
+                    logging.error("Container exited with status: %s", exit_status)
                     # Dump logs for debugging
                     logs = PodmanCLIWrapper.call_podman_command(
                         cmd=f"logs {container_id}",
                         return_output=True,
                         ignore_error=True,
                     )
-                    logging.error(f"Container logs:\n{logs}")
+                    logging.error("Container logs:\n%s", logs)
                 except subprocess.CalledProcessError:
                     pass
                 return False
@@ -609,19 +631,30 @@ class ContainerTestLib:
                         return False
                     logging.info("Connection test passed")
                 except Exception as e:
-                    logging.error(f"Connection test raised exception: {e}")
+                    logging.error("Connection test raised exception: %r", e)
                     return False
 
             logging.info("Container creation succeeded")
             return True
 
         except Exception as e:
-            logging.error(f"Error during container creation test: {e}")
+            logging.error("Error during container creation test: %r", e)
             return False
 
     def run_command(
         self, cmd: str, return_output: bool = True, ignore_errors: bool = False
-    ):
+    ) -> str:
+        """
+        Execute a shell command and return its textual output.
+        
+        Parameters:
+            cmd (str): Command to execute.
+            return_output (bool): If True, return the command's stdout/stderr as a string.
+            ignore_errors (bool): If True, suppress errors and return an empty string on failure.
+        
+        Returns:
+            str: The command output; empty string when the command fails and `ignore_errors` is True.
+        """
         return ContainerTestLibUtils.run_command(
             cmd=cmd, return_output=return_output, ignore_error=ignore_errors
         )
@@ -633,7 +666,20 @@ class ContainerTestLib:
         app_dir: str,
         build_args: str = "",
         app_image_name: str = "app_dockerfile",
-    ):
+    ) -> bool:
+        """
+        Build a test container.
+
+        Args:
+            dockerfile: Path to the Dockerfile
+            app_url: URL of the application
+            app_dir: Directory of the application
+            build_args: Build arguments
+            app_image_name: Name of the application image
+
+        Returns:
+            True if build successful, False otherwise
+        """
         return self.lib.build_test_container(
             dockerfile=dockerfile,
             app_url=app_url,
@@ -642,7 +688,13 @@ class ContainerTestLib:
             app_image_name=app_image_name,
         )
 
-    def test_app_dockerfile(self):
+    def test_app_dockerfile(self) -> bool:
+        """
+        Run the standard application Dockerfile tests for the configured image.
+        
+        Returns:
+            True if the application Dockerfile passes all tests, False otherwise.
+        """
         return self.lib.test_app_dockerfile()
 
     def create_container(
@@ -653,14 +705,16 @@ class ContainerTestLib:
         command: str = "",
     ) -> bool:
         """
-        Create a container.
-        Args:
-            cid_file_name: Name for the cid_file_name
-            docker_args: Docker arguments to run in container
-            command: Command to run in container
-            container_args: Additional container arguments
+        Create and start a container and write its container ID to a CID file.
+        
+        Parameters:
+            cid_file_name (str): Filename (within the library's CID directory) where the container ID will be written.
+            container_args (str): Additional arguments passed to the container run command (e.g., environment vars, volume mounts).
+            docker_args (str): Arguments placed before `--cidfile` when invoking the podman/docker run command (e.g., global run flags).
+            command (str): Command to execute inside the container.
+        
         Returns:
-            True if container created successfully, False otherwise
+            `true` if the container was started and the CID file was created, `false` otherwise.
         """
 
         if isinstance(container_args, list):
@@ -672,33 +726,40 @@ class ContainerTestLib:
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
         try:
             cmd = f"run {docker_args} --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
-            logging.info(f"Command to create container is '{cmd}'.")
+            logging.info(
+                "Command to create container is '%s'.", utils.redact_secrets(cmd)
+            )
             ret_value = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd, return_output=True
             )
-            logging.info(f"Return value for command '{cmd}' is '{ret_value}'.")
+            logging.info(
+                "Return value for command '%s' is '%s'.",
+                utils.redact_secrets(cmd),
+                ret_value,
+            )
             if not ContainerImage.wait_for_cid(cid_file_name=full_cid_file_name):
                 return False
             container_id = utils.get_file_content(full_cid_file_name).strip()
-            logging.info(f"Created container {container_id}")
+            logging.info("Created container %s", container_id)
             return True
         except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to create container: {e}")
+            logger.error("Failed to create container: %r", e)
             return False
 
     def scl_usage_old(
         self, cid_file_name: str, command: str, expected: str, image_name: str = ""
     ) -> bool:
         """
-        Test SCL usage in three different ways.
-        Args:
-            cid_file_name: Name for cid_file_name
-            command: Command to execute
-            expected: Expected string in output
-            image_name: Image name to test
-
+        Verify that a given command, when run in the image or inside a running container, produces the expected output.
+        
+        Parameters:
+            cid_file_name: CID file name used to locate an already running container for exec tests.
+            command: Shell command to run inside the image/container.
+            expected: Substring expected to appear in the command output.
+            image_name: Optional image name to use for the direct run test.
+        
         Returns:
-            True if all tests pass, False otherwise
+            `true` if all three checks (run --rm with the image, exec with /bin/bash, exec with /bin/sh) contain `expected` in their outputs, `false` otherwise.
         """
         logging.debug("Testing the image SCL enable")
 
@@ -710,7 +771,10 @@ class ContainerTestLib:
             )
             if expected not in output:
                 logging.error(
-                    f"ERROR[/bin/bash -c '{command}'] Expected '{expected}', got '{output}'"
+                    "ERROR[/bin/bash -c '%s'] Expected '%s', got '%s'",
+                    command,
+                    expected,
+                    output,
                 )
                 return False
         except subprocess.CalledProcessError:
@@ -724,7 +788,10 @@ class ContainerTestLib:
             )
             if expected not in output:
                 logging.error(
-                    f"ERROR[exec /bin/bash -c '{command}'] Expected '{expected}', got '{output}'"
+                    "ERROR[exec /bin/bash -c '%s'] Expected '%s', got '%s'",
+                    command,
+                    expected,
+                    output,
                 )
                 return False
         except subprocess.CalledProcessError:
@@ -738,7 +805,10 @@ class ContainerTestLib:
             )
             if expected not in output:
                 logging.error(
-                    f"ERROR[exec /bin/sh -ic '{command}'] Expected '{expected}', got '{output}'"
+                    "ERROR[exec /bin/sh -ic '%s'] Expected '%s', got '%s'",
+                    command,
+                    expected,
+                    output,
                 )
                 return False
         except subprocess.CalledProcessError:
@@ -748,12 +818,14 @@ class ContainerTestLib:
 
     def doc_content_old(self, strings: List[str], image_name: str = "") -> bool:
         """
-        Check documentation content in container.
-        Args:
-            strings: List of strings to check for
-            image_name: Image name to test
+        Verify that the container image contains required documentation strings and that help files are in troff/groff format.
+        
+        Parameters:
+            strings (List[str]): Strings that must appear in the help file(s).
+            image_name (str): Container image to inspect (defaults to the instance image).
+        
         Returns:
-            True if all strings found and format is correct, False otherwise
+            bool: `True` if all specified strings are present and the help file(s) contain troff/groff markers (`.TH`, `.PP`, `.SH`); `False` otherwise.
         """
         logging.info("Testing documentation in the container image")
         tmpdir = Path(tempfile.mkdtemp())
@@ -775,7 +847,9 @@ class ContainerTestLib:
                     for term in strings:
                         if term not in content:
                             logging.error(
-                                f"ERROR: File /{filename} does not include '{term}'."
+                                "ERROR: File /%s does not include '%s'.",
+                                filename,
+                                term,
                             )
                             return False
 
@@ -783,13 +857,17 @@ class ContainerTestLib:
                     for term in ["TH", "PP", "SH"]:
                         if not re.search(f"^\\.{term}", content, re.MULTILINE):
                             logging.error(
-                                f"ERROR: /{filename} is probably not in troff or groff format,"
-                                f"since '{term}' is missing."
+                                "ERROR: /%s is probably not in troff or groff format,"
+                                "since '%s' is missing.",
+                                filename,
+                                term,
                             )
                             return False
 
                 except subprocess.CalledProcessError:
-                    logging.error(f"ERROR: Could not extract {filename} from container")
+                    logging.error(
+                        "ERROR: Could not extract %s from container", filename
+                    )
                     return False
 
             logging.info("Success!")
@@ -821,11 +899,10 @@ class ContainerTestLib:
     # Moved to engines/container.py
     def npm_works(self, image_name: str = "") -> bool:
         """
-        Test if npm works in the container.
-        Args:
-            image_name: Image name to test
+        Verifies that npm is usable inside the given container image by checking the npm version and performing an install of `jquery` inside a temporary test container.
+        
         Returns:
-            True if npm works, False otherwise
+            `true` if npm functions correctly inside the image (version retrieval and install succeed and, when an internal NPM registry is configured, the registry is referenced), `false` otherwise.
         """
         tmpdir = Path(tempfile.mkdtemp())
         cid_file_name = tmpdir / "npm_test_cid"
@@ -837,7 +914,7 @@ class ContainerTestLib:
             # Test npm version
             try:
                 cmd = f"run --rm {image_name} /bin/bash -c 'npm --version'"
-                logging.debug(f"Podman command for getting npm version is: '{cmd}'")
+                logging.debug("Podman command for getting npm version is: '%s'", cmd)
                 version_output = PodmanCLIWrapper.call_podman_command(
                     cmd=cmd, return_output=True
                 )
@@ -846,7 +923,8 @@ class ContainerTestLib:
                     f.write(version_output)
             except subprocess.CalledProcessError:
                 logging.error(
-                    f"ERROR: 'npm --version' does not work inside the image {image_name}."
+                    "ERROR: 'npm --version' does not work inside the image %s.",
+                    image_name,
                 )
                 return False
 
@@ -855,10 +933,10 @@ class ContainerTestLib:
 
             try:
                 cmd = f"run -d {get_mount_ca_file()} --rm --cidfile={cid_file_name} {test_app_image}"
-                logging.info(f"Podman command for running in daemon is: '{cmd}'")
+                logging.info("Podman command for running in daemon is: '%s'", cmd)
                 PodmanCLIWrapper.call_podman_command(cmd=cmd, return_output=False)
             except subprocess.CalledProcessError:
-                logging.error(f"ERROR: Could not start {test_app_image}")
+                logging.error("ERROR: Could not start %s", test_app_image)
                 return False
 
             # Wait for container
@@ -873,7 +951,7 @@ class ContainerTestLib:
                     f"exec {container_id} /bin/bash -c "
                     f"'npm --verbose install jquery && test -f node_modules/jquery/src/jquery.js'"
                 )
-                logging.info(f"Podman command for testing npm is: '{cmd}'")
+                logging.info("Podman command for testing npm is: '%s'", cmd)
                 jquery_output = PodmanCLIWrapper.call_podman_command(
                     cmd=cmd, return_output=True
                 )
@@ -884,7 +962,8 @@ class ContainerTestLib:
 
             except subprocess.CalledProcessError:
                 logging.error(
-                    f"ERROR: npm could not install jquery inside the image {image_name}."
+                    "ERROR: npm could not install jquery inside the image %s.",
+                    image_name,
                 )
                 return False
 
@@ -1044,12 +1123,17 @@ class ContainerTestLib:
 
     def gen_self_signed_cert_pem(self, output_dir: str, base_name: str) -> bool:
         """
-        Generate self-signed PEM certificate pair.
-        Args:
-            output_dir: Output directory
-            base_name: Base name for certificate files
+        Generate a self-signed PEM certificate and corresponding private key files.
+        
+        Parameters:
+            output_dir (str): Directory where the key and certificate files will be written. The directory is created if it does not exist.
+            base_name (str): Base filename used to create files. Produces:
+                - {base_name}-key.pem (private key) in output_dir
+                - {base_name}-cert-selfsigned.pem (self-signed certificate) in output_dir
+                - {base_name}-req.pem (certificate request) in the current working directory
+        
         Returns:
-            True if successful, False otherwise
+            bool: `True` if the key and certificate were generated successfully, `False` otherwise.
         """
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -1076,18 +1160,18 @@ class ContainerTestLib:
             return True
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Certificate generation failed: {e}")
+            logger.error("Certificate generation failed: %r", e)
             return False
 
     def obtain_input(self, input_path: str) -> Optional[str]:
         """
-        Copy file/directory or download from URL to temporary location.
-
-        Args:
-            input_path: Local file, directory, or URL
-
+        Copy a local file or directory, or download a URL, into a temporary location and return its path.
+        
+        Parameters:
+            input_path (str): Path to a local file or directory, or an HTTP/HTTPS URL.
+        
         Returns:
-            Path to temporary file/directory or None on error
+            str or None: Path to the created temporary file or directory on success, `None` on failure.
         """
         # Determine file extension
         extension = ""
@@ -1122,11 +1206,28 @@ class ContainerTestLib:
                 urllib.request.urlretrieve(input_path, temp_file)
                 return temp_file
             except Exception as e:
-                logger.error(f"Failed to download {input_path}: {e}")
+                logger.error("Failed to download %s: %r", input_path, e)
                 return None
         else:
-            logger.error(f"File type not known: {input_path}")
+            logger.error("File type not known: %s", input_path)
             return None
+
+    def _get_response(
+        self, url: str, headers: dict, timeout: int = 10, verify: bool = False
+    ) -> requests.Response:
+        """
+        Get response from URL.
+
+        Args:
+            url: URL to get response from
+            headers: Headers to send with the request
+            timeout: Timeout in seconds
+            verify: Verify SSL certificate
+
+        Returns:
+            The response from the URL
+        """
+        return requests.get(url, headers=headers, timeout=timeout, verify=verify)
 
     def test_response(
         self,
@@ -1146,12 +1247,12 @@ class ContainerTestLib:
         Args:
             url: Request URL
             expected_code: Expected HTTP response code
-            port: Port where curl will be used
+            port: Port that will be used in the request
             expected_output: Regular expression for response body
             max_attempts: Maximum number of attempts
             ignore_error_attempts: Number of attempts to ignore errors
-            page: Page where curl will be used. Page hast to start with '/'
-            host: host where curl will be used
+            page: Page where requests will be used. Page has to start with '/'
+            host: Host header value for the request
 
         Returns:
             True if response matches expectations, False otherwise
@@ -1159,50 +1260,45 @@ class ContainerTestLib:
         print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
-        insecure = ""
-        full_url = f"{url}:{port}"
+        parsed = re.match(r"^https?://[^/]+:\d+($|/)", url)
+        full_url = url if parsed else f"{url}:{port}"
         if page:
             full_url = f"{full_url}{page}"
-        host_header = f'-H "Host: {host}"'
-        if url.startswith("https://"):
-            insecure = "--insecure"
+        verify_ssl = False
+        headers = {"Host": host}
 
         for attempt in range(1, max_attempts + 1):
             print(f"Trying to connect ... {attempt}")
             try:
-                # Create temporary file for response
-                response_file = tempfile.NamedTemporaryFile(
-                    mode="w+", prefix="test_response_"
+                response = self._get_response(
+                    url=full_url, headers=headers, timeout=10, verify=verify_ssl
                 )
-                # Use curl to get response
-                curl_cmd = f"curl {insecure} -is {host_header} --connect-timeout 10 -s -w '%{{http_code}}' '{full_url}'"
-                result = ContainerTestLibUtils.run_command(
-                    cmd=curl_cmd, return_output=True
-                )
-                if debug:
-                    print(result)
-                response_file.write(result)
-                if len(result) >= 3:
-                    response_code = result[-3:]
-                    response_body = result[:-3]
+                if not response:
+                    if attempt < max_attempts:
+                        time.sleep(sleep_time)
+                    continue
 
-                    try:
-                        code_int = int(response_code)
-                        if code_int == expected_code:
-                            if debug:
-                                print("Expected code from curl PASSED.")
-                                print(
-                                    f"Let's check {expected_output} in response: '{response_body}'"
-                                )
-                            if not expected_output or re.search(
-                                expected_output, response_body
-                            ):
-                                print(
-                                    f"Expected output '{expected_output}' found in response"
-                                )
-                                return True
-                    except ValueError:
-                        pass
+                # Build response body in curl -i format (headers + body) for
+                # backwards compatibility with expected_output regex matching
+                status_line = f"HTTP/1.1 {response.status_code} {response.reason}\r\n"
+                headers_str = "\r\n".join(
+                    f"{k}: {v}" for k, v in response.headers.items()
+                )
+                response_body = f"{status_line}{headers_str}\r\n\r\n{response.text}"
+                if debug:
+                    print(f"Response body: {response_body}")
+                    print(f"Response status code: {response.status_code}")
+
+                code_int = response.status_code
+                if code_int == expected_code:
+                    if debug:
+                        print("Expected code from requests PASSED.")
+                        print(
+                            f"Let's check {expected_output} in response: '{response_body}'"
+                        )
+                    if not expected_output or re.search(expected_output, response_body):
+                        print(f"Expected output '{expected_output}' found in response")
+                        return True
 
                 # Give services time to start up
                 if attempt <= ignore_error_attempts or attempt == max_attempts:
@@ -1210,8 +1306,13 @@ class ContainerTestLib:
                         time.sleep(sleep_time)
                     continue
 
-            except subprocess.CalledProcessError:
-                pass
+            except requests.RequestException as exc:
+                logger.debug(
+                    "Request attempt %s to %s failed with RequestException: %s",
+                    attempt,
+                    full_url,
+                    exc,
+                )
 
             if attempt < max_attempts:
                 time.sleep(sleep_time)
@@ -1312,9 +1413,10 @@ class ContainerTestLib:
 
     def s2i_usage(self) -> str:
         """
-        Run S2I usage script inside container.
+        Run the S2I usage script inside the configured image and return its output.
+        
         Returns:
-            Usage script output
+            The usage script output as a string. Returns an empty string if the command fails.
         """
         usage_command = "/usr/libexec/s2i/usage"
         try:
@@ -1323,11 +1425,15 @@ class ContainerTestLib:
                 return_output=True,
             )
         except subprocess.CalledProcessError as e:
-            logger.error(f"S2I usage failed: {e}")
+            logger.error("S2I usage failed: %r", e)
             return ""
 
     def show_resources(self) -> None:
-        """Show system resources information."""
+        """
+        Display system resource information and sizes for the configured image.
+        
+        Prints memory, storage, and CPU information (when available) followed by the configured image's uncompressed and compressed sizes.
+        """
         print("Resources info:")
         print("Memory:")
         try:
@@ -1349,19 +1455,18 @@ class ContainerTestLib:
         print(f"Image {self.image_name} information:")
         print(LINE)
         print(
-            f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}"
+            f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}",
         )
         print(
-            f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}"
+            f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}",
         )
 
     def get_image_size_uncompressed(self, image_name: str) -> str:
         """
-        Get uncompressed image size.
-        Args:
-            image_name: Image name
+        Retrieve the uncompressed size of a container image.
+        
         Returns:
-            Size string in MB
+            size_str (str): Uncompressed image size formatted as "<N>MB", or "Unknown" if the size cannot be determined.
         """
         try:
             size_bytes = PodmanCLIWrapper.call_podman_command(
@@ -1374,11 +1479,13 @@ class ContainerTestLib:
 
     def get_image_size_compressed(self, image_name: str) -> str:
         """
-        Get compressed image size.
-        Args:
-            image_name: Image name
+        Determine the compressed size of a container image.
+        
+        Parameters:
+            image_name (str): Name or reference of the image to inspect.
+        
         Returns:
-            Size string in MB
+            str: Compressed image size as "`<n>MB`" (e.g., "123MB"), or "Unknown" if the size cannot be determined.
         """
         try:
             # Save image and compress to get size
@@ -1392,21 +1499,33 @@ class ContainerTestLib:
             return "Unknown"
 
     def timestamp_s(self) -> int:
-        """Get timestamp in seconds since Unix epoch."""
+        """
+        Get the current time as the number of seconds since the Unix epoch.
+        
+        Returns:
+            int: Current UNIX timestamp in seconds.
+        """
         return int(time.time())
 
     def timestamp_pretty(self) -> str:
-        """Get human-readable timestamp."""
+        """
+        Return a human-readable timestamp in local time including the numeric timezone offset.
+        
+        Returns:
+            str: Timestamp formatted as "YYYY-MM-DD HH:MM:SS±HHMM"
+        """
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S%z")
 
     def timestamp_diff(self, start_date: int, final_date: int) -> str:
         """
-        Compute time difference between timestamps.
-        Args:
-            start_date: Start timestamp
-            final_date: End timestamp
+        Compute the difference between two UNIX timestamps and return it as an HH:MM:SS string.
+        
+        Parameters:
+            start_date (int): Start timestamp in seconds.
+            final_date (int): End timestamp in seconds.
+        
         Returns:
-            Time difference in HH:MM:SS format
+            str: Time difference formatted as "HH:MM:SS". Hours may be greater than 23 for differences longer than one day.
         """
         diff_seconds = final_date - start_date
         hours, remainder = divmod(diff_seconds, 3600)
@@ -1449,16 +1568,17 @@ class ContainerTestLib:
         s2i_args: str = "",
     ):
         """
-        Create a new S2I app image from local sources using Dockerfile approach.
-        This is the Python equivalent of ct_s2i_build_as_df_build_args.
-        Args:
-            app_path: Local path to the app sources to be used in the test
-            src_image: Image to be used as a base for the S2I build
-            dst_image: Image name to be used during the tagging of the S2I build result
-            build_args: Build arguments to be used in the S2I build
-            s2i_args: Additional list of source-to-image arguments
+        Builds a Source-to-Image (S2I) application image using a Dockerfile assembled from local sources.
+        
+        Parameters:
+            app_path (Path): Path to the local application sources to include in the build.
+            src_image (str): Base image to use for the S2I build.
+            dst_image (str): Tag to apply to the built image.
+            build_args (str): Additional build arguments passed to the image build step.
+            s2i_args (str): Source-to-Image style arguments (e.g., mounts, incremental flag).
+        
         Returns:
-            True if build successful, False otherwise
+            ContainerTestLib or None: A new ContainerTestLib instance configured for the built image on success; `None` on failure.
         """
         local_app = "upload/src/"
         local_scripts = "upload/scripts/"
@@ -1586,7 +1706,7 @@ class ContainerTestLib:
                             line = line.strip()
                             if line and not line.startswith("#"):
                                 dockerfile_lines.append(f"ENV {line}")
-                except Exception as e:
+                except FileNotFoundError as e:
                     print(f"Warning: Could not read environment file: {e}")
             # Filter out env var definitions from s2i_args and create Dockerfile ENV commands
             env_commands = get_env_commands_from_s2i_args(s2i_args)
@@ -1637,7 +1757,7 @@ class ContainerTestLib:
             if self.app_image_id:
                 id_file = self.app_id_file_dir / self.random_string(length=20)
                 print(
-                    f"build_as_df_build_args: Destination image ID file: {id_file} and image ID: {self.app_image_id}"
+                    f"build_as_df_build_args: Destination image ID file: {id_file} and image ID: {self.app_image_id}",
                 )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
@@ -1685,18 +1805,17 @@ class ContainerTestLib:
         s2i_args: str = "",
     ) -> bool:
         """
-        Create a new S2I app image from local sources using multistage build.
-        This is the Python equivalent of ct_s2i_multistage_build.
-
-        Args:
-            app_path: Local path to the app sources to be used in the test
-            src_image: Image to be used as a base for the S2I build process
-            sec_image: Image to be used as the base for the result of the build process
-            dst_image: Image name to be used during the tagging of the S2I build result
-            s2i_args: Additional list of source-to-image arguments
-
+        Build an S2I application image using a two-stage (multistage) Dockerfile from local sources or a git repository.
+        
+        Parameters:
+            app_path (Path): Local filesystem path or git repository URL containing the application sources.
+            src_image (str): Base image used for the build/assembly stage.
+            sec_image (str): Second-stage base image that will receive the assembled artifacts.
+            dst_image (str): Target image name/tag to assign to the resulting image.
+            s2i_args (str): Optional S2I-style arguments (e.g., environment or mount options) that influence the build.
+        
         Returns:
-            True if build successful, False otherwise
+            bool: `True` if the build completed and the resulting image was created/tagged successfully, `False` otherwise.
         """
         local_app = "app-src"
 
@@ -1723,7 +1842,7 @@ class ContainerTestLib:
             # Get user ID from image
             user_id = self.get_uid_from_image(user, src_image)
             if not user_id:
-                print("Terminating s2i build.")
+                print("Terminating s2i build")
                 return False
 
             # Handle application source
@@ -1806,7 +1925,7 @@ class ContainerTestLib:
             if self.app_image_id:
                 id_file = self.app_id_file_dir / self.random_string(length=20)
                 print(
-                    f"Multistage build:Destination image ID file: {id_file} and image ID: {self.app_image_id}"
+                    f"Multistage build:Destination image ID file: {id_file} and image ID: {self.app_image_id}",
                 )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
@@ -1825,5 +1944,14 @@ class ContainerTestLib:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
     def get_logs(self, cid_file_name: str):
+        """
+        Get logs from a container.
+
+        Args:
+            cid_file_name: Name of the cid file
+
+        Returns:
+            The logs from the container
+        """
         logs = self.lib.get_logs(cid_file_name=cid_file_name)
         return logs
