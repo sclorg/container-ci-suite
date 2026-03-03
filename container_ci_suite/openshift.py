@@ -22,9 +22,11 @@
 import json
 import logging
 import re
+import shlex
 import time
 import random
 import subprocess
+
 
 from pathlib import Path
 from time import sleep
@@ -42,14 +44,19 @@ logger = logging.getLogger(__name__)
 
 
 class OpenShiftAPI:
+    """
+    OpenShift API - Utility functions for OpenShift operations.
+    """
 
     def __init__(
-            self, namespace: str = "default",
-            pod_name_prefix: str = "", create_prj: bool = True,
-            delete_prj: bool = True,
-            shared_cluster: bool = False,
-            version: str = "",
-            test_type: str = "ocp4"
+        self,
+        namespace: str = "default",
+        pod_name_prefix: str = "",
+        create_prj: bool = True,
+        delete_prj: bool = True,
+        shared_cluster: bool = False,
+        version: str = "",
+        test_type: str = "ocp4",
     ):
         self.create_prj = create_prj
         self.delete_prj = delete_prj
@@ -72,6 +79,9 @@ class OpenShiftAPI:
         print(f"Namespace is: {namespace} and shared cluster is: {self.shared_cluster}")
 
     def create_project(self):
+        """
+        Create a project.
+        """
         print(f"Create project {self.create_prj} and {self.shared_cluster}")
         if self.create_prj:
             self.openshift_ops.login_to_cluster(shared_cluster=self.shared_cluster)
@@ -82,30 +92,66 @@ class OpenShiftAPI:
                 if not self.prepare_tenant_namespace():
                     return False
             else:
-                self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
-                self.openshift_ops.set_namespace(self.namespace)
-                ContainerTestLibUtils.run_oc_command(
-                    f"new-project {self.namespace}", json_output=False, return_output=True
-                )
+                for _ in range(3):
+                    self.namespace = f"sclorg-{random.randrange(10000, 100000)}"
+                    self.openshift_ops.set_namespace(self.namespace)
+                    print(f"Trying to create project with the name '{self.namespace}'")
+                    try:
+                        ContainerTestLibUtils.run_oc_command(
+                            f"new-project {self.namespace}",
+                            json_output=False,
+                            return_output=True,
+                        )
+                        break
+                    except subprocess.CalledProcessError:
+                        print(
+                            f"Project with the name '{self.namespace}' were not created."
+                        )
+                        sleep(3)
+                        continue
+                else:
+                    print(
+                        f"Project with the name '{self.namespace}' were not created after 3 attempts."
+                    )
+                    return False
                 print(f"Project with the name '{self.namespace}' were created.")
         else:
-            ContainerTestLibUtils.run_oc_command(f"project {self.namespace}", json_output=False)
+            ContainerTestLibUtils.run_oc_command(
+                f"project {self.namespace}", json_output=False
+            )
         self.project_created = True
         return self.openshift_ops.is_project_exits()
 
     def create_tenant_namespace(self) -> bool:
-        tenant_yaml_file = utils.save_tenant_namespace_yaml(project_name=self.shared_random_name)
+        """
+        Create a tenant namespace.
+        Returns:
+            True if the tenant namespace was created, False otherwise
+        """
+        tenant_yaml_file = utils.save_tenant_namespace_yaml(
+            project_name=self.shared_random_name
+        )
         tentant_output = ContainerTestLibUtils.run_oc_command(
-            cmd=f"create -f {tenant_yaml_file}", json_output=False,
-            ignore_error=True, return_output=False, debug=True
+            cmd=f"create -f {tenant_yaml_file}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
         )
         if tentant_output != 0:
-            print(f"Create tenant namespace with the name '{self.shared_random_name}' was not successful."
-                  f"'{tentant_output}'")
+            print(
+                f"Create tenant namespace with the name '{self.shared_random_name}' was not successful."
+                f"'{tentant_output}'"
+            )
             return False
         return True
 
     def is_tenant_namespace_created(self) -> bool:
+        """
+        Check if the tenant namespace was created.
+        Returns:
+            True if the tenant namespace was created, False otherwise
+        """
         is_tenant_namespace_created = False
         print(f"Check if TenantNamespace {self.shared_random_name} really exists")
         for count in range(50):
@@ -116,20 +162,34 @@ class OpenShiftAPI:
             is_tenant_namespace_created = True
             break
         if not is_tenant_namespace_created:
-            print(f"\nTenantNamespace {self.shared_random_name} was not created properly.")
+            print(
+                f"\nTenantNamespace {self.shared_random_name} was not created properly."
+            )
         return is_tenant_namespace_created
 
     def apply_tenant_egress_rules(self) -> bool:
-        tenant_egress_file = utils.save_tenant_egress_yaml(project_name=self.shared_random_name)
+        """
+        Apply the tenant egress rules.
+        Returns:
+            True if the tenant egress rules were applied, False otherwise
+        """
+        tenant_egress_file = utils.save_tenant_egress_yaml(
+            project_name=self.shared_random_name
+        )
         is_applied = False
         for count in range(30):
             tentant_output = ContainerTestLibUtils.run_oc_command(
-                cmd=f"apply -f {tenant_egress_file}", json_output=False,
-                ignore_error=True, return_output=False, debug=True
+                cmd=f"apply -f {tenant_egress_file}",
+                json_output=False,
+                ignore_error=True,
+                return_output=False,
+                debug=True,
             )
             if tentant_output != 0:
-                print(f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
-                      f"{tentant_output}. Let's try one more tine")
+                print(
+                    f"Apply egress rules to tenant namespace '{self.shared_random_name}' was not successful."
+                    f"{tentant_output}. Let's try one more tine"
+                )
                 sleep(5)
                 continue
             is_applied = True
@@ -137,16 +197,26 @@ class OpenShiftAPI:
         return is_applied
 
     def create_limit_ranges(self) -> bool:
+        """
+        Create the limit ranges.
+        Returns:
+            True if the limit ranges were created, False otherwise
+        """
         tenant_limit_file = utils.save_tenant_limit_yaml()
         is_applied = False
         for count in range(30):
             tentant_output = ContainerTestLibUtils.run_oc_command(
-                cmd=f"apply -f {tenant_limit_file}", json_output=False,
-                ignore_error=True, return_output=False, debug=True
+                cmd=f"apply -f {tenant_limit_file}",
+                json_output=False,
+                ignore_error=True,
+                return_output=False,
+                debug=True,
             )
             if tentant_output != 0:
-                print(f"create limit ranges to tenant namespace '{self.shared_random_name}' was not successful."
-                      f"{tentant_output}. Let's try one more tine")
+                print(
+                    f"create limit ranges to tenant namespace '{self.shared_random_name}' was not successful."
+                    f"{tentant_output}. Let's try one more tine"
+                )
                 sleep(5)
                 continue
             is_applied = True
@@ -154,15 +224,24 @@ class OpenShiftAPI:
         return is_applied
 
     def prepare_tenant_namespace(self):
+        """
+        Prepare the tenant namespace.
+        """
         print(f"Prepare Tenant Namespace with name: '{self.shared_random_name}'")
         json_flag = False
         try:
-            namespace = ContainerTestLibUtils.run_oc_command(cmd="project -q", json_output=json_flag).strip()
+            namespace = ContainerTestLibUtils.run_oc_command(
+                cmd="project -q", json_output=json_flag
+            ).strip()
             print(f"The current namespace is '{namespace}'")
             if namespace != self.config_tenant_name:
-                ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+                ContainerTestLibUtils.run_oc_command(
+                    f"project {self.config_tenant_name}", json_output=json_flag
+                )
         except subprocess.CalledProcessError:
-            ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+            ContainerTestLibUtils.run_oc_command(
+                f"project {self.config_tenant_name}", json_output=json_flag
+            )
         if not self.create_tenant_namespace():
             return False
         # Let's wait 5 seconds till project is not up
@@ -173,40 +252,80 @@ class OpenShiftAPI:
             return False
         self.project_created = True
         ContainerTestLibUtils.run_oc_command(
-            cmd=f"project {self.namespace}",
-            json_output=json_flag,
-            return_output=True
+            cmd=f"project {self.namespace}", json_output=json_flag, return_output=True
         )
         # if not self.create_limit_ranges():
         #     return False
         print("Tenant Namespace were created")
 
     def delete_tenant_namespace(self):
+        """
+        Delete the tenant namespace.
+        """
         json_flag = False
-        namespace = ContainerTestLibUtils.run_oc_command(cmd="project -q", json_output=json_flag)
+        namespace = ContainerTestLibUtils.run_oc_command(
+            cmd="project -q", json_output=json_flag
+        )
         if namespace == self.config_tenant_name:
             print(f"Deleting tenant '{self.config_tenant_name}' is not allowed.")
             return
-        ContainerTestLibUtils.run_oc_command(f"project {self.config_tenant_name}", json_output=json_flag)
+        ContainerTestLibUtils.run_oc_command(
+            f"project {self.config_tenant_name}", json_output=json_flag
+        )
         if ContainerTestLibUtils.run_oc_command(
-                f"delete tenantnamespace {self.shared_random_name}",
-                json_output=json_flag
+            f"delete tenantnamespace {self.shared_random_name}", json_output=json_flag
         ):
             print(f"TenantNamespace {self.shared_random_name} was deleted properly")
         else:
-            print(f"!!!!! TenantNamespace ${self.shared_random_name} was not delete properly."
-                  f"But it does not block CI.!!!!")
+            print(
+                f"!!!!! TenantNamespace ${self.shared_random_name} was not delete properly."
+                f"But it does not block CI.!!!!"
+            )
 
-    def get_raw_url_for_json(self, container: str, dir: str, filename: str, branch: str = "master"):
-        return utils.get_raw_url_for_json(container=container, dir=dir, filename=filename, branch=branch)
+    def get_raw_url_for_json(
+        self, container: str, dir: str, filename: str, branch: str = "master"
+    ):
+        """
+        Get the raw URL for the JSON.
+        Args:
+            container: The container
+            dir: The directory
+            filename: The filename
+            branch: The branch
+        Returns:
+            The raw URL for the JSON
+        """
+        return utils.get_raw_url_for_json(
+            container=container, dir=dir, filename=filename, branch=branch
+        )
 
     def is_s2i_pod_running(self, pod_name_prefix: str, cycle_count: int = 180):
-        return self.openshift_ops.is_s2i_pod_running(pod_name_prefix=pod_name_prefix, cycle_count=cycle_count)
+        """
+        Check if the S2I pod is running.
+        Args:
+            pod_name_prefix: The prefix for the pod name
+            cycle_count: The number of loops to check
+        Returns:
+            True if the S2I pod is running, False otherwise
+        """
+        return self.openshift_ops.is_s2i_pod_running(
+            pod_name_prefix=pod_name_prefix, cycle_count=cycle_count
+        )
 
     def is_pod_running(self, pod_name_prefix: str):
+        """
+        Check if the pod is running.
+        Args:
+            pod_name_prefix: The prefix for the pod name
+        Returns:
+            True if the pod is running, False otherwise
+        """
         return self.openshift_ops.is_pod_running(pod_name_prefix=pod_name_prefix)
 
     def delete_project(self):
+        """
+        Delete the project.
+        """
         if not self.delete_prj:
             print("Deleting project is SUPPRESSED.")
             # project is not deleted by request user
@@ -216,33 +335,72 @@ class OpenShiftAPI:
                 self.delete_tenant_namespace()
             else:
                 print(f"Deleting project {self.namespace}")
-                ContainerTestLibUtils.run_oc_command("project default", json_output=False)
                 ContainerTestLibUtils.run_oc_command(
-                    f"delete project {self.namespace} --grace-period=0 --force", json_output=False
+                    "project default", json_output=False
+                )
+                ContainerTestLibUtils.run_oc_command(
+                    f"delete project {self.namespace} --grace-period=0 --force",
+                    json_output=False,
                 )
 
     def run_command_in_pod(self, pod_name, command: str = "") -> str:
-        output = ContainerTestLibUtils.run_oc_command(f"exec {pod_name} -- \"{command}\"")
+        """
+        Run a command in a pod.
+        Args:
+            pod_name: The name of the pod
+            command: The command to run
+        Returns:
+            The output of the command
+        """
+        output = ContainerTestLibUtils.run_oc_command(f'exec {pod_name} -- "{command}"')
         print(output)
         return output
 
     def import_is(self, path: str, name: str, skip_check=False):
+        """
+        Import an image stream.
+        Args:
+            path: The path to the image stream
+            name: The name of the image stream
+            skip_check: Whether to skip the check
+        Returns:
+            The output of the command
+        """
         if not skip_check:
             is_exists = self.openshift_ops.is_imagestream_exist(name=name)
             if is_exists:
                 return is_exists
-        output = ContainerTestLibUtils.run_oc_command(f"create -f {path}", namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(
+            f"create -f {path}", namespace=self.namespace
+        )
         # Let's wait 3 seconds till imagestreams are not uploaded
         time.sleep(3)
         return json.loads(output)
 
     def process_file(self, path: str):
-        output = ContainerTestLibUtils.run_oc_command(f"process -f {path}", namespace=self.namespace)
+        """
+        Process a file.
+        Args:
+            path: The path to the file
+        Returns:
+            The output of the command
+        """
+        output = ContainerTestLibUtils.run_oc_command(
+            f"process -f {path}", namespace=self.namespace
+        )
         json_output = json.loads(output)
         print(json_output)
         return json_output
 
     def start_build(self, service_name: str, app_name: str = "") -> str:
+        """
+        Start a build.
+        Args:
+            service_name: The name of the service
+            app_name: The name of the app
+        Returns:
+            The output of the command
+        """
         from_dir = utils.download_template(template_name=app_name)
         output = ContainerTestLibUtils.run_oc_command(
             f"start-build {service_name} --from-dir={from_dir}", json_output=False
@@ -250,6 +408,9 @@ class OpenShiftAPI:
         return output
 
     def login_to_shared_cluster(self):
+        """
+        Login to the shared cluster.
+        """
         self.openshift_ops.login_to_cluster(shared_cluster=True)
         output = ContainerTestLibUtils.run_oc_command("version", json_output=False)
         print(output)
@@ -260,6 +421,11 @@ class OpenShiftAPI:
 
     @staticmethod
     def login_external_registry() -> Any:
+        """
+        Login to the external registry.
+        Returns:
+            The registry URL
+        """
         registry_url = utils.get_shared_variable("registry_url")
         robot_token = utils.load_shared_credentials("ROBOT_TOKEN")
         robot_name = utils.get_shared_variable("robot_account")
@@ -269,16 +435,22 @@ class OpenShiftAPI:
                 " 'registry_url,robot_account' are missing."
             )
             return None
-        cmd = f"podman login -u \"{robot_name}\" -p \"{robot_token}\" {registry_url}"
+        cmd = f'podman login -u "{robot_name}" -p "{robot_token}" {registry_url}'
         output = ContainerTestLibUtils.run_command(
-            cmd=cmd,
-            ignore_error=False,
-            return_output=True
+            cmd=cmd, ignore_error=False, return_output=True
         )
         print(f"Output from podman login: {output}")
         return registry_url
 
     def upload_image_to_external_registry(self, source_image: str, tagged_image: str):
+        """
+        Upload an image to the external registry.
+        Args:
+            source_image: The source image
+            tagged_image: The tagged image
+        Returns:
+            The output of the command
+        """
         register_url = OpenShiftAPI.login_external_registry()
         print(f"Registry_url: {register_url}")
         if not register_url:
@@ -286,13 +458,19 @@ class OpenShiftAPI:
         output_name = f"{register_url}/core-services-ocp/{tagged_image}"
         print(ContainerTestLibUtils.run_command("podman images"))
         cmd = f"podman tag {source_image} {output_name}"
-        output = ContainerTestLibUtils.run_command(cmd, ignore_error=False, return_output=True)
+        output = ContainerTestLibUtils.run_command(
+            cmd, ignore_error=False, return_output=True
+        )
         print(f"Output from podman tag command {output}")
         cmd = f"podman push {output_name}"
-        output = ContainerTestLibUtils.run_command(cmd, ignore_error=False, return_output=True)
+        output = ContainerTestLibUtils.run_command(
+            cmd, ignore_error=False, return_output=True
+        )
         print(f"Output from podman push command {output}")
         ret = ContainerTestLibUtils.run_oc_command(
-            f"import-image {tagged_image} --from={output_name} --confirm", json_output=False, return_output=True
+            f"import-image {tagged_image} --from={output_name} --confirm",
+            json_output=False,
+            return_output=True,
         )
         print(ret)
         # Let's wait couple seconds
@@ -300,19 +478,28 @@ class OpenShiftAPI:
         return True
 
     def podman_login_to_openshift(self) -> Any:
-        output = ContainerTestLibUtils.run_oc_command(cmd="get route default-route -n openshift-image-registry")
+        """
+        Login to the OpenShift.
+        Returns:
+            The OpenShift URL
+        """
+        output = ContainerTestLibUtils.run_oc_command(
+            cmd="get route default-route -n openshift-image-registry"
+        )
         jsou_output = json.loads(output)
         print(jsou_output["spec"]["host"])
         if not jsou_output["spec"]["host"]:
-            print("Default route does not exist. Install OpenShift 4 cluster properly and expose default route.")
+            print(
+                "Default route does not exist. Install OpenShift 4 cluster properly and expose default route."
+            )
             return None
         ocp4_register = jsou_output["spec"]["host"]
-        token_output = ContainerTestLibUtils.run_oc_command(cmd="whoami -t", json_output=False).strip()
+        token_output = ContainerTestLibUtils.run_oc_command(
+            cmd="whoami -t", json_output=False
+        ).strip()
         cmd = f"podman login -u kubeadmin -p {token_output} {ocp4_register}"
         output = ContainerTestLibUtils.run_command(
-            cmd=cmd,
-            ignore_error=False,
-            return_output=True
+            cmd=cmd, ignore_error=False, return_output=True
         )
         print(f"Output from podman login: {output}")
         return ocp4_register
@@ -337,19 +524,17 @@ class OpenShiftAPI:
         output_name = f"{ocp4_register}/{self.namespace}/{tagged_image}"
         cmd = f"podman tag {source_image} {output_name}"
         print(f"Tag podman image {cmd}")
-        output = ContainerTestLibUtils.run_command(
-            cmd=cmd,
-            ignore_error=False
-        )
+        output = ContainerTestLibUtils.run_command(cmd=cmd, ignore_error=False)
         print(f"Upload_image tagged {output}")
         output = ContainerTestLibUtils.run_command(
-            cmd=f"podman push {output_name}",
-            ignore_error=False
+            cmd=f"podman push {output_name}", ignore_error=False
         )
         print(f"Upload_image push {output}")
         return True
 
-    def create_new_app_with_template(self, name: str, template_json: str, template_args: Dict = None):
+    def create_new_app_with_template(
+        self, name: str, template_json: str, template_args: Dict = None
+    ):
         """
         Function creates a new application in OpenShift 4 environment
         :param name: str - Template name
@@ -366,12 +551,19 @@ class OpenShiftAPI:
             args = [f"-p {key}={val}" for key, val in template_args]
         output = ContainerTestLibUtils.run_oc_command(
             f"new-app {template_json} --name {name} -p NAMESPACE={self.namespace} {args}",
-            json_output=False
+            json_output=False,
         )
         print(output)
         return output
 
     def get_route_url(self, routes_name: str) -> Any:
+        """
+        Get the route URL.
+        Args:
+            routes_name: The name of the routes
+        Returns:
+            The route URL
+        """
         output = ContainerTestLibUtils.run_oc_command(f"get routes/{routes_name}")
         json_output = json.loads(output)
         if not json_output["spec"]["host"]:
@@ -381,9 +573,26 @@ class OpenShiftAPI:
         return json_output["spec"]["host"]
 
     def get_openshift_args(self, oc_args: List[str]) -> str:
+        """
+        Get the OpenShift arguments.
+        Args:
+            oc_args: The OpenShift arguments
+        Returns:
+            The OpenShift arguments
+        """
         return " -p ".join(oc_args)
 
-    def is_template_deployed(self, name_in_template: str = "", timeout: int = 180) -> bool:
+    def is_template_deployed(
+        self, name_in_template: str = "", timeout: int = 180
+    ) -> bool:
+        """
+        Check if the template was deployed properly.
+        Args:
+            name_in_template: The name of the template
+            timeout: The timeout
+        Returns:
+            True if the template was deployed properly, False otherwise
+        """
         print("Check if template was deployed properly")
         if not self.openshift_ops.is_build_pod_finished(cycle_count=timeout):
             print("\nBuild pod does not finished in proper time")
@@ -396,7 +605,16 @@ class OpenShiftAPI:
         return True
 
     def command_app_run(self, cmd: str, return_output: bool = True) -> str:
-        cmd = f"exec command-app -- bash -c \"{cmd}\""
+        """
+        Run a command in the command app.
+        Args:
+            cmd: The command to run
+            return_output: Whether to return the output
+        Returns:
+            The output of the command
+        """
+        safe_cmd = shlex.quote(cmd)
+        cmd = f"exec command-app -- bash -c {safe_cmd}"
         print(f"command_app_run: {cmd}")
         cmd_out = ContainerTestLibUtils.run_oc_command(
             cmd=cmd, ignore_error=True, return_output=return_output, json_output=False
@@ -404,12 +622,21 @@ class OpenShiftAPI:
         return cmd_out
 
     def create_deploy_command_app(
-            self, image_name: str = "registry.access.redhat.com/ubi8/ubi"
+        self, image_name: str = "registry.access.redhat.com/ubi8/ubi"
     ) -> bool:
+        """
+        Create a deploy command app.
+        Args:
+            image_name: The name of the image
+        Returns:
+            True if the deploy command app was created, False otherwise
+        """
         cmd_file = utils.save_command_yaml(image_name=image_name)
         ContainerTestLibUtils.run_oc_command(f"create -f {cmd_file}")
         if not self.openshift_ops.is_pod_running(pod_name_prefix="command-app"):
-            print("create_deploy_command_app: command-app pod is not running after time.")
+            print(
+                "create_deploy_command_app: command-app pod is not running after time."
+            )
             self.openshift_ops.print_get_status()
             return False
         output_cmd = self.command_app_run("echo $((11*11))")
@@ -418,35 +645,76 @@ class OpenShiftAPI:
         return True
 
     def imagestream_quickstart(
-            self, imagestream_file: str, template_file: str,
-            image_name: str, name_in_template: str, openshift_args=None
+        self,
+        imagestream_file: str,
+        template_file: str,
+        image_name: str,
+        name_in_template: str,
+        openshift_args=None,
     ) -> bool:
+        """
+        Deploy an imagestream quickstart.
+        Args:
+            imagestream_file: The path to the imagestream file
+            template_file: The path to the template file
+            image_name: The name of the image
+            name_in_template: The name of the template
+            openshift_args: The OpenShift arguments
+        Returns:
+            True if the imagestream quickstart was deployed, False otherwise
+        """
         if not self.project_created:
             return False
         local_imagestream_file = utils.download_template(imagestream_file)
         self.import_is(local_imagestream_file, name="", skip_check=True)
-        tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
+        tagged_image = utils.get_tagged_image(
+            image_name=image_name, version=self.version
+        )
         if self.shared_cluster:
-            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image_to_external_registry(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
         else:
-            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
         return self.deploy_template_with_image(
-            image_name=image_name, template=template_file, name_in_template=name_in_template,
-            openshift_args=openshift_args
+            image_name=image_name,
+            template=template_file,
+            name_in_template=name_in_template,
+            openshift_args=openshift_args,
         )
 
-    def deploy_s2i_app(self, image_name: str, app: str, context: str, service_name: str = "") -> bool:
+    def deploy_s2i_app(
+        self, image_name: str, app: str, context: str, service_name: str = ""
+    ) -> bool:
+        """
+        Deploy an S2I app.
+        Args:
+            image_name: The name of the image
+            app: The path to the app
+            context: The context of the app
+            service_name: The name of the service
+        Returns:
+            True if the S2I app was deployed, False otherwise
+        """
         if not self.project_created:
             return False
-        tagged_image = utils.get_tagged_image(image_name=image_name, version=self.version)
+        tagged_image = utils.get_tagged_image(
+            image_name=image_name, version=self.version
+        )
         print(f"Source image {image_name} was tagged as {tagged_image}")
         if self.shared_cluster:
-            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image_to_external_registry(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
         else:
-            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
 
         if service_name == "":
@@ -458,7 +726,9 @@ class OpenShiftAPI:
         oc_cmd = f"new-app {tagged_image}~{app_param} --strategy=source --context-dir={context} --name={service_name}"
         print(f"Command for deploying application is: {oc_cmd}")
         try:
-            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(
+                f"{oc_cmd}", json_output=False
+            )
             print(output)
         except subprocess.CalledProcessError as cpe:
             print(cpe.output)
@@ -472,6 +742,13 @@ class OpenShiftAPI:
         return True
 
     def update_template_example_file(self, file_name: str) -> dict:
+        """
+        Update the template example file.
+        Args:
+            file_name: The name of the file
+        Returns:
+            The JSON data
+        """
         json_data = utils.get_json_data(file_name=Path(file_name))
         if "objects" not in json_data:
             return json_data
@@ -496,8 +773,22 @@ class OpenShiftAPI:
         return json_data
 
     def deploy_image_stream_template(
-            self, imagestream_file: str, template_file: str, app_name: str, openshift_args=None
+        self,
+        imagestream_file: str,
+        template_file: str,
+        app_name: str,
+        openshift_args=None,
     ) -> bool:
+        """
+        Deploy an image stream template.
+        Args:
+            imagestream_file: The path to the imagestream file
+            template_file: The path to the template file
+            app_name: The name of the app
+            openshift_args: The OpenShift arguments
+        Returns:
+            True if the image stream template was deployed, False otherwise
+        """
         if not self.project_created:
             return False
         local_is_file = utils.download_template(template_name=imagestream_file)
@@ -512,14 +803,18 @@ class OpenShiftAPI:
             openshift_args = ""
         else:
             openshift_args = f"-p {self.get_openshift_args(oc_args=openshift_args)}"
-        print(f"========\n"
-              f"Creating a new-app with name {app_name} in "
-              f"namespace {self.namespace} with args {openshift_args}\n"
-              f"========")
+        print(
+            f"========\n"
+            f"Creating a new-app with name {app_name} in "
+            f"namespace {self.namespace} with args {openshift_args}\n"
+            f"========"
+        )
         oc_cmd = f"new-app -f {local_template} --name={app_name} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
-            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(
+                f"{oc_cmd}", json_output=False
+            )
             print(output)
         except subprocess.CalledProcessError:
             return False
@@ -528,7 +823,12 @@ class OpenShiftAPI:
         return True
 
     def deploy_imagestream_s2i(
-            self, imagestream_file: str, image_name: str, app: str, context: str, service_name: str
+        self,
+        imagestream_file: str,
+        image_name: str,
+        app: str,
+        context: str,
+        service_name: str,
     ) -> bool:
         """
         Function deploys imagestreams as s2i application
@@ -551,36 +851,74 @@ class OpenShiftAPI:
             self.update_template_example_file(file_name=local_template)
 
         self.import_is(local_template, name="", skip_check=True)
-        return self.deploy_s2i_app(image_name=image_name, app=app, context=context, service_name=service_name)
+        return self.deploy_s2i_app(
+            image_name=image_name, app=app, context=context, service_name=service_name
+        )
 
     def deploy_template_with_image(
-            self, image_name: str, template: str, name_in_template: str = "", openshift_args=None
+        self,
+        image_name: str,
+        template: str,
+        name_in_template: str = "",
+        openshift_args=None,
     ) -> bool:
+        """
+        Deploy a template with an image.
+        Args:
+            image_name: The name of the image
+            template: The path to the template
+            name_in_template: The name of the template
+            openshift_args: The OpenShift arguments
+        Returns:
+            True if the template was deployed, False otherwise
+        """
         if not self.project_created:
             return False
         tagged_image = f"{name_in_template}:{self.version}"
         print(f"deploy_template_with_image: {tagged_image} and {self.shared_cluster}")
         if self.shared_cluster:
-            if not self.upload_image_to_external_registry(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image_to_external_registry(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
         else:
-            if not self.upload_image(source_image=image_name, tagged_image=tagged_image):
+            if not self.upload_image(
+                source_image=image_name, tagged_image=tagged_image
+            ):
                 return False
 
         return self.deploy_template(
-            template=template, name_in_template=name_in_template, openshift_args=openshift_args, expected_output=""
+            template=template,
+            name_in_template=name_in_template,
+            openshift_args=openshift_args,
+            expected_output="",
         )
 
     def deploy_template(
-            self, template: str,
-            name_in_template: str,
-            expected_output: str,
-            port: int = 8080,
-            protocol: str = "http",
-            response_code: int = 200,
-            openshift_args=None,
-            other_images=None
+        self,
+        template: str,
+        name_in_template: str,
+        expected_output: str,
+        port: int = 8080,
+        protocol: str = "http",
+        response_code: int = 200,
+        openshift_args=None,
+        other_images=None,
     ) -> bool:
+        """
+        Deploy a template.
+        Args:
+            template: The path to the template
+            name_in_template: The name of the template
+            expected_output: The expected output
+            port: The port
+            protocol: The protocol
+            response_code: The response code
+            openshift_args: The OpenShift arguments
+            other_images: The other images
+        Returns:
+            True if the template was deployed, False otherwise
+        """
         if not self.project_created:
             return False
         if other_images is None:
@@ -589,10 +927,12 @@ class OpenShiftAPI:
             openshift_args = ""
         else:
             openshift_args = f"-p {self.get_openshift_args(openshift_args)}"
-        print(f"========\n"
-              f"Creating a new-app with name {name_in_template} in "
-              f"namespace {self.namespace} with args ${openshift_args}\n"
-              f"========")
+        print(
+            f"========\n"
+            f"Creating a new-app with name {name_in_template} in "
+            f"namespace {self.namespace} with args ${openshift_args}\n"
+            f"========"
+        )
         local_template = utils.download_template(template_name=template)
         if not local_template:
             return False
@@ -601,7 +941,9 @@ class OpenShiftAPI:
         oc_cmd = f"new-app {local_template} --name {name_in_template} -p NAMESPACE={self.namespace} {openshift_args}"
         print(f"Deploy template by command: oc {oc_cmd}")
         try:
-            output = ContainerTestLibUtils.run_oc_command(f"{oc_cmd}", json_output=False)
+            output = ContainerTestLibUtils.run_oc_command(
+                f"{oc_cmd}", json_output=False
+            )
             print(output)
         except subprocess.CalledProcessError:
             return False
@@ -610,13 +952,24 @@ class OpenShiftAPI:
         return True
 
     def check_command_internal(
-            self,
-            image_name: str,
-            service_name: str,
-            cmd: str,
-            expected_output: str,
-            timeout: int = 120
+        self,
+        image_name: str,
+        service_name: str,
+        cmd: str,
+        expected_output: str,
+        timeout: int = 120,
     ) -> bool:
+        """
+        Check the command internal.
+        Args:
+            image_name: The name of the image
+            service_name: The name of the service
+            cmd: The command to run
+            expected_output: The expected output
+            timeout: The timeout
+        Returns:
+            True if the command internal was checked, False otherwise
+        """
         if not self.create_deploy_command_app(image_name=image_name):
             return False
         ip_address = self.openshift_ops.get_service_ip(service_name=service_name)
@@ -630,13 +983,28 @@ class OpenShiftAPI:
         return False
 
     def check_response_inside_cluster(
-            self, cmd_to_run: str = None, name_in_template: str = "",
-            expected_output: str = "",
-            port: int = 8080,
-            protocol: str = "http",
-            response_code: int = 200,
-            max_tests: int = 20
+        self,
+        cmd_to_run: str = None,
+        name_in_template: str = "",
+        expected_output: str = "",
+        port: int = 8080,
+        protocol: str = "http",
+        response_code: int = 200,
+        max_tests: int = 20,
     ) -> bool:
+        """
+        Check the response inside the cluster.
+        Args:
+            cmd_to_run: The command to run
+            name_in_template: The name of the template
+            expected_output: The expected output
+            port: The port
+            protocol: The protocol
+            response_code: The response code
+            max_tests: The maximum number of tests
+        Returns:
+            True if the response inside the cluster was checked, False otherwise
+        """
         ip_address = self.openshift_ops.get_service_ip(service_name=name_in_template)
         url = f"{protocol}://{ip_address}:{port}/"
         print(f"URL address to get internal response is: {url}")
@@ -678,20 +1046,33 @@ class OpenShiftAPI:
         return False
 
     def check_response_outside_cluster(
-            self, name_in_template: str = "",
-            expected_output: str = "",
-            port: int = None,
-            protocol: str = "http",
-            response_code: int = 200,
+        self,
+        name_in_template: str = "",
+        expected_output: str = "",
+        port: int = None,
+        protocol: str = "http",
+        response_code: int = 200,
     ) -> bool:
-
+        """
+        Check the response outside the cluster.
+        Args:
+            name_in_template: The name of the template
+            expected_output: The expected output
+            port: The port
+            protocol: The protocol
+            response_code: The response code
+        Returns:
+            True if the response outside the cluster was checked, False otherwise
+        """
         route_name = self.get_route_url(routes_name=name_in_template)
         print(f"Route name is {route_name}")
         url = f"{protocol}://{route_name}"
         for count in range(10):
             print(f"Let's try to get response from route {url} one more time {count}")
             response_status = utils.get_response_request(
-                url_address=url, response_code=response_code, expected_str=expected_output
+                url_address=url,
+                response_code=response_code,
+                expected_str=expected_output,
             )
             if not response_status:
                 time.sleep(5)
