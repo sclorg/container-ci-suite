@@ -179,7 +179,11 @@ class TestNetworkIntegration:
         response.headers = {"Content-Type": "text/html"}
         flexmock(self.lib).should_receive("_get_response").and_return(response)
         result = self.lib.test_response(
-            "http://localhost:8080", 200, "Welcome", max_attempts=1, debug=True
+            "http://localhost:8080",
+            expected_code=200,
+            expected_output="Welcome",
+            max_attempts=1,
+            debug=True,
         )
         assert result is True
 
@@ -191,7 +195,11 @@ class TestNetworkIntegration:
         response.headers = {"Content-Type": "text/html"}
         flexmock(self.lib).should_receive("_get_response").and_return(response)
         result = self.lib.test_response(
-            "http://localhost:8080", 200, "Welcome", max_attempts=1
+            "http://localhost:8080",
+            port=200,
+            expected_output="Welcome",
+            max_attempts=1,
+            debug=True,
         )
         assert result is False
 
@@ -201,6 +209,9 @@ class TestNpmIntegration:
     """Integration tests for NPM functionality."""
 
     def setup_method(self):
+        """
+        Setup the test environment.
+        """
         self.lib = ContainerTestLib()
 
     def test_npm_works_success(self, temp_dir):

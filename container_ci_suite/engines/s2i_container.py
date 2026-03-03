@@ -320,19 +320,21 @@ RUN which {binary} | grep {binary_path}
         """
         logger.info("Testing documentation in the container image")
         files_to_check = ["help.1"]
+        found_strings = True
         for f in files_to_check:
             doc_content = PodmanCLIWrapper.podman_run_command(
                 f"--rm {self.image_name} /bin/bash -c cat {f}"
             )
             for term in strings:
                 # test = re.search(f"{term}", doc_content)
-                logger.info("ERROR: File /%s does not contain '%s'.", f, term)
-                return False
+                if term not in doc_content:
+                    logger.info("ERROR: File /%s does not contain '%s'.", f, term)
+                    found_strings = False
             for term in ["TH", "PP", "SH"]:
                 if term not in doc_content:
                     logger.info(
                         "ERROR: help.1 is probably not in troff or groff format, since '%s' is missing.",
                         term,
                     )
-                    return False
-        return True
+                    found_strings = False
+        return found_strings
