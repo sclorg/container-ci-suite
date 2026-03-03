@@ -273,7 +273,7 @@ class S2IContainerImage:
             exit_code = PodmanCLIWrapper.podman_inspect(
                 field="{{.State.ExitCode}}", src_image=container_id
             ).strip()
-            if exit_code != 0:
+            if int(exit_code) != 0:
                 logs = PodmanCLIWrapper.podman_logs(container_id=container_id)
                 logger.info(logs)
             PodmanCLIWrapper.call_podman_command(f"rm -v {container_id}")
@@ -303,8 +303,11 @@ RUN which {binary} | grep {binary_path}
         """
         with open(dockerfile, "w") as f:
             f.write(content)
-        if not PodmanCLIWrapper.call_podman_command(
-            f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
+        if (
+            PodmanCLIWrapper.call_podman_command(
+                f"build -f {dockerfile} --no-cache {tempdir}", return_output=False
+            )
+            != 0
         ):
             logger.error("Failed to find %s in Dockerfile!", binary)
             return False

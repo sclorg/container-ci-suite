@@ -169,6 +169,9 @@ class TestNetworkIntegration:
     """Integration tests requiring network access."""
 
     def setup_method(self):
+        """
+        Setup the test environment.
+        """
         self.lib = ContainerTestLib()
 
     def test_response_success(self):
@@ -179,7 +182,8 @@ class TestNetworkIntegration:
         response.headers = {"Content-Type": "text/html"}
         flexmock(self.lib).should_receive("_get_response").and_return(response)
         result = self.lib.test_response(
-            "http://localhost:8080",
+            url="http://localhost",
+            port=8080,
             expected_code=200,
             expected_output="Welcome",
             max_attempts=1,
@@ -195,8 +199,9 @@ class TestNetworkIntegration:
         response.headers = {"Content-Type": "text/html"}
         flexmock(self.lib).should_receive("_get_response").and_return(response)
         result = self.lib.test_response(
-            "http://localhost:8080",
-            port=200,
+            url="http://localhost",
+            port=8080,
+            expected_code=404,
             expected_output="Welcome",
             max_attempts=1,
             debug=True,

@@ -50,7 +50,6 @@ from container_ci_suite.engines.database import DatabaseWrapper
 from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
     get_full_ca_file_path,
-    get_os_environment,
     get_mount_ca_file,
     get_env_commands_from_s2i_args,
     get_mount_options_from_s2i_args,
@@ -213,7 +212,7 @@ class ContainerTestLib:
                     f.write(log_content)
                 # Extract image ID from last line
                 lines = log_content.strip().split("\n")
-                logging.info(
+                logging.debug(
                     "build_image_and_parse_id: Build log content: '%s'",
                     log_content.strip(),
                 )
@@ -951,7 +950,7 @@ class ContainerTestLib:
         Returns:
             NPM variables string
         """
-        npm_registry = get_os_environment("NPM_REGISTRY")
+        npm_registry = os.getenv("NPM_REGISTRY")
         if npm_registry and get_full_ca_file_path().exists():
             return f"-e NPM_MIRROR={npm_registry} {self.mount_ca_file()}"
         return ""
@@ -971,7 +970,7 @@ class ContainerTestLib:
 
         try:
             logging.info("Testing npm in the container image")
-            npm_registry = get_os_environment("NPM_REGISTRY")
+            npm_registry = os.getenv("NPM_REGISTRY")
 
             # Test npm version
             try:
@@ -1330,7 +1329,8 @@ class ContainerTestLib:
                 response = self._get_response(
                     url=full_url, headers=headers, timeout=10, verify=verify_ssl
                 )
-                if not response:
+                logger.info("Response status code: %s", response.status_code)
+                if response.status_code in (404, 500):
                     if attempt < max_attempts:
                         time.sleep(sleep_time)
                     continue
