@@ -28,7 +28,11 @@ from subprocess import CalledProcessError
 from typing import Dict, Any
 
 from container_ci_suite.utils import ContainerTestLibUtils
-from container_ci_suite.utils import get_file_content, load_shared_credentials, get_shared_variable
+from container_ci_suite.utils import (
+    get_file_content,
+    load_shared_credentials,
+    get_shared_variable,
+)
 
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -36,22 +40,43 @@ logger = logging.getLogger(__name__)
 
 
 class OpenShiftOperations:
+    """
+    OpenShift Operations - Utility functions for OpenShift operations.
+    """
+
     namespace: str = ""
     pod_json_data: Dict = {}
 
     def __init__(self, pod_name_prefix: str = ""):
+        """
+        Initialize the OpenShift Operations.
+        Args:
+            pod_name_prefix: The prefix for the pod name
+        """
         self.pod_name_prefix = pod_name_prefix
         self.build_failed: bool = False
 
     def set_namespace(self, namespace: str):
+        """
+        Set the namespace.
+        Args:
+            namespace: The namespace to set
+        """
         self.namespace = namespace
 
     def login_to_cluster(self, shared_cluster: bool = False):
+        """
+        Login to the cluster.
+        Args:
+            shared_cluster: Whether to use a shared cluster
+        """
         if shared_cluster:
             token = load_shared_credentials("SHARED_CLUSTER_TOKEN")
             url = get_shared_variable("shared_cluster_url")
             if not all([token, url]):
-                print("Important variables 'SHARED_CLUSTER_TOKEN,shared_cluster_url' are missing.")
+                print(
+                    "Important variables 'SHARED_CLUSTER_TOKEN,shared_cluster_url' are missing."
+                )
                 return None
             cmd = f"login --token={token} --server={url}"
         else:
@@ -64,18 +89,31 @@ class OpenShiftOperations:
         print(output)
 
     def get_pod_status(self) -> Dict:
+        """
+        Get the pod status.
+        Returns:
+            The pod status
+        """
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
-        output = ContainerTestLibUtils.run_oc_command("get pods", json_output=True, namespace=self.namespace)
+        output = ContainerTestLibUtils.run_oc_command(
+            "get pods", json_output=True, namespace=self.namespace
+        )
         # print(f" oc get pods: {output}")
         return json.loads(output)
 
     def print_get_status(self):
+        """
+        Print the get all and status.
+        """
         print("Print get all and status:")
         try:
             print(
                 ContainerTestLibUtils.run_oc_command(
-                    "get all", namespace=self.namespace, json_output=False, ignore_error=True
+                    "get all",
+                    namespace=self.namespace,
+                    json_output=False,
+                    ignore_error=True,
                 )
             )
         except CalledProcessError:
@@ -83,13 +121,19 @@ class OpenShiftOperations:
         try:
             print(
                 ContainerTestLibUtils.run_oc_command(
-                    "status --suggest", namespace=self.namespace, json_output=False, ignore_error=True
+                    "status --suggest",
+                    namespace=self.namespace,
+                    json_output=False,
+                    ignore_error=True,
                 )
             )
         except CalledProcessError:
             pass
 
     def print_pod_logs(self):
+        """
+        Print the pod logs.
+        """
         self.pod_json_data = self.get_pod_status()
         print("Print all pod logs")
         for item in self.pod_json_data["items"]:
@@ -101,12 +145,22 @@ class OpenShiftOperations:
             print(oc_logs)
 
     def is_project_exits(self) -> bool:
+        """
+        Check if the project exists.
+        Returns:
+            True if the project exists, False otherwise
+        """
         output = ContainerTestLibUtils.run_oc_command("projects", json_output=False)
         if self.namespace in output:
             return True
         return False
 
     def get_pod_count(self) -> int:
+        """
+        Get the pod count.
+        Returns:
+            The pod count
+        """
         count: int = 0
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
@@ -120,11 +174,26 @@ class OpenShiftOperations:
         return count
 
     def get_logs(self, pod_name) -> str:
+        """
+        Get the logs for a pod.
+        Args:
+            pod_name: The name of the pod
+        Returns:
+            The logs for the pod
+        """
         return ContainerTestLibUtils.run_oc_command(
             f"logs {pod_name}", namespace=self.namespace, json_output=False
         )
 
     def is_pod_running(self, pod_name_prefix: str = "", loops: int = 180) -> bool:
+        """
+        Check if the pod is running.
+        Args:
+            pod_name_prefix: The prefix for the pod name
+            loops: The number of loops to check
+        Returns:
+            True if the pod is running, False otherwise
+        """
         print(f"Check for POD is running {pod_name_prefix}")
         for count in range(loops):
             print(".", sep="", end="")
@@ -132,7 +201,7 @@ class OpenShiftOperations:
             if pod_name_prefix == "" and self.pod_name_prefix == "":
                 print(
                     "\nApplication pod name is not specified."
-                    "Call: is_pod_running(pod_name_prefix=\"something\")."
+                    'Call: is_pod_running(pod_name_prefix="something").'
                 )
                 return False
             if pod_name_prefix != "":
@@ -164,6 +233,11 @@ class OpenShiftOperations:
         return False
 
     def is_build_pod_present(self) -> bool:
+        """
+        Check if the build pod is present.
+        Returns:
+            True if the build pod is present, False otherwise
+        """
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
             if "build" in pod_name:
@@ -171,6 +245,13 @@ class OpenShiftOperations:
         return False
 
     def is_pod_finished(self, pod_suffix_name: str = "deploy") -> bool:
+        """
+        Check if the pod is finished.
+        Args:
+            pod_suffix_name: The suffix for the pod name
+        Returns:
+            True if the pod is finished, False otherwise
+        """
         if not self.pod_json_data:
             self.pod_json_data = self.get_pod_status()
         for item in self.pod_json_data["items"]:
@@ -198,6 +279,8 @@ class OpenShiftOperations:
         """
         Function return information if build pod is finished.
         The function waits for 180*3 seconds
+        Returns:
+            True if the build pod is finished, False otherwise
         """
         print("Check if build pod is finished")
         for count in range(cycle_count):
@@ -221,8 +304,16 @@ class OpenShiftOperations:
         return False
 
     def is_s2i_pod_running(
-            self, pod_name_prefix: str = "", cycle_count: int = 180
+        self, pod_name_prefix: str = "", cycle_count: int = 180
     ) -> bool:
+        """
+        Check if the S2I build pod is running.
+        Args:
+            pod_name_prefix: The prefix for the pod name
+            cycle_count: The number of loops to check
+        Returns:
+            True if the S2I build pod is running, False otherwise
+        """
         self.pod_name_prefix = pod_name_prefix
         build_pod_finished = False
         print("Check if S2I build pod is running")
@@ -258,6 +349,13 @@ class OpenShiftOperations:
         return False
 
     def oc_get_services(self, service_name):
+        """
+        Get the services.
+        Args:
+            service_name: The name of the service
+        Returns:
+            The services
+        """
         output = ContainerTestLibUtils.run_oc_command(
             f"get svc/{service_name}", json_output=True, namespace=self.namespace
         )
@@ -266,6 +364,13 @@ class OpenShiftOperations:
         return json_output
 
     def get_service_ip(self, service_name) -> Any:
+        """
+        Get the service IP.
+        Args:
+            service_name: The name of the service
+        Returns:
+            The service IP
+        """
         json_output = self.oc_get_services(service_name=service_name)
         if "clusterIP" not in json_output["spec"]:
             return None
@@ -274,10 +379,20 @@ class OpenShiftOperations:
         return json_output["spec"]["clusterIP"]
 
     def is_imagestream_exist(self, name: str):
+        """
+        Check if the image stream exists.
+        Args:
+            name: The name of the image stream
+        Returns:
+            True if the image stream exists, False otherwise
+        """
         try:
             for count in range(3):
                 json_output = self.oc_get_is(name=name)
-                if json_output["kind"] == "ImageStream" and json_output["metadata"]["name"] == name:
+                if (
+                    json_output["kind"] == "ImageStream"
+                    and json_output["metadata"]["name"] == name
+                ):
                     return json_output
                 time.sleep(1)
         except CalledProcessError:
@@ -285,18 +400,42 @@ class OpenShiftOperations:
         return None
 
     def get_routes(self):
+        """
+        Get the routes.
+        Returns:
+            The routes
+        """
         output = ContainerTestLibUtils.run_oc_command(
             "get route",
-            namespace=self.namespace, return_output=True, ignore_error=True, shell=True
+            namespace=self.namespace,
+            return_output=True,
+            ignore_error=True,
+            shell=True,
         )
         return json.loads(output)
 
     def oc_gel_all_is(self):
-        output = ContainerTestLibUtils.run_oc_command("get is", namespace=self.namespace)
+        """
+        Get all the image streams.
+        Returns:
+            The image streams
+        """
+        output = ContainerTestLibUtils.run_oc_command(
+            "get is", namespace=self.namespace
+        )
         return json.loads(output)
 
     def oc_get_is(self, name: str):
-        output = ContainerTestLibUtils.run_oc_command(f"get is/{name}", namespace=self.namespace)
+        """
+        Get the image stream.
+        Args:
+            name: The name of the image stream
+        Returns:
+            The image stream
+        """
+        output = ContainerTestLibUtils.run_oc_command(
+            f"get is/{name}", namespace=self.namespace
+        )
         return json.loads(output)
 
     def check_is_exists(self, is_name, version_to_check: str) -> bool:
