@@ -272,9 +272,9 @@ class S2IContainerImage:
             PodmanCLIWrapper.call_podman_command(f"stop {container_id}")
             exit_code = PodmanCLIWrapper.podman_inspect(
                 field="{{.State.ExitCode}}", src_image=container_id
-            )
+            ).strip()
             if exit_code != 0:
-                logs = PodmanCLIWrapper.podman_logs(f"logs {container_id}")
+                logs = PodmanCLIWrapper.podman_logs(container_id=container_id)
                 logger.info(logs)
             PodmanCLIWrapper.call_podman_command(f"rm -v {container_id}")
             # cid_file.unlink()
@@ -282,7 +282,9 @@ class S2IContainerImage:
         logger.info("Cleanning CID_FILE_DIR %s is DONE.", self.cid_file_dir)
 
     # Replacement for ct_binary_found_from_df
-    def binary_found_from_df(self, binary: str = "", binary_path: str = "^/opt/rh"):
+    def binary_found_from_df(
+        self, binary: str = "", binary_path: str = "^/opt/rh"
+    ) -> bool:
         """
         Check if a binary can be found in PATH during Dockerfile build.
 
