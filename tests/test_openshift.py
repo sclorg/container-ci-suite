@@ -40,44 +40,77 @@ class TestOpenShiftCISuite(object):
         self.oc_ops = OpenShiftOperations()
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
 
+    def test_openshift_api_create_project(self):
+        self.oc_api.create_prj = True
+        flexmock(OpenShiftOperations).should_receive("is_project_exits").and_return(
+            True
+        )
+        if self.oc_api.create_project():
+            assert self.oc_api.project_created
+        else:
+            assert not self.oc_api.project_created
+
     @pytest.mark.parametrize(
         "container,dir_name,filename,branch",
         [
             ("postgresql-container", "imagestreams", "postgres-rhel.json", "master"),
             ("mysql-container", "openshift/templates", "foo.json", "bar"),
-        ]
+        ],
     )
     def test_get_raw_url_for_json(self, container, dir_name, filename, branch):
         expected_output = f"https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir_name}/{filename}"
-        assert utils.get_raw_url_for_json(
-            container=container, dir=dir_name, filename=filename, branch=branch
-        ) == expected_output
+        assert (
+            utils.get_raw_url_for_json(
+                container=container, dir=dir_name, filename=filename, branch=branch
+            )
+            == expected_output
+        )
 
     def test_upload_image_pull_failed(self):
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(False)
-        assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+        assert not self.oc_api.upload_image(
+            source_image="foobar", tagged_image="foobar:latest"
+        )
 
     def test_upload_image_login_failed(self):
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
-        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(None)
-        assert not self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(
+            None
+        )
+        assert not self.oc_api.upload_image(
+            source_image="foobar", tagged_image="foobar:latest"
+        )
 
     def test_upload_image_success(self):
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
-        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return("default_registry")
+        flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(
+            "default_registry"
+        )
         flexmock(ContainerTestLibUtils).should_receive("run_command").twice()
-        assert self.oc_api.upload_image(source_image="foobar", tagged_image="foobar:latest")
+        assert self.oc_api.upload_image(
+            source_image="foobar", tagged_image="foobar:latest"
+        )
 
     def test_update_template_example_file_without_pvc(self, get_ephemeral_template):
-        flexmock(utils).should_receive("get_json_data").and_return(get_ephemeral_template)
-        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/example_ephemeral_template.json")
+        flexmock(utils).should_receive("get_json_data").and_return(
+            get_ephemeral_template
+        )
+        json_data = self.oc_api.update_template_example_file(
+            file_name=f"{DATA_DIR}/example_ephemeral_template.json"
+        )
         assert json_data
         assert "PersistentVolumeClaim" not in json_data["objects"][0]["kind"]
 
     def test_update_template_example_file_with_pvc(self, get_persistent_template):
-        flexmock(utils).should_receive("get_json_data").and_return(get_persistent_template)
-        flexmock(utils).should_receive("get_shared_variable").and_return("SOMETHING-001")
-        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/example_persistent_template.json")
+        flexmock(utils).should_receive("get_json_data").and_return(
+            get_persistent_template
+        )
+        flexmock(utils).should_receive("get_shared_variable").and_return(
+            "SOMETHING-001"
+        )
+        json_data = self.oc_api.update_template_example_file(
+            file_name=f"{DATA_DIR}/example_persistent_template.json"
+        )
         assert json_data
         assert json_data["objects"][0]["kind"] == "PersistentVolumeClaim"
         metadata = json_data["objects"][0]["metadata"]
@@ -92,7 +125,11 @@ class TestOpenShiftCISuite(object):
 
     def test_update_template_without_modeification(self, postgresql_json):
         flexmock(utils).should_receive("get_json_data").and_return(postgresql_json)
-        flexmock(utils).should_receive("get_shared_variable").and_return("SOMETHING-001")
-        json_data = self.oc_api.update_template_example_file(file_name=f"{DATA_DIR}/postgresql_imagestreams.json")
+        flexmock(utils).should_receive("get_shared_variable").and_return(
+            "SOMETHING-001"
+        )
+        json_data = self.oc_api.update_template_example_file(
+            file_name=f"{DATA_DIR}/postgresql_imagestreams.json"
+        )
         assert json_data
         assert "objects" not in json_data
