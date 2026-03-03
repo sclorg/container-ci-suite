@@ -1316,6 +1316,13 @@ class ContainerTestLib:
         print(f"Testing the HTTP(S) response for <{url}:{port}>")
         sleep_time = 3
 
+        # In case the URL is not fully qualified, add the protocol and port
+        if not url.startswith(("http://", "https://")):
+            # In case port is 8443 or 443, add https://, otherwise add http://
+            if port in (8443, 443):
+                url = f"https://{url}"
+            else:
+                url = f"http://{url}"
         parsed = re.match(r"^https?://[^/]+:\d+($|/)", url)
         full_url = url if parsed else f"{url}:{port}"
         if page:
