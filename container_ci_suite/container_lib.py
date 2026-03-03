@@ -630,7 +630,10 @@ class ContainerTestLib:
 
         try:
             # Create the container
-            logging.info("Creating container with args: %s", container_args)
+            logging.info(
+                "Creating container with args: %s",
+                utils.redact_secrets(container_args),
+            )
             if not self.create_container(
                 cid_file_name=self.success_cid_file,
                 container_args=container_args,
@@ -771,7 +774,9 @@ class ContainerTestLib:
         full_cid_file_name: Path = self.cid_file_dir / cid_file_name
         try:
             cmd = f"run {docker_args} --cidfile={full_cid_file_name} -d {container_args} {self.image_name} {command}"
-            logging.info("Command to create container is '%s'.", cmd)
+            logging.info(
+                "Command to create container is '%s'.", utils.redact_secrets(cmd)
+            )
             ret_value = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd, return_output=True
             )
