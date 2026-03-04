@@ -1269,7 +1269,7 @@ class ContainerTestLib:
             return None
 
     def _get_response(
-        self, url: str, headers: dict, timeout: int = 10, verify: bool = False
+        self, url: str, headers: dict, timeout: int = 10, verify: bool = False, allow_redirects: bool = False
     ) -> requests.Response:
         """
         Get response from URL.
@@ -1283,7 +1283,9 @@ class ContainerTestLib:
         Returns:
             The response from the URL
         """
-        return requests.get(url, headers=headers, timeout=timeout, verify=verify)
+        return requests.get(
+            url, headers=headers, timeout=timeout, verify=verify, allow_redirects=allow_redirects
+        )
 
     def test_response(
         self,
@@ -1296,6 +1298,7 @@ class ContainerTestLib:
         page: str = "",
         host: str = "localhost",
         debug: bool = False,
+        allow_redirects: bool = False,
     ) -> bool:
         """
         Test HTTP response from application container.
@@ -1309,6 +1312,8 @@ class ContainerTestLib:
             ignore_error_attempts: Number of attempts to ignore errors
             page: Page where requests will be used. Page has to start with '/'
             host: Host header value for the request
+            debug: Print response body for debugging
+            allow_redirects: Whether to allow redirects in the request
 
         Returns:
             True if response matches expectations, False otherwise
@@ -1334,13 +1339,9 @@ class ContainerTestLib:
             print(f"Trying to connect ... {attempt}")
             try:
                 response = self._get_response(
-                    url=full_url, headers=headers, timeout=10, verify=verify_ssl
+                    url=full_url, headers=headers, timeout=10, verify=verify_ssl, allow_redirects=allow_redirects
                 )
                 logger.info("Response status code: %s", response.status_code)
-                if response.status_code in (404, 500):
-                    if attempt < max_attempts:
-                        time.sleep(sleep_time)
-                    continue
 
                 # Build response body in curl -i format (headers + body) for
                 # backwards compatibility with expected_output regex matching
@@ -1351,7 +1352,6 @@ class ContainerTestLib:
                 response_body = f"{status_line}{headers_str}\r\n\r\n{response.text}"
                 if debug:
                     print(f"Response body: {response_body}")
-                    print(f"Response status code: {response.status_code}")
 
                 code_int = response.status_code
                 if code_int == expected_code:
