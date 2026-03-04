@@ -26,6 +26,8 @@ import os
 import yaml
 
 from pathlib import Path
+from unittest.mock import patch
+
 from flexmock import flexmock
 
 import pytest
@@ -36,6 +38,7 @@ from container_ci_suite.utils import (
     get_mount_ca_file,
     get_mount_options_from_s2i_args,
     get_env_commands_from_s2i_args,
+    download_template,
 )
 from container_ci_suite import utils
 
@@ -43,6 +46,10 @@ from tests.conftest import create_ca_file, delete_ca_file
 
 
 class TestContainerCISuiteUtils(object):
+    """
+    Test Container CI Suite utils.
+    """
+
     @pytest.mark.parametrize(
         "os,base_image_name,version,expected_str",
         [
@@ -50,18 +57,30 @@ class TestContainerCISuiteUtils(object):
         ],
     )
     def test_get_public_image_name(self, os, base_image_name, version, expected_str):
+        """
+        Test get_public_image_name.
+        """
         name = get_public_image_name(
             os=os, base_image_name=base_image_name, version=version
         )
         assert name == expected_str
 
     def test_get_npm_variables_no_ca_file(self):
+        """
+        Test get_npm_variables_no_ca_file.
+        """
         assert get_npm_variables() == ""
 
     def test_get_mount_ca_file_no_ca_file(self):
+        """
+        Test get_mount_ca_file_no_ca_file.
+        """
         assert get_mount_ca_file() == ""
 
     def test_get_npm_variables(self):
+        """
+        Test get_npm_variables.
+        """
         create_ca_file()
         flexmock(utils).should_receive("get_full_ca_file_path").and_return(
             Path("/tmp/CA_FILE_PATH")
@@ -70,6 +89,9 @@ class TestContainerCISuiteUtils(object):
         delete_ca_file()
 
     def test_get_mount_ca_file(self):
+        """
+        Test get_mount_ca_file.
+        """
         create_ca_file()
         assert get_mount_ca_file() == f"{get_mount_ca_file()}"
         delete_ca_file()
@@ -82,13 +104,17 @@ class TestContainerCISuiteUtils(object):
                 "--pull-never -v /some/foo/bar/file:/some/foo/bar/file:Z",
                 "-v /some/foo/bar/file:/some/foo/bar/file:Z",
             ),
+            ("-v ./relative/path:/target:Z", "-v ./relative/path:/target:Z"),
+            ("-v /host/path:/container:ro", "-v /host/path:/container:ro"),
+            ("", ""),
         ],
     )
-    def test_mount_point(self, s2i_args, expected_output):
-        create_ca_file()
+    def test_get_mount_options_from_s2i_args(self, s2i_args, expected_output):
+        """
+        Test get_mount_options_from_s2i_args.
+        """
         ret_value = get_mount_options_from_s2i_args(s2i_args=s2i_args)
         assert ret_value == expected_output
-        delete_ca_file()
 
     @pytest.mark.parametrize(
         "s2i_args,expected_output",
@@ -102,9 +128,14 @@ class TestContainerCISuiteUtils(object):
             ),
             ("-v mount_point:mount_point:Z -e FOO=bar --env TEST", ["ENV FOO=bar"]),
             ("-v mount_point:mount_point:Z -e=FOO=bar --env=TEST", ["ENV FOO=bar"]),
+            ("", []),
+            ("-e KEY1=val1 -e KEY2=val2", ["ENV KEY1=val1", "ENV KEY2=val2"]),
         ],
     )
-    def test_get_env_from_s2i_args(self, s2i_args, expected_output):
+    def test_get_env_commands_from_s2i_args(self, s2i_args, expected_output):
+        """
+        Test get_env_commands_from_s2i_args.
+        """
         assert get_env_commands_from_s2i_args(s2i_args=s2i_args) == expected_output
 
     @pytest.mark.parametrize(
@@ -114,9 +145,14 @@ class TestContainerCISuiteUtils(object):
             ("", "2.4", "", False),
             ("", "", "rhel8", False),
             ("rhel8/httpd-24:1", "2.4", "rhel8", True),
+            ("rhel8/httpd-24", "2.4", "rhel9", True),
+            ("registry.io/ns/image:1.0", "2.0", "rhel8", True),
         ],
     )
     def test_check_variables(self, image_name, version, os_name, expected_output):
+        """
+        Test check_variables.
+        """
         os.environ["IMAGE_NAME"] = image_name
         os.environ["VERSION"] = version
         os.environ["OS"] = os_name
@@ -129,9 +165,15 @@ class TestContainerCISuiteUtils(object):
             ("/httpd-24:1", "2.4", "httpd-24:2.4"),
             ("", "2.4", None),
             ("rhel8/httpd", "2.4", "httpd:2.4"),
+            ("registry.io/namespace/image:1.0", "2.0", "namespace:2.0"),
+            ("singlepart", "1.0", None),
+            ("registry.io/ubi8:8", "2.0", "ubi8:2.0"),
         ],
     )
-    def test_tagged_image(self, image_name, version, expected_output):
+    def test_get_tagged_image(self, image_name, version, expected_output):
+        """
+        Test get_tagged_image.
+        """
         assert (
             utils.get_tagged_image(image_name=image_name, version=version)
             == expected_output
@@ -147,9 +189,37 @@ class TestContainerCISuiteUtils(object):
         ],
     )
     def test_get_service_image(self, image_name, expected_output):
+        """
+        Test get_service_image.
+        """
         assert utils.get_service_image(image_name=image_name) == expected_output
 
+    def test_get_image_name_no_image_id_file(self, temp_dir):
+        """
+        Test get_image_name when .image-id file does not exist.
+        """
+        assert utils.get_image_name(str(temp_dir)) is None
+
+    @patch("container_ci_suite.utils.ContainerTestLibUtils.run_command")
+    @patch("container_ci_suite.utils.get_file_content")
+    def test_get_image_name_success(
+        self, mock_get_file_content, mock_run_command, temp_dir
+    ):
+        """
+        Test get_image_name when .image-id exists and docker inspect succeeds.
+        """
+        image_id_file = temp_dir / ".image-id"
+        image_id_file.write_text("sha256:abc123\n")
+        mock_get_file_content.return_value = "sha256:abc123"
+        mock_run_command.side_effect = ["httpd-24", "2.4"]
+        result = utils.get_image_name(str(temp_dir))
+        assert result == "httpd-24:2.4"
+        assert mock_run_command.call_count == 2
+
     def test_tenantnamespace_yaml(self):
+        """
+        Test tenantnamespace_yaml.
+        """
         expected_yaml = {
             "apiVersion": "tenant.paas.redhat.com/v1alpha1",
             "kind": "TenantNamespace",
@@ -175,6 +245,9 @@ class TestContainerCISuiteUtils(object):
         assert yaml_load == expected_yaml
 
     def test_tenantnegress_yaml(self):
+        """
+        Test tenantnegress_yaml.
+        """
         tenant_yaml = utils.save_tenant_egress_yaml(project_name="123456")
         with open(tenant_yaml) as fd:
             yaml_load = yaml.safe_load(fd.read())
@@ -201,6 +274,9 @@ class TestContainerCISuiteUtils(object):
         assert check_deny
 
     def test_tenantlimits_yaml(self):
+        """
+        Test tenantlimits_yaml.
+        """
         tenant_limits_yaml = utils.save_tenant_limit_yaml()
         with open(tenant_limits_yaml) as fd:
             yaml_load = yaml.safe_load(fd.read())
@@ -226,6 +302,50 @@ class TestContainerCISuiteUtils(object):
         assert check_container_max
         assert check_container_min
 
+    def test_download_template_local_file(self, temp_dir):
+        """
+        Test download_template with a local file.
+        """
+        source_file = temp_dir / "template.yaml"
+        source_file.write_text("apiVersion: v1\nkind: Template")
+        result = download_template(str(source_file), dir_name=str(temp_dir))
+        assert result is not None
+        assert Path(result).exists()
+        assert Path(result).suffix == ".yaml"
+        assert Path(result).read_text() == "apiVersion: v1\nkind: Template"
+
+    def test_download_template_local_directory(self, temp_dir):
+        """
+        Test download_template with a local directory.
+        """
+        source_dir = temp_dir / "template_dir"
+        source_dir.mkdir()
+        (source_dir / "file.txt").write_text("content")
+        result = download_template(str(source_dir), dir_name=str(temp_dir))
+        assert result is not None
+        assert Path(result).is_dir()
+        assert (Path(result) / "file.txt").read_text() == "content"
+
+    def test_download_template_nonexistent(self, temp_dir):
+        """
+        Test download_template with non-existent path.
+        """
+        result = download_template("/nonexistent/path/12345", dir_name=str(temp_dir))
+        assert result is None
+
+    @patch("container_ci_suite.utils.requests.get")
+    def test_download_template_http_url_fails(self, mock_get, temp_dir):
+        """
+        Test download_template when HTTP request fails.
+        """
+        import requests
+
+        mock_get.side_effect = requests.HTTPError("404 Not Found")
+        with pytest.raises(requests.HTTPError):
+            download_template(
+                "https://example.com/missing.yaml", dir_name=str(temp_dir)
+            )
+
     @pytest.mark.parametrize(
         "json_data,expected_output",
         [
@@ -249,6 +369,16 @@ class TestContainerCISuiteUtils(object):
         ],
     )
     def test_is_shared_cluster(self, json_data, expected_output):
+        """
+        Test is_shared_cluster.
+        """
         flexmock(utils).should_receive("get_json_data").and_return(json_data)
         test = json_data.keys()
         assert utils.is_shared_cluster(test_type="".join(test)) == expected_output
+
+    def test_is_shared_cluster_key_not_present(self):
+        """
+        Test is_shared_cluster when test_type key is not in json data.
+        """
+        flexmock(utils).should_receive("get_json_data").and_return({"helm": True})
+        assert utils.is_shared_cluster(test_type="ocp4") is False
