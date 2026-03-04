@@ -1269,7 +1269,12 @@ class ContainerTestLib:
             return None
 
     def _get_response(
-        self, url: str, headers: dict, timeout: int = 10, verify: bool = False, allow_redirects: bool = False
+        self,
+        url: str,
+        headers: dict,
+        timeout: int = 10,
+        verify: bool = False,
+        allow_redirects: bool = False,
     ) -> requests.Response:
         """
         Get response from URL.
@@ -1284,7 +1289,11 @@ class ContainerTestLib:
             The response from the URL
         """
         return requests.get(
-            url, headers=headers, timeout=timeout, verify=verify, allow_redirects=allow_redirects
+            url,
+            headers=headers,
+            timeout=timeout,
+            verify=verify,
+            allow_redirects=allow_redirects,
         )
 
     def test_response(
@@ -1339,7 +1348,11 @@ class ContainerTestLib:
             print(f"Trying to connect ... {attempt}")
             try:
                 response = self._get_response(
-                    url=full_url, headers=headers, timeout=10, verify=verify_ssl, allow_redirects=allow_redirects
+                    url=full_url,
+                    headers=headers,
+                    timeout=10,
+                    verify=verify_ssl,
+                    allow_redirects=allow_redirects,
                 )
                 logger.info("Response status code: %s", response.status_code)
 
