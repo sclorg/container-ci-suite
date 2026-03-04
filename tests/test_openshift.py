@@ -23,7 +23,9 @@
 # SOFTWARE.
 
 import pytest
+import subprocess
 
+from unittest.mock import patch
 from flexmock import flexmock
 
 from container_ci_suite.openshift import OpenShiftAPI
@@ -35,12 +37,22 @@ from tests.spellbook import DATA_DIR
 
 
 class TestOpenShiftCISuite(object):
+    """
+    Test OpenShift API suite.
+    """
+
     def setup_method(self):
+        """
+        Setup the test environment.
+        """
         self.oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
         self.oc_ops = OpenShiftOperations()
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
 
     def test_create_project_not_shared(self):
+        """
+        Test creating a project.
+        """
         self.oc_api.create_prj = False
         flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
             True
@@ -54,6 +66,9 @@ class TestOpenShiftCISuite(object):
             assert not self.oc_api.project_created
 
     def test_create_project_shared(self):
+        """
+        Test creating a shared cluster project.
+        """
         self.oc_api.create_prj = True
         self.oc_api.shared_cluster = False
         flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
@@ -75,6 +90,9 @@ class TestOpenShiftCISuite(object):
         ],
     )
     def test_get_raw_url_for_json(self, container, dir_name, filename, branch):
+        """
+        Test getting the raw URL for a JSON file.
+        """
         expected_output = f"https://raw.githubusercontent.com/sclorg/{container}/{branch}/{dir_name}/{filename}"
         assert (
             utils.get_raw_url_for_json(
@@ -84,12 +102,18 @@ class TestOpenShiftCISuite(object):
         )
 
     def test_upload_image_pull_failed(self):
+        """
+        Test uploading an image pull failed.
+        """
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(False)
         assert not self.oc_api.upload_image(
             source_image="foobar", tagged_image="foobar:latest"
         )
 
     def test_upload_image_login_failed(self):
+        """
+        Test uploading an image login failed.
+        """
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
         flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(
             None
@@ -99,6 +123,9 @@ class TestOpenShiftCISuite(object):
         )
 
     def test_upload_image_success(self):
+        """
+        Test uploading an image success.
+        """
         flexmock(PodmanCLIWrapper).should_receive("podman_pull_image").and_return(True)
         flexmock(OpenShiftAPI).should_receive("podman_login_to_openshift").and_return(
             "default_registry"
@@ -109,6 +136,9 @@ class TestOpenShiftCISuite(object):
         )
 
     def test_update_template_example_file_without_pvc(self, get_ephemeral_template):
+        """
+        Test updating a template example file without PVC.
+        """
         flexmock(utils).should_receive("get_json_data").and_return(
             get_ephemeral_template
         )
@@ -119,6 +149,9 @@ class TestOpenShiftCISuite(object):
         assert "PersistentVolumeClaim" not in json_data["objects"][0]["kind"]
 
     def test_update_template_example_file_with_pvc(self, get_persistent_template):
+        """
+        Test updating a template example file with PVC.
+        """
         flexmock(utils).should_receive("get_json_data").and_return(
             get_persistent_template
         )
@@ -140,7 +173,10 @@ class TestOpenShiftCISuite(object):
         assert json_data["objects"][0]["spec"]["storageClassName"] == "netapp-nfs"
         assert json_data["objects"][0]["spec"]["volumeMode"] == "Filesystem"
 
-    def test_update_template_without_modeification(self, postgresql_json):
+    def test_update_template_without_modification(self, postgresql_json):
+        """
+        Test updating a template without modification.
+        """
         flexmock(utils).should_receive("get_json_data").and_return(postgresql_json)
         flexmock(utils).should_receive("get_shared_variable").and_return(
             "SOMETHING-001"
@@ -150,3 +186,232 @@ class TestOpenShiftCISuite(object):
         )
         assert json_data
         assert "objects" not in json_data
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_success(self, mock_sleep):
+        """
+        Test prepare_tenant_namespace when all steps succeed.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_return("core-services-ocp--config ")
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("is_tenant_namespace_created").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("apply_tenant_egress_rules").and_return(
+            True
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project core-services-ocp--sclorg-12345",
+            json_output=False,
+            return_output=True,
+        ).and_return(None)
+
+        self.oc_api.prepare_tenant_namespace()
+
+        assert self.oc_api.project_created
+        mock_sleep.assert_called_once_with(10)
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_switches_project_when_different_namespace(
+        self, mock_sleep
+    ):
+        """
+        Test prepare_tenant_namespace switches to config project when current namespace differs.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_return("default ")
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "project core-services-ocp--config", json_output=False
+        ).and_return(None)
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("is_tenant_namespace_created").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("apply_tenant_egress_rules").and_return(
+            True
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project core-services-ocp--sclorg-12345",
+            json_output=False,
+            return_output=True,
+        ).and_return(None)
+
+        self.oc_api.prepare_tenant_namespace()
+
+        assert self.oc_api.project_created
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_create_tenant_fails(self, mock_sleep):
+        """
+        Test prepare_tenant_namespace returns False when create_tenant_namespace fails.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_return(
+            "core-services-ocp--config "
+        )
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            False
+        )
+
+        result = self.oc_api.prepare_tenant_namespace()
+
+        assert result is False
+        assert not self.oc_api.project_created
+        mock_sleep.assert_not_called()
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_is_tenant_created_fails(self, mock_sleep):
+        """
+        Test prepare_tenant_namespace returns False when is_tenant_namespace_created fails.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_return(
+            "core-services-ocp--config "
+        )
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("is_tenant_namespace_created").and_return(
+            False
+        )
+
+        result = self.oc_api.prepare_tenant_namespace()
+
+        assert result is False
+        assert not self.oc_api.project_created
+        mock_sleep.assert_called_once_with(10)
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_apply_egress_fails(self, mock_sleep):
+        """
+        Test prepare_tenant_namespace returns False when apply_tenant_egress_rules fails.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_return(
+            "core-services-ocp--config "
+        )
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("is_tenant_namespace_created").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("apply_tenant_egress_rules").and_return(
+            False
+        )
+
+        result = self.oc_api.prepare_tenant_namespace()
+
+        assert result is False
+        assert not self.oc_api.project_created
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_prepare_tenant_namespace_handles_called_process_error(self, mock_sleep):
+        """
+        Test prepare_tenant_namespace handles CalledProcessError when getting current project.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.namespace = "core-services-ocp--sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_raise(subprocess.CalledProcessError(1, "oc"))
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "project core-services-ocp--config", json_output=False
+        ).and_return(None)
+        flexmock(OpenShiftAPI).should_receive("create_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("is_tenant_namespace_created").and_return(
+            True
+        )
+        flexmock(OpenShiftAPI).should_receive("apply_tenant_egress_rules").and_return(
+            True
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project core-services-ocp--sclorg-12345",
+            json_output=False,
+            return_output=True,
+        ).and_return(None)
+
+        self.oc_api.prepare_tenant_namespace()
+
+        assert self.oc_api.project_created
+
+    def test_delete_tenant_namespace_skipped_when_in_config_namespace(self):
+        """
+        Test delete_tenant_namespace returns early when current project is config tenant.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_return("core-services-ocp--config").once()
+
+        self.oc_api.delete_tenant_namespace()
+
+        # Only project -q should be called, no delete or project switch
+
+    def test_delete_tenant_namespace_success(self):
+        """
+        Test delete_tenant_namespace when delete succeeds.
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_return("some-other-namespace ").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "project core-services-ocp--config", json_output=False
+        ).and_return(None).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "delete tenantnamespace sclorg-12345", json_output=False
+        ).and_return("tenantnamespace deleted").once()
+
+        self.oc_api.delete_tenant_namespace()
+
+    def test_delete_tenant_namespace_delete_returns_falsy(self):
+        """
+        Test delete_tenant_namespace when delete command returns falsy (e.g. empty string).
+        """
+        self.oc_api.shared_random_name = "sclorg-12345"
+        self.oc_api.config_tenant_name = "core-services-ocp--config"
+
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd="project -q", json_output=False
+        ).and_return("some-other-namespace ").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "project core-services-ocp--config", json_output=False
+        ).and_return(None).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "delete tenantnamespace sclorg-12345", json_output=False
+        ).and_return("").once()
+
+        self.oc_api.delete_tenant_namespace()
