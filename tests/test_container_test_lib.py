@@ -4,8 +4,11 @@ Unit tests for ContainerTestLib class.
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from subprocess import CalledProcessError
+
+import pytest
+import requests
 
 from container_ci_suite.container_lib import ContainerTestLib
 from container_ci_suite.engines.container import ContainerImage
@@ -112,6 +115,73 @@ class TestRegistryFunctions:
         """Test public image name generation for other OS (e.g. fedora)."""
         image_name = self.lib.get_public_image_name("fedora", "nodejs", "16")
         assert image_name == "quay.io/sclorg/nodejs-16"
+
+
+class TestGetResponse:
+    """Test _get_response function."""
+
+    def setup_method(self):
+        self.lib = ContainerTestLib()
+
+    @patch("container_ci_suite.container_lib.requests.get")
+    def test_get_response_success(self, mock_get):
+        """Test _get_response returns response from requests.get."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b"Hello World"
+        mock_get.return_value = mock_response
+
+        result = self.lib._get_response(
+            url="http://localhost:8080/",
+            headers={"Host": "localhost"},
+        )
+
+        assert result is mock_response
+        mock_get.assert_called_once_with(
+            "http://localhost:8080/",
+            headers={"Host": "localhost"},
+            timeout=10,
+            verify=False,
+            allow_redirects=False,
+        )
+
+    @patch("container_ci_suite.container_lib.requests.get")
+    def test_get_response_with_custom_params(self, mock_get):
+        """Test _get_response passes custom timeout, verify, and allow_redirects."""
+        mock_response = MagicMock()
+        mock_response.status_code = 301
+        mock_get.return_value = mock_response
+
+        result = self.lib._get_response(
+            url="https://example.com/",
+            headers={"Host": "example.com"},
+            timeout=30,
+            verify=True,
+            allow_redirects=True,
+        )
+
+        assert result is mock_response
+        mock_get.assert_called_once_with(
+            "https://example.com/",
+            headers={"Host": "example.com"},
+            timeout=30,
+            verify=True,
+            allow_redirects=True,
+        )
+
+    @patch("container_ci_suite.container_lib.requests.get")
+    def test_get_response_propagates_exception(self, mock_get):
+        """Test _get_response propagates requests exceptions."""
+        mock_get.side_effect = requests.RequestException("Connection refused")
+
+        with pytest.raises(requests.RequestException) as exc_info:
+            self.lib._get_response(
+                url="http://localhost:9999/",
+                headers={"Host": "localhost"},
+            )
+
+        assert "Connection refused" in str(exc_info.value)
+        mock_get.assert_called_once()
 
 
 class TestCommandAssertions:
