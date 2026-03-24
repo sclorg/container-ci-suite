@@ -115,6 +115,7 @@ class PodmanCLIWrapper(object):
         return_output: bool = True,
         debug: bool = False,
         not_shell: bool = False,
+        ignore_error: bool = False,
     ):
         """
         Function executes shell command if image_name is present in system.
@@ -137,7 +138,10 @@ class PodmanCLIWrapper(object):
         print(f"podman command is: {cmd}")
         try:
             output = PodmanCLIWrapper.call_podman_command(
-                cmd=cmd, return_output=return_output, debug=debug
+                cmd=cmd,
+                return_output=return_output,
+                debug=debug,
+                ignore_error=ignore_error,
             )
         except subprocess.CalledProcessError as cpe:
             print(f"podman exec command {cmd} failed. See '{cpe}'")
