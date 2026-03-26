@@ -170,7 +170,7 @@ class OpenShiftAPI:
             f"Check if TenantNamespace {self.shared_random_name} really exists"
         )
         for count in range(50):
-            logger.debug(".", sep="", end="")
+            logger.debug("Waiting for TenantNamespace creation...")
             if not self.openshift_ops.is_project_exists():
                 sleep(5)
                 continue
