@@ -53,7 +53,7 @@ class ContainerImage:
         self.cid_file_dir = cid_file_dir
         self.app_image_name = "app_dockerfile"
         self.application_image_id: str = ""
-        logger.info(f"Image name to test: {image_name}")
+        logger.info("Image name to test: %s", image_name)
 
     def pull_image(
         self, image_name: str, exit_on_fail: bool = False, loops: int = 10

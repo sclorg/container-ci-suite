@@ -57,7 +57,7 @@ class S2IContainerImage:
         self.container_args: str = ""
         self.cid_file: Path = None
         self.cid_file_dir: Path = None
-        logger.info(f"Image name to test: {image_name}")
+        logger.info("Image name to test: %s", image_name)
 
     # Replacement for ct_s2i_usage
     def s2i_usage(self) -> str:

@@ -217,7 +217,9 @@ class ContainerTestLib:
                     log_content.strip(),
                 )
                 self.app_image_id = lines[-1].strip()
-                print(f"build_image_and_parse_id: App image ID: {self.app_image_id}")
+                logger.debug(
+                    "build_image_and_parse_id: App image ID: %s", self.app_image_id
+                )
                 return True
 
             except subprocess.CalledProcessError:
@@ -235,8 +237,9 @@ class ContainerTestLib:
             None
         """
         if not self.app_id_file_dir or not self.app_id_file_dir.exists():
-            print(
-                f"The APP_ID_FILE_DIR={self.app_id_file_dir} is not created. App cleaning is to be skipped."
+            logger.debug(
+                "The APP_ID_FILE_DIR=%s is not created. App cleaning is to be skipped.",
+                self.app_id_file_dir,
             )
             return
         logging.info(
@@ -1066,7 +1069,7 @@ class ContainerTestLib:
         tmpdir = Path(tempfile.mkdtemp())
 
         try:
-            print(f"Testing {binary} in build from Dockerfile")
+            logger.info("Testing %s in build from Dockerfile", binary)
 
             # Create Dockerfile
             dockerfile = tmpdir / "Dockerfile"
@@ -1078,12 +1081,12 @@ class ContainerTestLib:
             if self.build_image_and_parse_id(str(dockerfile), str(tmpdir)):
                 # Store image ID for cleanup
                 id_file = self.app_id_file_dir / self.random_string(length=20)
-                print(f"Binary found from Dockerfile: ID file:{id_file}")
+                logger.debug("Binary found from Dockerfile: ID file:%s", id_file)
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
                 return True
             else:
-                print(f"ERROR: Failed to find {binary} in $PATH!")
+                logger.error("ERROR: Failed to find %s in $PATH!", binary)
                 return False
 
         finally:
@@ -1120,7 +1123,7 @@ class ContainerTestLib:
             # Check environment variables
             result = self.check_envs_set(env_filter, exec_envs, run_envs)
             if result:
-                print("All values present in 'docker exec'")
+                logger.info("All values present in 'docker exec'")
 
             return result
 
@@ -1163,7 +1166,7 @@ class ContainerTestLib:
                 env_filter, run_envs, loop_envs, "*VALUE*VALUE*"
             )
             if result:
-                print("All scl_enable values present")
+                logger.info("All scl_enable values present")
             return result
 
         finally:
@@ -1327,7 +1330,7 @@ class ContainerTestLib:
         Returns:
             True if response matches expectations, False otherwise
         """
-        print(f"Testing the HTTP(S) response for <{url}:{port}>")
+        logger.info("Testing the HTTP(S) response for <%s:%s>", url, port)
         sleep_time = 3
 
         # In case the URL is not fully qualified, add the protocol and port
@@ -1345,7 +1348,7 @@ class ContainerTestLib:
         headers = {"Host": host}
 
         for attempt in range(1, max_attempts + 1):
-            print(f"Trying to connect ... {attempt}")
+            logger.info("Trying to connect ... %s", attempt)
             try:
                 response = self._get_response(
                     url=full_url,
@@ -1354,7 +1357,7 @@ class ContainerTestLib:
                     verify=verify_ssl,
                     allow_redirects=allow_redirects,
                 )
-                logger.info("Response status code: %s", response.status_code)
+                logger.debug("Response status code: %s", response.status_code)
 
                 # Build response body in curl -i format (headers + body) for
                 # backwards compatibility with expected_output regex matching
@@ -1364,17 +1367,19 @@ class ContainerTestLib:
                 )
                 response_body = f"{status_line}{headers_str}\r\n\r\n{response.text}"
                 if debug:
-                    print(f"Response body: {response_body}")
+                    logger.debug("Response body: %s", response_body)
 
                 code_int = response.status_code
                 if code_int == expected_code:
                     if debug:
-                        print("Expected code from requests PASSED.")
-                        print(
+                        logger.info("Expected code from requests PASSED.")
+                        logger.info(
                             f"Let's check {expected_output} in response: '{response_body}'"
                         )
                     if not expected_output or re.search(expected_output, response_body):
-                        print(f"Expected output '{expected_output}' found in response")
+                        logger.info(
+                            "Expected output '%s' found in response", expected_output
+                        )
                         return True
 
                 # Give services time to start up
@@ -1445,14 +1450,14 @@ class ContainerTestLib:
             True if command succeeds, False otherwise
         """
         cmd_str = " ".join(str(arg) for arg in cmd)
-        print(f"Checking '{cmd_str}' for success ...")
+        logger.info("Checking '%s' for success ...", cmd_str)
 
         try:
             ContainerTestLibUtils.run_command(cmd_str, return_output=False)
-            print(" PASS")
+            logger.info(" PASS")
             return True
         except subprocess.CalledProcessError:
-            print(" FAIL")
+            logger.info(" FAIL")
             return False
 
     @staticmethod
@@ -1465,14 +1470,14 @@ class ContainerTestLib:
             True if command fails, False otherwise
         """
         cmd_str = " ".join(str(arg) for arg in cmd)
-        print(f"Checking '{cmd_str}' for failure ...")
+        logger.info("Checking '%s' for failure ...", cmd_str)
 
         try:
             ContainerTestLibUtils.run_command(cmd_str, return_output=False)
-            print(" FAIL")
+            logger.info(" FAIL")
             return False
         except subprocess.CalledProcessError:
-            print(" PASS")
+            logger.info(" PASS")
             return True
 
     def random_string(self, length: int = 10) -> str:
@@ -1506,30 +1511,31 @@ class ContainerTestLib:
 
     def show_resources(self) -> None:
         """Show system resources information."""
-        print("Resources info:")
-        print("Memory:")
+        logger.info("Resources info:")
+        logger.info("Memory:")
         try:
             ContainerTestLibUtils.run_command("free -h", return_output=True)
         except subprocess.CalledProcessError:
-            print("Memory info not available")
-        print("Storage:")
+            logger.info("Memory info not available")
+        logger.info("Storage:")
         try:
             ContainerTestLibUtils.run_command("df -h", return_output=True)
         except subprocess.CalledProcessError:
-            print("Storage info not available")
-        print("CPU")
+            logger.info("Storage info not available")
+        logger.info("CPU")
         try:
             ContainerTestLibUtils.run_command("lscpu", return_output=True)
         except subprocess.CalledProcessError:
-            print("CPU info not available")
+            logger.info("CPU info not available")
 
-        print(LINE)
-        print(f"Image {self.image_name} information:")
-        print(LINE)
-        print(
-            f"Uncompressed size of the image: {self.get_image_size_uncompressed(self.image_name)}",
+        logger.info(LINE)
+        logger.info("Image %s information: %s", self.image_name, LINE)
+        logger.info(LINE)
+        logger.info(
+            "Uncompressed size of the image: %s",
+            self.get_image_size_uncompressed(self.image_name),
         )
-        print(
+        logger.info(
             f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}",
         )
 
@@ -1625,7 +1631,9 @@ class ContainerTestLib:
             ).strip()
             return user_id
         except subprocess.CalledProcessError:
-            print(f"ERROR: id of user {user} not found inside image {src_image}.")
+            logger.error(
+                "ERROR: id of user %s not found inside image %s.", user, src_image
+            )
             return None
 
     def build_as_df_build_args(
@@ -1671,7 +1679,7 @@ class ContainerTestLib:
                             cmd=f"pull {src_image}", return_output=False
                         )
                     except subprocess.CalledProcessError:
-                        print(f"Failed to pull source image {src_image}")
+                        logger.error("Failed to pull source image %s", src_image)
                         return False
             # Get user from source image
             try:
@@ -1685,7 +1693,7 @@ class ContainerTestLib:
             # Get user ID from image
             user_id = self.get_uid_from_image(user, src_image)
             if not user_id:
-                print("Terminating s2i build.")
+                logger.error("Terminating s2i build.")
                 return False
             # Handle incremental build
             if incremental:
@@ -1701,7 +1709,7 @@ class ContainerTestLib:
                             cmd=f"images {dst_image}", return_output=True
                         )
                     except subprocess.CalledProcessError:
-                        print(f"Image {dst_image} not found.")
+                        logger.error("Image %s not found.", dst_image)
                         return False
                     # Run the original image with mounted volume to get artifacts
                     cmd = (
@@ -1718,7 +1726,7 @@ class ContainerTestLib:
                         str(inc_tmp / "artifacts.tar"), str(tmpdir / "artifacts.tar")
                     )
                 except subprocess.CalledProcessError as e:
-                    print(f"Incremental build setup failed: {e}")
+                    logger.error("Incremental build setup failed: %s", e)
                     return False
                 finally:
                     if inc_tmp.exists():
@@ -1741,7 +1749,7 @@ class ContainerTestLib:
                     else:
                         shutil.copy2(item, local_app_path)
             else:
-                print(f"Source path {clean_app_path} does not exist")
+                logger.error("Source path %s does not exist", clean_app_path)
                 return False
             # Move .s2i/bin to scripts directory if it exists
             s2i_bin_path = local_app_path / ".s2i" / "bin"
@@ -1775,7 +1783,7 @@ class ContainerTestLib:
                             if line and not line.startswith("#"):
                                 dockerfile_lines.append(f"ENV {line}")
                 except FileNotFoundError as e:
-                    print(f"Warning: Could not read environment file: {e}")
+                    logger.error("Warning: Could not read environment file: %s", e)
             # Filter out env var definitions from s2i_args and create Dockerfile ENV commands
             env_commands = get_env_commands_from_s2i_args(s2i_args)
             dockerfile_lines.extend(env_commands)
@@ -1819,13 +1827,15 @@ class ContainerTestLib:
             build_command_parts.extend(["-t", dst_image, ".", build_args])
             build_command = " ".join(filter(None, build_command_parts))
             if not self.build_image_and_parse_id(str(df_name), build_command):
-                print(f"ERROR: Failed to build {df_name}")
+                logger.error("ERROR: Failed to build %s", df_name)
                 return None
             # Store image ID for cleanup
             if self.app_image_id:
                 id_file = self.app_id_file_dir / self.random_string(length=20)
-                print(
-                    f"build_as_df_build_args: Destination image ID file: {id_file} and image ID: {self.app_image_id}",
+                logger.debug(
+                    "build_as_df_build_args: Destination image ID file: %s and image ID: %s",
+                    id_file,
+                    self.app_image_id,
                 )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
@@ -1839,7 +1849,7 @@ class ContainerTestLib:
                 db_type=self.db_type,
             )
         except Exception as e:
-            print(f"S2I build failed: {e}")
+            logger.error("S2I build failed: %s", e)
             return None
         finally:
             # Restore original working directory
@@ -1911,7 +1921,7 @@ class ContainerTestLib:
             # Get user ID from image
             user_id = self.get_uid_from_image(user, src_image)
             if not user_id:
-                print("Terminating s2i build")
+                logger.error("Terminating s2i build")
                 return False
 
             # Handle application source
@@ -1934,7 +1944,7 @@ class ContainerTestLib:
             else:
                 # Clone git repository
                 if not utils.clone_git_repository(str(app_path), str(local_app_path)):
-                    print(f"Failed to clone git repository: {app_path}")
+                    logger.error("Failed to clone git repository: %s", app_path)
                     return False
 
             # Create Dockerfile content for multistage build
@@ -1987,14 +1997,16 @@ class ContainerTestLib:
             build_command = " ".join(filter(None, build_command_parts))
 
             if not self.build_image_and_parse_id(str(df_name), build_command):
-                print(f"ERROR: Failed to build {df_name}")
+                logger.error("ERROR: Failed to build %s", df_name)
                 return False
 
             # Store image ID for cleanup
             if self.app_image_id:
                 id_file = self.app_id_file_dir / self.random_string(length=20)
-                print(
-                    f"Multistage build:Destination image ID file: {id_file} and image ID: {self.app_image_id}",
+                logger.debug(
+                    "Multistage build:Destination image ID file: %s and image ID: %s",
+                    id_file,
+                    self.app_image_id,
                 )
                 with open(id_file, "w") as f:
                     f.write(self.app_image_id)
@@ -2002,7 +2014,7 @@ class ContainerTestLib:
             return True
 
         except Exception as e:
-            print(f"S2I multistage build failed: {e}")
+            logger.error("S2I multistage build failed: %s", e)
             return False
 
         finally:

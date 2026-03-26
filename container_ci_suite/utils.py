@@ -169,12 +169,15 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
         return f"{registry}/centos/{base_image_name}-{version}-centos7"
 
 
-def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
+def download_template(
+    template_name: str, dir_name: str = "/var/tmp", file_name: str = ""
+) -> Any:
     """
     Download a template file.
     Args:
         template_name: The name of the template to download
         dir_name: The directory to download the template to
+        file_name: The name of the file to download the template to
     Returns:
         The path to the downloaded template
     """
@@ -182,10 +185,10 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
     file_ext_field = template_name.split(".")
     if len(file_ext_field) > 1:
         ext = f".{file_ext_field[1]}"
-    print(f"Local temporary file {template_name} with extension {ext}")
-    print(f"Temporary file: download_template from {template_name}")
+    logger.debug("Local temporary file %s with extension %s", template_name, ext)
+    logger.debug("Temporary file: download_template from %s", template_name)
     random_text = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    path_name = f"{dir_name}/{random_text}{ext}"
+    path_name = f"{random_text}{ext}"
     if Path(template_name).is_file():
         shutil.copy2(template_name, path_name)
         return str(path_name)
@@ -193,16 +196,21 @@ def download_template(template_name: str, dir_name: str = "/var/tmp") -> Any:
         shutil.copytree(template_name, path_name, symlinks=True)
         return str(path_name)
     if template_name.startswith("http"):
+        if file_name:
+            path_name = f"{dir_name}/{file_name}"
         resp = requests.get(template_name, verify=False)
         resp.raise_for_status()
         if resp.status_code != 200:
-            print(f"utils.download_template: {resp.status_code} and {resp.text}")
+            logger.error(
+                "utils.download_template: %s and %s", resp.status_code, resp.text
+            )
             return None
         with open(path_name, "wb") as fd:
             fd.write(resp.content)
+        logger.debug("utils.download_template: %s", path_name)
         return str(path_name)
     if not Path(template_name).exists():
-        print("File to download does not exist.")
+        logger.error("utils.download_template: File to download does not exist.")
         return None
 
 
@@ -233,7 +241,7 @@ class ContainerTestLibUtils:
         :return: None or str
         """
         if debug:
-            print(f"command: {cmd}")
+            logger.debug("command: %s", cmd)
         try:
             if return_output:
                 return subprocess.check_output(
@@ -248,15 +256,17 @@ class ContainerTestLibUtils:
             else:
                 return subprocess.check_call(cmd, shell=shell, **kwargs)
         except subprocess.CalledProcessError as cpe:
-            print(f"Exception: {cpe}")
+            logger.error("Exception: %s", cpe)
             if ignore_error:
                 if return_output:
                     return cpe.output
                 else:
-                    print(f"failed with output {cpe.output}")
+                    logger.error("failed with output %s", cpe.output)
                     return cpe.returncode
             else:
-                print(f"failed with code {cpe.returncode} and output:\n{cpe.output}")
+                logger.error(
+                    "failed with code %s and output:\n%s", cpe.returncode, cpe.output
+                )
                 raise cpe
 
     @staticmethod
@@ -305,14 +315,14 @@ class ContainerTestLibUtils:
         command_failed: bool = True
         for cmd in commands_to_run:
             try:
-                print(f"ContainerTestLibUtils: commands_to_run: {cmd}")
+                logger.debug("ContainerTestLibUtils: commands_to_run: %s", cmd)
                 output = ContainerTestLibUtils.run_command(
                     cmd=cmd, return_output=True, ignore_error=False
                 )
                 if output:
-                    print(f"Output is '{output}'")
+                    logger.debug("Output is '%s'", output)
             except subprocess.CalledProcessError as cpe:
-                print(f"ContainerTestLibUtils: cmd {cmd} failed '{cpe}'")
+                logger.error("ContainerTestLibUtils: cmd %s failed '%s'", cmd, cpe)
                 command_failed = False
         return command_failed
 
@@ -329,7 +339,7 @@ class ContainerTestLibUtils:
         file_present: bool = True
         for f in file_name_to_check:
             if not (Path(dir_name) / f).exists():
-                print(
+                logger.error(
                     f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist."
                 )
                 file_present = False
@@ -350,7 +360,7 @@ class ContainerTestLibUtils:
             prefix="new_dockerfile", dir="/tmp", delete=False
         ).name
         if not Path(dockerfile).exists():
-            print(f"ERROR: Dockerfile '{dockerfile}' do not exists")
+            logger.error("ERROR: Dockerfile '%s' do not exists", dockerfile)
             return None
         with open(dockerfile, "r") as f:
             content = f.read()
@@ -380,19 +390,21 @@ def get_response_request(
         try:
             resp = requests.get(url_address, timeout=10, verify=False)
             resp.raise_for_status()
-            print(
-                f"Response code is {resp.status_code} and expected should be {response_code}"
+            logger.debug(
+                "Response code is %s and expected should be %s",
+                resp.status_code,
+                response_code,
             )
             if resp.status_code == response_code and expected_str in resp.text:
                 return True
             return False
         except requests.exceptions.HTTPError:
-            print(
+            logger.debug(
                 "get_response_request: Service is not yet available. Let's wait some time"
             )
             pass
         except requests.exceptions.ConnectTimeout:
-            print("get_response_request: ConnectTimeout. Let's wait some time")
+            logger.debug("get_response_request: ConnectTimeout. Let's wait some time")
             pass
         time.sleep(10)
     return False
@@ -407,7 +419,7 @@ def temporary_dir(prefix: str = "helm-chart") -> str:
         The path to the temporary directory
     """
     temp_file = tempfile.TemporaryDirectory(prefix=prefix)
-    print(f"Temporary dir name: {temp_file.name}")
+    logger.debug("Temporary dir name: %s", temp_file.name)
     return temp_file.name
 
 
@@ -438,7 +450,7 @@ def save_command_yaml(image_name: str) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="command-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(cmd_yaml, fp)
-    print(f"Pod command yaml file: {temp_file.name}")
+    logger.debug("Pod command yaml file: %s", temp_file.name)
     return temp_file.name
 
 
@@ -470,7 +482,7 @@ def save_tenant_namespace_yaml(project_name: str) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-namespace-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(cmd_yaml, fp)
-    print(f"TenantNamespace yaml file: {temp_file.name}")
+    logger.debug("TenantNamespace yaml file: %s", temp_file.name)
     return temp_file.name
 
 
@@ -524,7 +536,7 @@ def save_tenant_egress_yaml(project_name: str, rules: List[str] = []) -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-egress-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_egress_yaml, fp)
-    print(f"TenantNamespaceEgress yaml file: {temp_file.name}")
+    logger.debug("TenantNamespaceEgress yaml file: %s", temp_file.name)
     return temp_file.name
 
 
@@ -558,7 +570,7 @@ def save_tenant_limit_yaml() -> str:
     temp_file = tempfile.NamedTemporaryFile(prefix="tenant-limit-yml", delete=False)
     with open(temp_file.name, "w") as fp:
         yaml.dump(tenant_limit_yaml, fp)
-    print(f"TenantNamespaceLimits yaml file: {temp_file.name}")
+    logger.debug("TenantNamespaceLimits yaml file: %s", temp_file.name)
     return temp_file.name
 
 
@@ -603,7 +615,7 @@ def clone_git_repository(app_url: str, app_dir: str) -> bool:
         ContainerTestLibUtils.run_command(cmd, return_output=False)
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Git clone failed: {e}")
+        logger.error("Git clone failed: %s", e)
         return False
 
 
@@ -631,13 +643,13 @@ def check_variables() -> bool:
     """
     ret_value: bool = True
     if not os.getenv("VERSION"):
-        print("Make sure VERSION is defined")
+        logger.error("Make sure VERSION is defined")
         ret_value = False
     if not os.getenv("OS"):
-        print("Make sure OS is defined")
+        logger.error("Make sure OS is defined")
         ret_value = False
     if not os.getenv("IMAGE_NAME"):
-        print("Make sure IMAGE_NAME is defined")
+        logger.error("Make sure IMAGE_NAME is defined")
     return ret_value
 
 
@@ -734,16 +746,18 @@ def is_shared_cluster(test_type: str = "ocp4"):
     """
     json_data = get_json_data()
     if test_type not in json_data:
-        print(f"Variable {test_type} is not present in file /root/shared_cluster.json")
+        logger.error(
+            "Variable %s is not present in file /root/shared_cluster.json", test_type
+        )
         return False
     value = json_data[test_type]
     if isinstance(value, bool) and value is True:
-        print(f"Shared cluster allowed for {test_type}")
+        logger.debug("Shared cluster allowed for %s", test_type)
         return True
     if isinstance(value, str) and value in ["true", "True", "y", "Y", "1"]:
-        print(f"Shared cluster allowed for {test_type}")
+        logger.debug("Shared cluster allowed for %s", test_type)
         return True
-    print(
+    logger.error(
         "\nShared cluster is not allowed.\nTo allow it add 'true' to file /root/shared_cluster.json."
     )
     return False
@@ -759,7 +773,9 @@ def get_shared_variable(variable: str) -> Any:
     """
     json_data = get_json_data()
     if variable not in json_data:
-        print(f"\nVariable {variable} is not present in file /root/shared_cluster.json")
+        logger.error(
+            "Variable %s is not present in file /root/shared_cluster.json", variable
+        )
         return None
     return json_data[variable]
 

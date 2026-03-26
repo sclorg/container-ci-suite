@@ -95,7 +95,9 @@ def main():
     try:
         # This is a demonstration - would need real app path and images
         print("✓ S2I Multistage Build function available")
-        print("  Usage: ct.s2i_multistage_build(app_path, src_image, sec_image, dst_image, s2i_args)")
+        print(
+            "  Usage: ct.s2i_multistage_build(app_path, src_image, sec_image, dst_image, s2i_args)"
+        )
         print("  This function creates a multistage Docker build for S2I applications")
         print("  - First stage: builds the application using the source image")
         print("  - Second stage: copies artifacts to a minimal runtime image")
@@ -107,7 +109,9 @@ def main():
     try:
         # This is a demonstration - would need real dockerfile and app
         print("✓ Test App Dockerfile function available")
-        print("  Usage: ct.test_app_dockerfile(dockerfile, app_url, expected_text, app_dir, build_args)")
+        print(
+            "  Usage: ct.test_app_dockerfile(dockerfile, app_url, expected_text, app_dir, build_args)"
+        )
         print("  This function:")
         print("  - Builds a Docker image from a Dockerfile and application source")
         print("  - Runs the container and tests HTTP responses")
