@@ -268,15 +268,16 @@ class DatabaseWrapper:
           "postgresql://$PGUSER@$CONTAINER_IP:5432/${DB-db}" -At -c 'SELECT 1;'
         """
         try:
-            output = self.postgresql_cmd(container_ip,
-                                         username,
-                                         password,
-                                         container_id=self.image_name,
-                                         database=database,
-                                         port=port if port else 5432,
-                                         extra_args="-At",
-                                         sql_command="-c 'SELECT 1;'"
-                                        )
+            output = self.postgresql_cmd(
+                container_ip,
+                username,
+                password,
+                container_id=self.image_name,
+                database=database,
+                port=port if port else 5432,
+                extra_args="-At",
+                sql_command="-c 'SELECT 1;'",
+            )
             # PostgreSQL returns "1" on successful query
             return "1" in output.strip()
 
@@ -422,7 +423,7 @@ class DatabaseWrapper:
             "-v ON_ERROR_STOP=1",
             connection_string,
             extra_args,
-            sql_command
+            sql_command,
         ]
 
         cmd = " ".join(cmd_parts)

@@ -21,10 +21,13 @@
 import subprocess
 import time
 import json
+import logging
 
 from typing import Any
 
 from container_ci_suite.utils import ContainerTestLibUtils
+
+logger = logging.getLogger(__name__)
 
 
 class PodmanCLIWrapper(object):
@@ -135,7 +138,7 @@ class PodmanCLIWrapper(object):
             cmd = f"exec {cid_file_name} {cmd}"
         else:
             cmd = f"exec {cid_file_name} {used_shell} -c '{cmd}'"
-        print(f"podman command is: {cmd}")
+        logger.info("podman command is: %s", cmd)
         try:
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd,
@@ -144,9 +147,9 @@ class PodmanCLIWrapper(object):
                 ignore_error=ignore_error,
             )
         except subprocess.CalledProcessError as cpe:
-            print(f"podman exec command {cmd} failed. See '{cpe}'")
+            logger.error("podman_exec_shell_command: %s failed. See '%s'", cmd, cpe)
             return False
-        print(f"Output cmd is {output}")
+        logger.info("Output cmd is %s", output)
         return output
 
     @staticmethod
@@ -172,7 +175,7 @@ class PodmanCLIWrapper(object):
             The output of the command
         """
         cmd = f"run --rm {cid_file_name} /bin/bash -c '{cmd}'"
-        print(f"podman command is: '{cmd}'")
+        logger.info("podman command is: '%s'", cmd)
         try:
             output = PodmanCLIWrapper.call_podman_command(
                 cmd=cmd,
@@ -181,9 +184,9 @@ class PodmanCLIWrapper(object):
                 debug=debug,
             )
         except subprocess.CalledProcessError as cpe:
-            print(f"podman exec command {cmd} failed. See '{cpe}'")
+            logger.error("podman_run_command_and_remove: %s failed. See '%s'", cmd, cpe)
             return False
-        print(f"Output cmd is {output}")
+        logger.info("Output cmd is %s", output)
         return output
 
     @staticmethod
@@ -218,7 +221,7 @@ class PodmanCLIWrapper(object):
             True if the image was pulled successfully, False otherwise
         """
         if PodmanCLIWrapper.podman_image_exists(image_name=image_name):
-            print("Pulled image already exists.")
+            logger.info("Pulled image already exists.")
             return True
         for loop in range(loops):
             try:
@@ -232,8 +235,10 @@ class PodmanCLIWrapper(object):
             ):
                 return True
             PodmanCLIWrapper.call_podman_command("images", return_output=True)
-            print(
-                f"Pulling of image {image_name} failed. Let's wait {loop * 5} seconds and try again."
+            logger.error(
+                "Pulling of image %s failed. Let's wait %s seconds and try again.",
+                image_name,
+                loop * 5,
             )
             time.sleep(loop * 5)
         return False

@@ -28,7 +28,7 @@ class DockerfileProcessor:
         self.content = ""
         if not self.dockerfile_path.exists():
             raise FileNotFoundError(f"Dockerfile not found: {dockerfile_path}")
-        with open(self.dockerfile_path, 'r') as f:
+        with open(self.dockerfile_path, "r") as f:
             self.content = f.read()
 
     def update_variable_in_dockerfile(self, version: str, variable: str):
@@ -47,12 +47,8 @@ class DockerfileProcessor:
         for index, line in enumerate(split_dockerfile):
             if line.startswith("#"):
                 continue
-            split_dockerfile[index] = re.sub(
-                fr'\${variable}',
-                version,
-                line
-            )
-        self.content = '\n'.join(split_dockerfile)
+            split_dockerfile[index] = re.sub(rf"\${variable}", version, line)
+        self.content = "\n".join(split_dockerfile)
 
     def update_env_in_dockerfile(self, version: str, what_to_replace: str):
         """
@@ -70,11 +66,9 @@ class DockerfileProcessor:
             if line.startswith("#"):
                 continue
             split_dockerfile[index] = re.sub(
-                fr'^{what_to_replace}.*$',
-                f"{what_to_replace}={version}",
-                line
+                rf"^{what_to_replace}.*$", f"{what_to_replace}={version}", line
             )
-        self.content = '\n'.join(split_dockerfile)
+        self.content = "\n".join(split_dockerfile)
 
     def create_temp_dockerfile(self) -> str:
         """
@@ -99,20 +93,34 @@ class DockerfileProcessor:
         Returns:
             True if basic syntax checks pass, False otherwise
         """
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         # Check for basic Dockerfile structure
-        has_from = any(line.strip().upper().startswith('FROM') for line in lines)
+        has_from = any(line.strip().upper().startswith("FROM") for line in lines)
         if not has_from:
             return False
         # Check for valid instruction format
         valid_instructions = {
-            'FROM', 'RUN', 'CMD', 'LABEL', 'EXPOSE', 'ENV', 'ADD', 'COPY',
-            'ENTRYPOINT', 'VOLUME', 'USER', 'WORKDIR', 'ARG', 'ONBUILD',
-            'STOPSIGNAL', 'HEALTHCHECK', 'SHELL'
+            "FROM",
+            "RUN",
+            "CMD",
+            "LABEL",
+            "EXPOSE",
+            "ENV",
+            "ADD",
+            "COPY",
+            "ENTRYPOINT",
+            "VOLUME",
+            "USER",
+            "WORKDIR",
+            "ARG",
+            "ONBUILD",
+            "STOPSIGNAL",
+            "HEALTHCHECK",
+            "SHELL",
         }
         for line in lines:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
             # Extract the instruction (first word)
             instruction = line.split()[0].upper()
