@@ -212,6 +212,7 @@ def download_template(
     if not Path(template_name).exists():
         logger.error("utils.download_template: File to download does not exist.")
         return None
+    return None
 
 
 class ContainerTestLibUtils:
