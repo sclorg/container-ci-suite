@@ -149,7 +149,6 @@ class PodmanCLIWrapper(object):
         except subprocess.CalledProcessError as cpe:
             logger.error("podman_exec_shell_command: %s failed. See '%s'", cmd, cpe)
             return False
-        logger.info("Output cmd is %s", output)
         return output
 
     @staticmethod
@@ -186,7 +185,6 @@ class PodmanCLIWrapper(object):
         except subprocess.CalledProcessError as cpe:
             logger.error("podman_run_command_and_remove: %s failed. See '%s'", cmd, cpe)
             return False
-        logger.info("Output cmd is %s", output)
         return output
 
     @staticmethod
