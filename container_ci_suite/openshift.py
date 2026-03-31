@@ -172,7 +172,7 @@ class OpenShiftAPI:
         logger.debug(
             "Check if TenantNamespace %s really exists", self.shared_random_name
         )
-        for count in range(50):
+        for _ in range(5):
             logger.debug("Waiting for TenantNamespace creation...")
             if not self.openshift_ops.is_project_exists():
                 sleep(5)
@@ -196,7 +196,7 @@ class OpenShiftAPI:
             project_name=self.shared_random_name
         )
         is_applied = False
-        for count in range(30):
+        for _ in range(10):
             tentant_output = ContainerTestLibUtils.run_oc_command(
                 cmd=f"apply -f {tenant_egress_file}",
                 json_output=False,
@@ -1002,7 +1002,7 @@ class OpenShiftAPI:
             return False
         ip_address = self.openshift_ops.get_service_ip(service_name=service_name)
         cmd = cmd.replace("<IP>", ip_address)
-        for count in range(timeout):
+        for _ in range(timeout):
             output = self.command_app_run(cmd=cmd, return_output=True)
             if expected_output in output:
                 return True
@@ -1046,7 +1046,7 @@ class OpenShiftAPI:
             cmd_to_run = "curl --connect-timeout 10 -k -s -w '%{http_code}' " + f"{url}"
         # Check if application returns proper HTTP_CODE
         logger.info("Check if HTTP_CODE is valid.")
-        for count in range(max_tests):
+        for _ in range(max_tests):
             output_code = self.command_app_run(cmd=f"{cmd_to_run}", return_output=True)
             return_code = output_code[-3:]
             try:
