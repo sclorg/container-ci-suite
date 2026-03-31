@@ -13,11 +13,12 @@ jobs:
       fail-fast: false
       matrix:
         container-to-test: ["postgresql-container", "nginx-container", "s2i-perl-container", "s2i-base-container" ]
-        os: ["fedora", "c9s", "rhel8", "rhel9", "c10s", "rhel10"]
+        os: ["rhel8", "rhel9", "rhel10"]
+        test_name: ["test-openshift-pytest", "test-pytest"]
 
     if: |
       github.event.issue.pull_request
-      && (contains(github.event.comment.body, '[test]') || contains(github.event.comment.body, '[test-all]'))
+      && contains(github.event.comment.body, '[test]')
       && contains(fromJson('["OWNER", "MEMBER"]'), github.event.comment.author_association)
     steps:
       - name: Checkout repo
@@ -32,41 +33,19 @@ jobs:
           branch="master"
           tf_scope="private"
           tmt_repo="https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
-          if [ "${{ matrix.os }}" == "fedora" ] || [ "${{ matrix.os }}" == "c9s" ] || [ "${{ matrix.os }}" == "c10s" ]; then
-            api_key=${{ secrets.TF_PUBLIC_API_KEY }}
-            branch="main"
-            tf_scope="public"
-            tmt_repo="https://github.com/sclorg/sclorg-testing-farm"
-            if [ "${{ matrix.os }}" == "fedora" ]; then
-              compose="Fedora-latest"
-              context="Fedora"
-              tmt_plan="/fedora"
-            else
-              if [ "${{ matrix.os }}" == "c9s" ]; then
-                compose="CentOS-Stream-9"
-                context="CentOS Stream 9"
-                tmt_plan="/c9s"
-              else
-                compose="CentOS-Stream-10"
-                context="CentOS Stream 10"
-                tmt_plan="/c10s"
-              fi
-            fi
+          if [ "${{ matrix.os }}" == "rhel8" ]; then
+            compose="RHEL-8.10.0-Nightly"
+            context="RHEL8"
+            tmt_plan="/rhel8-docker-suite$"
           else
-            if [ "${{ matrix.os }}" == "rhel8" ]; then
-              compose="RHEL-8.10.0-Nightly"
-              context="RHEL8"
-              tmt_plan="/rhel8-docker$"
+            if [ "${{ matrix.os }}" == "rhel9" ]; then
+              compose="RHEL-9.8.0-Nightly"
+              context="RHEL9"
+              tmt_plan="/rhel9-docker-suite$"
             else
-              if [ "${{ matrix.os }}" == "rhel9" ]; then
-                compose="RHEL-9.8.0-Nightly"
-                context="RHEL9"
-                tmt_plan="/rhel9-docker$"
-              else
-                compose="RHEL-10.2-Nightly"
-                context="RHEL10"
-                tmt_plan="/rhel10-docker$"
-              fi
+              compose="RHEL-10.2-Nightly"
+              context="RHEL10"
+              tmt_plan="/rhel10-docker-suite$"
             fi
           fi
           echo "api_key=$api_key" >> "$GITHUB_OUTPUT"
@@ -91,5 +70,5 @@ jobs:
           update_pull_request_status: true
           create_issue_comment: true
           pull_request_status_name: "${{ steps.vars.outputs.context }} - ${{ matrix.container-to-test }}"
-          variables: "REPO_URL=${{ github.server_url }}/${{ github.repository }};REPO_NAME=${{ github.repository }};PR_NUMBER=${{ github.event.issue.number }};OS=${{ matrix.os }};TEST_NAME=test-pytest;TESTED_IMAGE=${{ matrix.container-to-test }}"
+          variables: "REPO_URL=${{ github.server_url }}/${{ github.repository }};REPO_NAME=${{ github.repository }};PR_NUMBER=${{ github.event.issue.number }};OS=${{ matrix.os }};TEST_NAME=${{ matrix.test_name }}"
           compose: ${{ steps.vars.outputs.compose }}
