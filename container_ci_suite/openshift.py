@@ -778,23 +778,23 @@ class OpenShiftAPI:
         json_data = utils.get_json_data(file_name=Path(file_name))
         if "objects" not in json_data:
             return json_data
-        for object in json_data["objects"]:
-            if object["kind"] != "PersistentVolumeClaim":
+        for json_object in json_data["objects"]:
+            if json_object["kind"] != "PersistentVolumeClaim":
                 continue
-            if "annotations" not in object["metadata"]:
+            if "annotations" not in json_object["metadata"]:
                 annotations: Dict = {}
             else:
-                annotations = object["metadata"]["annotations"]
+                annotations = json_object["metadata"]["annotations"]
             annotations["trident.netapp.io/reclaimPolicy"] = "Delete"
-            object["metadata"]["annotations"] = annotations
-            if "labels" not in object["metadata"]:
+            json_object["metadata"]["annotations"] = annotations
+            if "labels" not in json_object["metadata"]:
                 labels: Dict = {}
             else:
-                labels = object["metadata"]["labels"]
+                labels = json_object["metadata"]["labels"]
             labels["paas.redhat.com/appcode"] = utils.get_shared_variable("app_code")
-            object["metadata"]["labels"] = labels
-            object["spec"]["storageClassName"] = "netapp-nfs"
-            object["spec"]["volumeMode"] = "Filesystem"
+            json_object["metadata"]["labels"] = labels
+            json_object["spec"]["storageClassName"] = "netapp-nfs"
+            json_object["spec"]["volumeMode"] = "Filesystem"
         utils.dump_json_data(json_data=json_data, file_name=Path(file_name))
         return json_data
 

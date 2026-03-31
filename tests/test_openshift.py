@@ -23,9 +23,10 @@
 # SOFTWARE.
 
 import pytest
+import shlex
 import subprocess
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from flexmock import flexmock
 
 from container_ci_suite.openshift import OpenShiftAPI
@@ -217,6 +218,443 @@ class TestCreateProject(object):
 
         assert oc_api.create_project() is True
         assert oc_api.project_created
+
+
+class TestCreateTenantNamespace(object):
+    """
+    Tests for OpenShiftAPI.create_tenant_namespace.
+    """
+
+    def _make_api(self, shared_random_name: str = "sclorg-54321"):
+        oc_api = OpenShiftAPI(namespace="test-tenant-ns")
+        oc_api.shared_random_name = shared_random_name
+        return oc_api
+
+    def test_create_tenant_namespace_success(self):
+        """
+        Returns True when oc create -f exits with code 0.
+        """
+        yaml_path = "/tmp/tenant-namespace-yml-abc123.yaml"
+        oc_api = self._make_api()
+        flexmock(utils).should_receive("save_tenant_namespace_yaml").with_args(
+            project_name="sclorg-54321"
+        ).and_return(yaml_path).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=f"create -f {yaml_path}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
+        ).and_return(0).once()
+
+        assert oc_api.create_tenant_namespace() is True
+
+    @pytest.mark.parametrize("exit_code", [1, 2, 255])
+    def test_create_tenant_namespace_nonzero_exit_returns_false(self, exit_code):
+        """
+        Returns False when oc create -f reports a non-zero exit (ignore_error path).
+        """
+        yaml_path = f"/tmp/tenant-namespace-fail-{exit_code}.yaml"
+        oc_api = self._make_api(shared_random_name="sclorg-99999")
+        flexmock(utils).should_receive("save_tenant_namespace_yaml").with_args(
+            project_name="sclorg-99999"
+        ).and_return(yaml_path).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=f"create -f {yaml_path}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
+        ).and_return(exit_code).once()
+
+        assert oc_api.create_tenant_namespace() is False
+
+
+class TestIsTenantNamespaceCreated(object):
+    """
+    Tests for OpenShiftAPI.is_tenant_namespace_created.
+    """
+
+    def _make_api(self, shared_random_name: str = "sclorg-54321"):
+        oc_api = OpenShiftAPI(namespace="test-tenant-ns")
+        oc_api.shared_random_name = shared_random_name
+        return oc_api
+
+    def test_is_tenant_namespace_created_true_on_first_check(self):
+        """
+        Returns True when is_project_exists is True on the first iteration.
+        """
+        oc_api = self._make_api()
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            True
+        ).once()
+
+        assert oc_api.is_tenant_namespace_created() is True
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_is_tenant_namespace_created_true_after_waiting(self, mock_sleep):
+        """
+        Retries until is_project_exists becomes True, sleeping 5s between checks.
+        """
+        oc_api = self._make_api()
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            False
+        ).and_return(False).and_return(True)
+
+        assert oc_api.is_tenant_namespace_created() is True
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_called_with(5)
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_is_tenant_namespace_created_false_when_never_exists(self, mock_sleep):
+        """
+        Returns False when is_project_exists stays False for all iterations.
+        """
+        oc_api = self._make_api()
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            False
+        ).times(5)
+
+        assert oc_api.is_tenant_namespace_created() is False
+        assert mock_sleep.call_count == 5
+        mock_sleep.assert_called_with(5)
+
+
+class TestCreateLimitRanges(object):
+    """
+    Tests for OpenShiftAPI.create_limit_ranges.
+    """
+
+    def _make_api(self, shared_random_name: str = "sclorg-54321"):
+        oc_api = OpenShiftAPI(namespace="test-tenant-ns")
+        oc_api.shared_random_name = shared_random_name
+        return oc_api
+
+    def test_create_limit_ranges_success_first_attempt(self):
+        """
+        Returns True when oc apply -f exits with code 0 on the first try.
+        """
+        yaml_path = "/tmp/tenant-limit-yml-abc.yaml"
+        oc_api = self._make_api()
+        flexmock(utils).should_receive("save_tenant_limit_yaml").and_return(
+            yaml_path
+        ).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=f"apply -f {yaml_path}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
+        ).and_return(0).once()
+
+        assert oc_api.create_limit_ranges() is True
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_create_limit_ranges_success_after_retry(self, mock_sleep):
+        """
+        Retries apply when oc returns non-zero, then succeeds on the second attempt.
+        """
+        yaml_path = "/tmp/tenant-limit-retry.yaml"
+        oc_api = self._make_api()
+        flexmock(utils).should_receive("save_tenant_limit_yaml").and_return(
+            yaml_path
+        ).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=f"apply -f {yaml_path}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
+        ).and_return(1).and_return(0)
+
+        assert oc_api.create_limit_ranges() is True
+        assert mock_sleep.call_count == 1
+        mock_sleep.assert_called_with(5)
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_create_limit_ranges_false_when_all_attempts_fail(self, mock_sleep):
+        """
+        Returns False when every apply attempt returns a non-zero exit code.
+        """
+        yaml_path = "/tmp/tenant-limit-fail.yaml"
+        oc_api = self._make_api()
+        flexmock(utils).should_receive("save_tenant_limit_yaml").and_return(
+            yaml_path
+        ).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=f"apply -f {yaml_path}",
+            json_output=False,
+            ignore_error=True,
+            return_output=False,
+            debug=True,
+        ).and_return(1).times(10)
+
+        assert oc_api.create_limit_ranges() is False
+        assert mock_sleep.call_count == 10
+        mock_sleep.assert_called_with(5)
+
+
+class TestUploadImageToExternalRegistry(object):
+    """
+    Tests for OpenShiftAPI.upload_image_to_external_registry.
+    """
+
+    def test_upload_image_to_external_registry_returns_none_when_login_fails(self):
+        """
+        When login_external_registry returns falsy, return None without podman/oc calls.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        flexmock(OpenShiftAPI).should_receive("login_external_registry").and_return(None)
+        flexmock(ContainerTestLibUtils).should_receive("run_command").never()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").never()
+
+        assert oc_api.upload_image_to_external_registry("quay.io/foo:1", "myimg:latest") is None
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    def test_upload_image_to_external_registry_success(self, mock_sleep):
+        """
+        Tags, pushes, imports image and returns True after a short sleep.
+        """
+        registry = "registry.example.com"
+        source_image = "quay.io/foo/bar:1"
+        tagged_image = "myimg:latest"
+        output_name = f"{registry}/core-services-ocp/{tagged_image}"
+
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        flexmock(OpenShiftAPI).should_receive("login_external_registry").and_return(
+            registry
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_command").with_args(
+            "podman images"
+        ).and_return("REPOSITORY TAG\n").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_command").with_args(
+            f"podman tag {source_image} {output_name}",
+            ignore_error=False,
+            return_output=True,
+        ).and_return("tagged").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_command").with_args(
+            f"podman push {output_name}",
+            ignore_error=False,
+            return_output=True,
+        ).and_return("pushed").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            f"import-image {tagged_image} --from={output_name} --confirm",
+            json_output=False,
+            return_output=True,
+        ).and_return("imported").once()
+
+        assert oc_api.upload_image_to_external_registry(source_image, tagged_image) is True
+        mock_sleep.assert_called_once_with(3)
+
+
+class TestCommandAppRun(object):
+    """
+    Tests for OpenShiftAPI.command_app_run.
+    """
+
+    @staticmethod
+    def _expected_oc_cmd(user_cmd: str) -> str:
+        return f"exec command-app -- bash -c {shlex.quote(user_cmd)}"
+
+    def test_command_app_run_returns_oc_command_output(self):
+        """
+        Builds exec command-app with shlex-quoted bash -c and returns run_oc_command result.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        user_cmd = "echo $((11*11))"
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=self._expected_oc_cmd(user_cmd),
+            ignore_error=True,
+            return_output=True,
+            json_output=False,
+        ).and_return("121\n").once()
+
+        assert oc_api.command_app_run(user_cmd) == "121\n"
+
+    def test_command_app_run_passes_return_output_false(self):
+        """
+        Forwards return_output=False to run_oc_command (e.g. exit code only).
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        user_cmd = "true"
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            cmd=self._expected_oc_cmd(user_cmd),
+            ignore_error=True,
+            return_output=False,
+            json_output=False,
+        ).and_return(0).once()
+
+        assert oc_api.command_app_run(user_cmd, return_output=False) == 0
+
+
+class TestDeployS2iApp(object):
+    """
+    Tests for OpenShiftAPI.deploy_s2i_app.
+    """
+
+    def test_deploy_s2i_app_returns_false_when_project_not_created(self):
+        """
+        Short-circuits when project_created is False.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = False
+        assert oc_api.deploy_s2i_app("img", "app", ".") is False
+
+    def test_deploy_s2i_app_returns_false_when_upload_image_fails(self):
+        """
+        Non-shared cluster: upload_image failure returns False before new-app.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = False
+        flexmock(utils).should_receive("get_tagged_image").and_return("registry/x:1")
+        flexmock(OpenShiftAPI).should_receive("upload_image").and_return(False)
+
+        assert oc_api.deploy_s2i_app("quay.io/foo", "https://example.com/app.git", ".") is False
+
+    def test_deploy_s2i_app_returns_false_when_upload_external_fails(self):
+        """
+        Shared cluster: upload_image_to_external_registry failure returns False.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = True
+        flexmock(utils).should_receive("get_tagged_image").and_return("registry/x:1")
+        flexmock(OpenShiftAPI).should_receive("upload_image_to_external_registry").and_return(
+            False
+        )
+
+        assert oc_api.deploy_s2i_app("quay.io/foo", "https://example.com/app.git", ".") is False
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    @patch("container_ci_suite.openshift.Path")
+    def test_deploy_s2i_app_returns_false_when_new_app_raises(
+        self, mock_path, mock_sleep
+    ):
+        """
+        CalledProcessError from oc new-app is caught and returns False.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = False
+        path_inst = MagicMock()
+        path_inst.is_dir.return_value = False
+        mock_path.return_value = path_inst
+
+        flexmock(utils).should_receive("get_tagged_image").and_return("registry/x:1")
+        flexmock(OpenShiftAPI).should_receive("upload_image").and_return(True)
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_raise(
+            subprocess.CalledProcessError(1, "oc", output=b"fail")
+        )
+
+        assert (
+            oc_api.deploy_s2i_app(
+                "quay.io/foo",
+                "https://example.com/app.git",
+                ".",
+                service_name="svc",
+            )
+            is False
+        )
+        mock_sleep.assert_not_called()
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    @patch("container_ci_suite.openshift.Path")
+    def test_deploy_s2i_app_success_with_explicit_service_name(self, mock_path, mock_sleep):
+        """
+        Runs new-app with tagged image, app URL, context-dir, and name; then sleeps.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = False
+        path_inst = MagicMock()
+        path_inst.is_dir.return_value = False
+        mock_path.return_value = path_inst
+
+        tagged = "registry/ns/foo:1"
+        flexmock(utils).should_receive("get_tagged_image").and_return(tagged)
+        flexmock(OpenShiftAPI).should_receive("upload_image").and_return(True)
+        expected_cmd = (
+            f"new-app {tagged}~https://github.com/sclorg/s2i.git "
+            "--strategy=source --context-dir=src --name=myapp"
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            expected_cmd,
+            json_output=False,
+        ).and_return("created").once()
+
+        assert (
+            oc_api.deploy_s2i_app(
+                "quay.io/foo",
+                "https://github.com/sclorg/s2i.git",
+                "src",
+                service_name="myapp",
+            )
+            is True
+        )
+        mock_sleep.assert_called_once_with(3)
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    @patch("container_ci_suite.openshift.Path")
+    def test_deploy_s2i_app_uses_get_service_default_name(self, mock_path, mock_sleep):
+        """
+        Empty service_name uses utils.get_service_image(image_name).
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = False
+        path_inst = MagicMock()
+        path_inst.is_dir.return_value = False
+        mock_path.return_value = path_inst
+
+        tagged = "registry/ns/foo:1"
+        flexmock(utils).should_receive("get_tagged_image").and_return(tagged)
+        flexmock(OpenShiftAPI).should_receive("upload_image").and_return(True)
+        flexmock(utils).should_receive("get_service_image").with_args(
+            image_name="quay.io/foo"
+        ).and_return("derived-svc")
+        oc_cmd = (
+            f"new-app {tagged}~https://github.com/x.git "
+            "--strategy=source --context-dir=. --name=derived-svc"
+        )
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            oc_cmd,
+            json_output=False,
+        ).and_return("ok").once()
+
+        assert oc_api.deploy_s2i_app("quay.io/foo", "https://github.com/x.git", ".") is True
+
+    @patch("container_ci_suite.openshift.time.sleep")
+    @patch("container_ci_suite.openshift.Path")
+    def test_deploy_s2i_app_directory_app_downloads_and_start_build(
+        self, mock_path, mock_sleep
+    ):
+        """
+        When app is a directory: download_template for new-app, then start_build after sleep.
+        """
+        oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
+        oc_api.project_created = True
+        oc_api.shared_cluster = False
+        path_inst = MagicMock()
+        path_inst.is_dir.return_value = True
+        mock_path.return_value = path_inst
+
+        flexmock(utils).should_receive("get_tagged_image").and_return("registry/ns/i:1")
+        flexmock(OpenShiftAPI).should_receive("upload_image").and_return(True)
+        flexmock(utils).should_receive("download_template").with_args(
+            template_name="/app/src"
+        ).and_return("/tmp/app-src").times(2)
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "new-app registry/ns/i:1~/tmp/app-src --strategy=source --context-dir=sub --name=svc",
+            json_output=False,
+        ).and_return("created").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "start-build svc --from-dir=/tmp/app-src",
+            json_output=False,
+        ).and_return("build-1").once()
+
+        assert oc_api.deploy_s2i_app("img", "/app/src", "sub", service_name="svc") is True
+        mock_sleep.assert_called_once_with(3)
 
 
 class TestOpenShiftCISuite(object):
