@@ -71,6 +71,154 @@ class TestCreateOpenshiftProject(object):
         assert oc_api._create_openshift_project() is False
 
 
+class TestCreateProject(object):
+    """
+    Tests for OpenShiftAPI.create_project.
+    """
+
+    @pytest.mark.parametrize("project_exists", [True, False])
+    def test_create_project_when_create_prj_false(self, project_exists):
+        """
+        When create_prj is False, run oc project and return is_project_exists().
+        """
+        namespace = "container-ci-suite-test"
+        oc_api = OpenShiftAPI(namespace=namespace)
+        assert oc_api.create_prj is False
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            f"project {namespace}",
+            json_output=False,
+        ).once()
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            project_exists
+        )
+        assert oc_api.create_project() is project_exists
+        assert oc_api.project_created
+
+    def test_create_project_non_shared_first_attempt_succeeds(self):
+        """
+        Non-shared cluster: login, new-project succeeds on first try, then is_project_exists.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = False
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").with_args(
+            shared_cluster=False
+        ).and_return(True)
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
+            True
+        ).once()
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            True
+        )
+
+        assert oc_api.create_project() is True
+        assert oc_api.project_created
+
+    def test_create_project_non_shared_is_project_exists_false(self):
+        """
+        Non-shared: project creation succeeds but is_project_exists returns False.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = False
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            False
+        )
+
+        assert oc_api.create_project() is False
+        assert oc_api.project_created
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_create_project_non_shared_retries_then_succeeds(self, mock_sleep):
+        """
+        Non-shared: _create_openshift_project fails twice, succeeds on third attempt.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = False
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
+            False
+        ).and_return(False).and_return(True)
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            True
+        )
+
+        assert oc_api.create_project() is True
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_called_with(3)
+
+    @patch("container_ci_suite.openshift.sleep")
+    def test_create_project_non_shared_retries_exhausted_returns_false(self, mock_sleep):
+        """
+        Non-shared: all three new-project attempts fail; returns False.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = False
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
+            False
+        ).times(3)
+        assert oc_api.create_project() is False
+        assert not oc_api.project_created
+        assert mock_sleep.call_count == 3
+        mock_sleep.assert_called_with(3)
+
+    def test_create_project_shared_cluster_prepare_tenant_fails(self):
+        """
+        Shared cluster: prepare_tenant_namespace failure stops create_project.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = True
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").with_args(
+            shared_cluster=True
+        ).and_return(True)
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("prepare_tenant_namespace").and_return(
+            False
+        )
+
+        assert oc_api.create_project() is False
+        assert not oc_api.project_created
+
+    def test_create_project_shared_cluster_success(self):
+        """
+        Shared cluster: prepare_tenant_namespace succeeds, then is_project_exists.
+        """
+        oc_api = OpenShiftAPI(namespace="ignored")
+        oc_api.create_prj = True
+        oc_api.shared_cluster = True
+        flexmock(OpenShiftOperations).should_receive("login_to_cluster").with_args(
+            shared_cluster=True
+        ).and_return(True)
+        flexmock(OpenShiftOperations).should_receive("set_namespace").and_return(None)
+        flexmock(OpenShiftAPI).should_receive("prepare_tenant_namespace").and_return(
+            True
+        )
+        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
+            True
+        )
+
+        assert oc_api.create_project() is True
+        assert oc_api.project_created
+
+
 class TestOpenShiftCISuite(object):
     """
     Test OpenShift API suite.
@@ -86,39 +234,6 @@ class TestOpenShiftCISuite(object):
         self.oc_api = OpenShiftAPI(namespace="container-ci-suite-test")
         self.oc_ops = OpenShiftOperations()
         self.oc_ops.set_namespace(namespace="container-ci-suite-test")
-
-    def test_create_project_not_shared(self):
-        """
-        Test creating a project.
-        """
-        self.oc_api.create_prj = False
-        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
-            True
-        )
-        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").and_return(
-            "project 'container-ci-suite-test' created"
-        ).once()
-        if self.oc_api.create_project():
-            assert self.oc_api.project_created
-        else:
-            assert not self.oc_api.project_created
-
-    def test_create_project_shared(self):
-        """
-        Test creating a shared cluster project.
-        """
-        self.oc_api.create_prj = True
-        self.oc_api.shared_cluster = False
-        flexmock(OpenShiftOperations).should_receive("login_to_cluster").and_return(
-            True
-        )
-        flexmock(OpenShiftOperations).should_receive("is_project_exists").and_return(
-            True
-        )
-        flexmock(OpenShiftAPI).should_receive("_create_openshift_project").and_return(
-            True
-        )
-        assert self.oc_api.create_project()
 
     @pytest.mark.parametrize(
         "container,dir_name,filename,branch",
