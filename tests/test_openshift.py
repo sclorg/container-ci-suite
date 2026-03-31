@@ -36,10 +36,48 @@ from container_ci_suite import utils
 from tests.spellbook import DATA_DIR
 
 
+class TestCreateOpenshiftProject(object):
+    """
+    Tests for OpenShiftAPI._create_openshift_project.
+    """
+
+    @pytest.mark.parametrize(
+        "namespace", ["sclorg-12345", "core-services-ocp--sclorg-99999"]
+    )
+    def test_create_openshift_project_success(self, namespace):
+        """
+        _create_openshift_project returns True when oc new-project succeeds.
+        """
+        oc_api = OpenShiftAPI(namespace=namespace)
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            f"new-project {namespace}",
+            json_output=False,
+            return_output=True,
+        ).and_return("Now using project").once()
+
+        assert oc_api._create_openshift_project() is True
+
+    def test_create_openshift_project_called_process_error_returns_false(self):
+        """
+        _create_openshift_project returns False when oc new-project raises CalledProcessError.
+        """
+        oc_api = OpenShiftAPI(namespace="sclorg-fail")
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "new-project sclorg-fail",
+            json_output=False,
+            return_output=True,
+        ).and_raise(subprocess.CalledProcessError(1, "oc")).once()
+
+        assert oc_api._create_openshift_project() is False
+
+
 class TestOpenShiftCISuite(object):
     """
     Test OpenShift API suite.
     """
+
+    oc_api = None
+    oc_ops = None
 
     def setup_method(self):
         """
