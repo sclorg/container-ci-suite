@@ -176,6 +176,115 @@ class TestDatabaseWrapperPostgreSQL:
         assert "ON_ERROR_STOP=1" in call_args
 
 
+class TestWaitForDatabase:
+    """Tests for DatabaseWrapper.wait_for_database."""
+
+    def setup_method(self):
+        self.db = DatabaseWrapper(image_name="mysql:8.0", db_type="mysql")
+        self.cid = "/tmp/test.cid"
+        self.cmd = "mysqladmin ping"
+
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_success_without_expected_output(self, mock_exec):
+        """String output with no expected_output filter returns True."""
+        mock_exec.return_value = "mysqld is alive\n"
+
+        result = self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            expected_output="",
+        )
+
+        assert result is True
+        mock_exec.assert_called_once_with(
+            cid_file_name=self.cid, cmd=self.cmd, not_shell=True
+        )
+
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_success_when_expected_substring_present(self, mock_exec):
+        """When expected_output is set, success if it appears in the command output."""
+        mock_exec.return_value = "Status: ready for connections"
+
+        result = self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            expected_output="ready",
+        )
+
+        assert result is True
+
+    @patch("container_ci_suite.engines.database.time.sleep")
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_retries_after_bool_false(self, mock_exec, mock_sleep):
+        """Falsy bool from podman_exec triggers sleep and retry until string output."""
+        mock_exec.side_effect = [False, "ok"]
+
+        result = self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            max_attempts=5,
+            sleep_time=2,
+        )
+
+        assert result is True
+        assert mock_exec.call_count == 2
+        mock_sleep.assert_called_once_with(2)
+
+    @patch("container_ci_suite.engines.database.time.sleep")
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_retries_after_called_process_error(
+        self, mock_exec, mock_sleep
+    ):
+        """CalledProcessError is caught; loop sleeps and retries."""
+        mock_exec.side_effect = [
+            subprocess.CalledProcessError(1, "podman"),
+            "alive",
+        ]
+
+        result = self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            max_attempts=5,
+            sleep_time=1,
+        )
+
+        assert result is True
+        assert mock_exec.call_count == 2
+        mock_sleep.assert_called_once_with(1)
+
+    @patch("container_ci_suite.engines.database.time.sleep")
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_false_after_max_attempts(self, mock_exec, mock_sleep):
+        """Returns False when podman keeps returning falsy bool."""
+        mock_exec.return_value = False
+
+        result = self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            max_attempts=3,
+            sleep_time=1,
+        )
+
+        assert result is False
+        assert mock_exec.call_count == 3
+        assert mock_sleep.call_count == 3
+
+    @patch("container_ci_suite.engines.database.PodmanCLIWrapper.podman_exec_shell_command")
+    def test_wait_for_database_passes_not_shell_false(self, mock_exec):
+        """not_shell=False is forwarded to podman_exec_shell_command."""
+        mock_exec.return_value = "x"
+
+        self.db.wait_for_database(
+            container_id=self.cid,
+            command=self.cmd,
+            not_shell=False,
+        )
+
+        mock_exec.assert_called_once_with(
+            cid_file_name=self.cid, cmd=self.cmd, not_shell=False
+        )
+
+
 class TestDatabaseWrapperCommon:
     """Test common functionality across database types."""
 

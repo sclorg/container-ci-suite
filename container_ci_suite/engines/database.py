@@ -143,14 +143,21 @@ class DatabaseWrapper:
                 if not expected_output and isinstance(output, str):
                     logger.info("Database is ready (output: '%s')", output.strip())
                     return True
-                if expected_output and isinstance(output, str) and expected_output in output:
+                if (
+                    expected_output
+                    and isinstance(output, str)
+                    and expected_output in output
+                ):
                     logger.info(
                         "Database is ready (output contains expected output: '%s')",
                         expected_output,
                     )
                     return True
                 if isinstance(output, str):
-                    logger.info("Database is ready (without expected output)", output.strip())
+                    logger.info(
+                        "Database is ready (without expected output: '%s')",
+                        output.strip(),
+                    )
                     return True
             except subprocess.CalledProcessError as cpe:
                 logger.error("Error waiting for database: %s", cpe)
