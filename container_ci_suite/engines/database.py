@@ -109,6 +109,7 @@ class DatabaseWrapper:
         max_attempts: int = 10,
         sleep_time: int = 3,
         not_shell: bool = True,
+        expected_output: str = "",
     ) -> bool:
         """
         Wait for the database to be ready.
@@ -139,8 +140,17 @@ class DatabaseWrapper:
                     )
                     time.sleep(sleep_time)
                     continue
-                if isinstance(output, str) and output.strip() == "":
-                    logger.info("Database is ready (output: %s)", output)
+                if not expected_output and isinstance(output, str):
+                    logger.info("Database is ready (output: '%s')", output.strip())
+                    return True
+                if expected_output and isinstance(output, str) and expected_output in output:
+                    logger.info(
+                        "Database is ready (output contains expected output: '%s')",
+                        expected_output,
+                    )
+                    return True
+                if isinstance(output, str):
+                    logger.info("Database is ready (without expected output)", output.strip())
                     return True
             except subprocess.CalledProcessError as cpe:
                 logger.error("Error waiting for database: %s", cpe)
