@@ -108,6 +108,7 @@ class DatabaseWrapper:
         command: str,
         max_attempts: int = 10,
         sleep_time: int = 3,
+        not_shell: bool = True,
     ) -> bool:
         """
         Wait for the database to be ready.
@@ -116,6 +117,7 @@ class DatabaseWrapper:
             command: Command to execute to test if the database is ready
             max_attempts: Maximum number of attempts to wait for the database to be ready
             sleep_time: Time to sleep between attempts
+            not_shell: Whether to execute the command without a shell (default: True)
         Returns:
             True if database is ready, False otherwise
         """
@@ -127,7 +129,7 @@ class DatabaseWrapper:
         for attempt in range(1, max_attempts + 1):
             try:
                 output = PodmanCLIWrapper.podman_exec_shell_command(
-                    cid_file_name=container_id, cmd=command, not_shell=True
+                    cid_file_name=container_id, cmd=command, not_shell=not_shell
                 )
                 if isinstance(output, bool) and not output:
                     logger.debug(
