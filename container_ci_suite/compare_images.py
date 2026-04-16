@@ -9,6 +9,21 @@ logger = logging.getLogger(__name__)
 class ContainerCompareClass:
     """
     Container Compare Class - Utility functions for container comparison.
+    Usage:
+        published_image_name = get_public_image_name(
+            os_name=get_previous_os_version(VARS.OS),
+            base_image_name="postgresql",
+            version=VARS.VERSION,
+            stage_registry=True,
+        )
+        is_less = ContainerCompareClass.is_uncompressed_image_smaller(
+            built_image_name=VARS.IMAGE_NAME,
+            published_image=published_image_name,
+        )
+        if not is_less:
+            pytest.skip(
+                f"Container size is not less than the published image {published_image_name}"
+            )
     """
 
     @staticmethod
@@ -49,44 +64,43 @@ class ContainerCompareClass:
             return 0
 
     @staticmethod
-    def is_uncompressed_image_smaller_than_official_image(
-        uncompressed_image_name: str, official_image_name: str
+    def is_uncompressed_image_smaller(
+        built_image_name: str, published_image: str
     ) -> bool:
         """
         Check if the built image is smaller than the official image.
         Args:
-            uncompressed_image_name: The uncompressed image name
-            official_image_name: The official image name
+            built_image_name: The uncompressed image name
+            published_image: The published image name
+            stage: What registry of image to compare against.
         Returns:
             True if the built image is smaller than the official image, False otherwise
         """
         built_image_size = ContainerCompareClass.get_image_size_uncompressed(
-            uncompressed_image_name
+            built_image_name
         )
-        if not PodmanCLIWrapper.podman_image_exists(official_image_name):
+        if not PodmanCLIWrapper.podman_image_exists(published_image):
             logger.warning(
                 "Official image %s does not exist on the system. Let's pull it.",
-                official_image_name,
+                published_image,
             )
-            if not PodmanCLIWrapper.podman_pull_image(official_image_name):
-                logger.error(
-                    "Failed to pull the official image %s", official_image_name
-                )
+            if not PodmanCLIWrapper.podman_pull_image(published_image):
+                logger.error("Failed to pull the official image %s", published_image)
                 return False
-        official_image_size = ContainerCompareClass.get_image_size_uncompressed(
-            official_image_name
+        published_image = ContainerCompareClass.get_image_size_uncompressed(
+            published_image
         )
         logger.info("Built image size: %s", built_image_size)
-        logger.info("Official image size: %s", official_image_size)
-        if built_image_size < official_image_size:
+        logger.info("Official image size: %s", published_image)
+        if built_image_size < published_image:
             logger.info("Built image is smaller than the official image")
             return True
         logger.info("Built image is not smaller than the official image")
         return False
 
     @staticmethod
-    def is_compressed_image_smaller_than_official_image(
-        compressed_image_name: str, official_image_name: str
+    def is_compressed_image_smaller(
+        built_image_name: str, published_image: str
     ) -> bool:
         """
         Check if the compressed image is smaller than the official image.
@@ -97,10 +111,10 @@ class ContainerCompareClass:
             True if the compressed image is smaller than the official image, False otherwise
         """
         compressed_image_size = ContainerCompareClass.get_image_size_compressed(
-            compressed_image_name
+            built_image_name
         )
         official_image_size = ContainerCompareClass.get_image_size_compressed(
-            official_image_name
+            published_image
         )
         logger.info("Compressed image size: %s", compressed_image_size)
         logger.info("Official image size: %s", official_image_size)

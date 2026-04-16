@@ -95,14 +95,17 @@ def get_npm_variables():
     return ""
 
 
-def get_registry_name(os_name: str) -> str:
+def get_registry_name(os_name: str, stage_registry: bool = False) -> str:
     """
     Get the registry name.
     Args:
         os_name: The operating system name
+        stage_registry: Whether to use the stage registry
     Returns:
         The registry name
     """
+    if stage_registry:
+        return "registry.stage.redhat.io" if os_name.startswith("rhel") else "quay.io"
     return "registry.redhat.io" if os_name.startswith("rhel") else "docker.io"
 
 
@@ -148,17 +151,36 @@ def get_env_commands_from_s2i_args(s2i_args: str) -> List:
     return env_content
 
 
-def get_public_image_name(os_name: str, base_image_name: str, version: str) -> str:
+def get_previous_os_version(os_name: str) -> str:
+    """
+    Get the previous OS version.
+    Args:
+        os_name: The operating system name
+    Returns:
+        The previous OS version
+    """
+    m = re.search(r"\d+", os_name)
+    if not m:
+        return os_name  # or raise ValueError("No number found")
+    num = int(m.group())
+    bumped = str(num - 1)
+    return os_name[: m.start()] + bumped + os_name[m.end() :]
+
+
+def get_public_image_name(
+    os_name: str, base_image_name: str, version: str, stage_registry: bool = False
+) -> str:
     """
     Get the public image name.
     Args:
         os: The operating system
         base_image_name: The base image name
         version: The version
+        stage_registry: Whether to use the stage registry
     Returns:
         The public image name
     """
-    registry = get_registry_name(os_name)
+    registry = get_registry_name(os_name, stage_registry)
     if os_name.startswith("rhel"):
         return f"{registry}/{os_name}/{base_image_name}-{version}"
     return f"{registry}/sclorg/{base_image_name}-{version}-{os_name}"

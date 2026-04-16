@@ -34,6 +34,7 @@ import pytest
 
 from container_ci_suite.utils import (
     get_public_image_name,
+    get_previous_os_version,
     get_npm_variables,
     get_mount_ca_file,
     get_mount_options_from_s2i_args,
@@ -384,3 +385,47 @@ class TestContainerCISuiteUtils(object):
         """
         flexmock(utils).should_receive("get_json_data").and_return({"helm": True})
         assert utils.is_shared_cluster(test_type="ocp4") is False
+
+
+class TestGetPreviousOsVersion(object):
+    """Tests for get_previous_os_version."""
+
+    @pytest.mark.parametrize(
+        "os_name,expected",
+        [
+            ("rhel8", "rhel7"),
+            ("rhel9", "rhel8"),
+            ("rhel10", "rhel9"),
+            ("c9s", "c8s"),
+            ("c10s", "c9s"),
+            ("fedora40", "fedora39"),
+        ],
+    )
+    def test_decrements_first_integer_run_in_name(self, os_name, expected):
+        """
+        The first digit sequence is found and decremented by one; rest of string kept.
+        """
+        assert get_previous_os_version(os_name) == expected
+
+    @pytest.mark.parametrize(
+        "os_name",
+        [
+            "centos-stream",
+            "no_digits",
+            "",
+        ],
+    )
+    def test_returns_unchanged_when_no_digits(self, os_name):
+        """
+        If no digit run exists, the input is returned unchanged.
+        """
+        assert get_previous_os_version(os_name) == os_name
+
+    def test_single_digit_decremented(self):
+        """Lone digit is decremented (e.g. 1 -> 0)."""
+        assert get_previous_os_version("1") == "0"
+        assert get_previous_os_version("8") == "7"
+
+    def test_leading_digits(self):
+        """First match is at the start of the string."""
+        assert get_previous_os_version("10stream") == "9stream"

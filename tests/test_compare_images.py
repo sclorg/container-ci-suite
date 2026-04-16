@@ -91,7 +91,7 @@ class TestIsUncompressedImageSmallerThanOfficialImage:
             "100\n"
         ).and_return("200\n").times(2)
 
-        assert ContainerCompareClass.is_uncompressed_image_smaller_than_official_image(
+        assert ContainerCompareClass.is_uncompressed_image_smaller(
             "built:latest", "official:latest"
         )
 
@@ -103,10 +103,8 @@ class TestIsUncompressedImageSmallerThanOfficialImage:
             "300\n"
         ).and_return("200\n").times(2)
 
-        assert (
-            not ContainerCompareClass.is_uncompressed_image_smaller_than_official_image(
-                "built:latest", "official:latest"
-            )
+        assert not ContainerCompareClass.is_uncompressed_image_smaller(
+            "built:latest", "official:latest"
         )
 
     def test_pulls_official_when_missing_then_compares(self):
@@ -120,7 +118,7 @@ class TestIsUncompressedImageSmallerThanOfficialImage:
             "50\n"
         ).and_return("100\n").times(2)
 
-        assert ContainerCompareClass.is_uncompressed_image_smaller_than_official_image(
+        assert ContainerCompareClass.is_uncompressed_image_smaller(
             "built:latest", "official:latest"
         )
 
@@ -135,10 +133,8 @@ class TestIsUncompressedImageSmallerThanOfficialImage:
             "100\n"
         ).once()
 
-        assert (
-            not ContainerCompareClass.is_uncompressed_image_smaller_than_official_image(
-                "built:latest", "official:latest"
-            )
+        assert not ContainerCompareClass.is_uncompressed_image_smaller(
+            "built:latest", "official:latest"
         )
 
 
@@ -150,7 +146,7 @@ class TestIsCompressedImageSmallerThanOfficialImage:
             "1000\n"
         ).and_return("2000\n").times(2)
 
-        assert ContainerCompareClass.is_compressed_image_smaller_than_official_image(
+        assert ContainerCompareClass.is_compressed_image_smaller(
             "mine:latest", "official:latest"
         )
 
@@ -159,8 +155,6 @@ class TestIsCompressedImageSmallerThanOfficialImage:
             "5000\n"
         ).and_return("2000\n").times(2)
 
-        assert (
-            not ContainerCompareClass.is_compressed_image_smaller_than_official_image(
-                "mine:latest", "official:latest"
-            )
+        assert not ContainerCompareClass.is_compressed_image_smaller(
+            "mine:latest", "official:latest"
         )
