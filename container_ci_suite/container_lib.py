@@ -47,6 +47,7 @@ from container_ci_suite.engines.podman_wrapper import PodmanCLIWrapper
 from container_ci_suite import utils
 from container_ci_suite.engines.container import ContainerImage
 from container_ci_suite.engines.database import DatabaseWrapper
+from container_ci_suite.compare_images import ContainerCompareClass
 from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.utils import (
     get_full_ca_file_path,
@@ -1374,7 +1375,9 @@ class ContainerTestLib:
                     if debug:
                         logger.info("Expected code from requests PASSED.")
                         logger.info(
-                            f"Let's check {expected_output} in response: '{response_body}'"
+                            "Let's check '%s' in response: '%s'",
+                            expected_output,
+                            response_body,
                         )
                     if not expected_output or re.search(expected_output, response_body):
                         logger.info(
@@ -1427,16 +1430,10 @@ class ContainerTestLib:
         registry = ContainerTestLib.registry_from_os(os_name)
         version_no_dots = version.replace(".", "")
 
-        if os_name == "rhel8":
-            return f"{registry}/rhel8/{base_image_name}-{version_no_dots}"
-        elif os_name == "rhel9":
-            return f"{registry}/rhel9/{base_image_name}-{version_no_dots}"
-        elif os_name == "rhel10":
-            return f"{registry}/rhel10/{base_image_name}-{version_no_dots}"
-        elif os_name == "c9s":
-            return f"{registry}/sclorg/{base_image_name}-{version_no_dots}-c9s"
-        elif os_name == "c10s":
-            return f"{registry}/sclorg/{base_image_name}-{version_no_dots}-c10s"
+        if os_name.startswith("rhel"):
+            return f"{registry}/{os_name}/{base_image_name}-{version_no_dots}"
+        elif os_name in ["c9s", "c10s", "c11s"]:
+            return f"{registry}/sclorg/{base_image_name}-{version_no_dots}-{os_name}"
         else:
             return f"{registry}/sclorg/{base_image_name}-{version_no_dots}"
 
@@ -1533,47 +1530,12 @@ class ContainerTestLib:
         logger.info(LINE)
         logger.info(
             "Uncompressed size of the image: %s",
-            self.get_image_size_uncompressed(self.image_name),
+            ContainerCompareClass.get_image_size_uncompressed(self.image_name),
         )
         logger.info(
-            f"Compressed size of the image: {self.get_image_size_compressed(self.image_name)}",
+            "Compressed size of the image: %s",
+            ContainerCompareClass.get_image_size_compressed(self.image_name),
         )
-
-    def get_image_size_uncompressed(self, image_name: str) -> str:
-        """
-        Get uncompressed image size.
-        Args:
-            image_name: Image name
-        Returns:
-            Size string in MB
-        """
-        try:
-            size_bytes = PodmanCLIWrapper.call_podman_command(
-                cmd=f"inspect {image_name} -f '{{{{.Size}}}}'", return_output=True
-            ).strip()
-            size_mb = int(size_bytes) // (1024 * 1024)
-            return f"{size_mb}MB"
-        except (subprocess.CalledProcessError, ValueError):
-            return "Unknown"
-
-    def get_image_size_compressed(self, image_name: str) -> str:
-        """
-        Get compressed image size.
-        Args:
-            image_name: Image name
-        Returns:
-            Size string in MB
-        """
-        try:
-            # Save image and compress to get size
-            result = PodmanCLIWrapper.call_podman_command(
-                cmd=f"save {image_name} | gzip - | wc --bytes", return_output=True
-            )
-            size_bytes = int(result.strip())
-            size_mb = size_bytes // (1024 * 1024)
-            return f"{size_mb}MB"
-        except (subprocess.CalledProcessError, ValueError):
-            return "Unknown"
 
     def timestamp_s(self) -> int:
         """

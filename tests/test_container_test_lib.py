@@ -808,57 +808,6 @@ class TestWaitFunctions:
         assert result is False
 
 
-class TestImageSizeFunctions:
-    """Test image size calculation functions."""
-
-    def setup_method(self):
-        self.lib = ContainerTestLib()
-
-    def test_get_image_size_uncompressed_success(
-        self,
-    ):
-        """Test getting uncompressed image size."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.return_value = "1048576000"  # 1GB in bytes
-            size = self.lib.get_image_size_uncompressed("test:latest")
-            assert size == "1000MB"
-
-    def test_get_image_size_uncompressed_error(
-        self,
-    ):
-        """Test getting uncompressed image size with error."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.side_effect = CalledProcessError(1, "docker inspect")
-            size = self.lib.get_image_size_uncompressed("test:latest")
-            assert size == "Unknown"
-
-    def test_get_image_size_compressed_success(
-        self,
-    ):
-        """Test getting compressed image size."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.return_value = "524288000"  # 500MB in bytes
-            size = self.lib.get_image_size_compressed("test:latest")
-            assert size == "500MB"
-
-    def test_get_image_size_compressed_error(
-        self,
-    ):
-        """Test getting compressed image size with error."""
-        with patch(
-            "container_ci_suite.utils.ContainerTestLibUtils.run_command"
-        ) as mock_cmd:
-            mock_cmd.side_effect = CalledProcessError(1, "docker save")
-            size = self.lib.get_image_size_compressed("test:latest")
-            assert size == "Unknown"
-
-
 class TestContainerCreationAssertions:
     """Test container creation assertion functions."""
 

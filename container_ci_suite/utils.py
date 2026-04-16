@@ -1,7 +1,6 @@
 # MIT License
 #
 # Copyright (c) 2018-2019 Red Hat, Inc.
-import json
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -21,6 +20,7 @@ import json
 # SOFTWARE.
 
 import os
+import json
 import logging
 import shutil
 import subprocess
@@ -148,7 +148,7 @@ def get_env_commands_from_s2i_args(s2i_args: str) -> List:
     return env_content
 
 
-def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
+def get_public_image_name(os_name: str, base_image_name: str, version: str) -> str:
     """
     Get the public image name.
     Args:
@@ -158,15 +158,10 @@ def get_public_image_name(os: str, base_image_name: str, version: str) -> str:
     Returns:
         The public image name
     """
-    registry = get_registry_name(os)
-    if os == "rhel8":
-        return f"{registry}/rhel8/{base_image_name}-{version}"
-    if os == "rhel9":
-        return f"{registry}/rhel9/{base_image_name}-{version}"
-    if os == "rhel10":
-        return f"{registry}/rhel10/{base_image_name}-{version}"
-    else:
-        return f"{registry}/centos/{base_image_name}-{version}-centos7"
+    registry = get_registry_name(os_name)
+    if os_name.startswith("rhel"):
+        return f"{registry}/{os_name}/{base_image_name}-{version}"
+    return f"{registry}/sclorg/{base_image_name}-{version}-{os_name}"
 
 
 def download_template(
@@ -340,7 +335,9 @@ class ContainerTestLibUtils:
         for f in file_name_to_check:
             if not (Path(dir_name) / f).exists():
                 logger.error(
-                    f"ContainerTestLibUtils(check_logs_are_present): File {dir_name}/{f} does not exist."
+                    "ContainerTestLibUtils(check_logs_are_present): File '%s/%s' does not exist.",
+                    dir_name,
+                    f,
                 )
                 file_present = False
         return file_present
