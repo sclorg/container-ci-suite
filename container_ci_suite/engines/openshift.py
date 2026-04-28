@@ -33,6 +33,10 @@ from container_ci_suite.utils import (
     load_shared_credentials,
     get_shared_variable,
 )
+from container_ci_suite.exceptions import (
+    OpenShiftGetPodStatusFailed,
+    OpenShiftCommandFailed,
+)
 
 
 logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -88,7 +92,7 @@ class OpenShiftOperations:
         output = ContainerTestLibUtils.run_oc_command("version", json_output=False)
         print(output)
 
-    def get_pod_status(self) -> Dict:
+    def get_pod_status(self, cycle_count: int = 10) -> Dict:
         """
         Get the pod status.
         Returns:
@@ -96,11 +100,18 @@ class OpenShiftOperations:
         """
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
-        output = ContainerTestLibUtils.run_oc_command(
-            "get pods", json_output=True, namespace=self.namespace
-        )
-        # print(f" oc get pods: {output}")
-        return json.loads(output)
+        for _ in range(cycle_count):
+            print(".", sep="", end="")
+            try:
+                output = ContainerTestLibUtils.run_oc_command(
+                    "get pods", json_output=True, namespace=self.namespace
+                )
+                if output:
+                    return json.loads(output)
+            except (CalledProcessError, OpenShiftCommandFailed):
+                pass
+            time.sleep(3)
+        raise OpenShiftGetPodStatusFailed("Failed to get pod status")
 
     def print_get_status(self):
         """
@@ -283,9 +294,13 @@ class OpenShiftOperations:
             True if the build pod is finished, False otherwise
         """
         print("Check if build pod is finished")
-        for count in range(cycle_count):
+        for _ in range(cycle_count):
             print(".", sep="", end="")
-            self.pod_json_data = self.get_pod_status()
+            try:
+                self.pod_json_data = self.get_pod_status()
+            except OpenShiftGetPodStatusFailed:
+                time.sleep(1)
+                continue
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(1)
                 continue
