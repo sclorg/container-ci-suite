@@ -22,9 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import json
+import subprocess
+
+import pytest
 from flexmock import flexmock
+from unittest.mock import patch
 
 from container_ci_suite.engines.openshift import OpenShiftOperations
+from container_ci_suite.exceptions import (
+    OpenShiftCommandFailed,
+    OpenShiftGetPodStatusFailed,
+)
+from container_ci_suite.utils import ContainerTestLibUtils
 
 
 class TestOpenShiftOpsSuite(object):
@@ -77,9 +87,89 @@ class TestOpenShiftOpsSuite(object):
         )
         assert self.oc_ops.get_service_ip("python-testing") is None
 
-    def test_get_pod_status(self):
-        # self.oc_api.get_pod_status()
-        pass
+    def test_get_pod_status_success(self):
+        output = json.dumps({"items": [{"metadata": {"name": "pod-1"}}]})
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get pods",
+            json_output=True,
+            namespace="container-ci-suite-test",
+        ).and_return(output).once()
+
+        assert self.oc_ops.get_pod_status() == {"items": [{"metadata": {"name": "pod-1"}}]}
+
+    @patch("container_ci_suite.engines.openshift.time.sleep")
+    def test_get_pod_status_retries_on_openshift_error(self, mock_sleep):
+        output = json.dumps({"items": [{"metadata": {"name": "pod-1"}}]})
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get pods",
+            json_output=True,
+            namespace="container-ci-suite-test",
+        ).and_raise(OpenShiftCommandFailed("oc failed")).and_return(output).times(2)
+
+        assert self.oc_ops.get_pod_status(cycle_count=2) == {
+            "items": [{"metadata": {"name": "pod-1"}}]
+        }
+        mock_sleep.assert_called_once_with(3)
+
+    @patch("container_ci_suite.engines.openshift.time.sleep")
+    def test_get_pod_status_raises_when_retry_count_exhausted(self, mock_sleep):
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get pods",
+            json_output=True,
+            namespace="container-ci-suite-test",
+        ).and_raise(subprocess.CalledProcessError(1, "oc get pods")).times(2)
+
+        with pytest.raises(OpenShiftGetPodStatusFailed):
+            self.oc_ops.get_pod_status(cycle_count=2)
+        assert mock_sleep.call_count == 2
+
+    def test_print_get_status_success(self):
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get all",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_return("all resources").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "status --suggest",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_return("status output").once()
+
+        self.oc_ops.print_get_status()
+
+    def test_print_get_status_ignores_called_process_error_for_get_all(self):
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get all",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_raise(subprocess.CalledProcessError(1, "oc get all")).once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "status --suggest",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_return("status output").once()
+
+        self.oc_ops.print_get_status()
+
+    def test_print_get_status_ignores_called_process_error_for_status(self):
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "get all",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_return("all resources").once()
+        flexmock(ContainerTestLibUtils).should_receive("run_oc_command").with_args(
+            "status --suggest",
+            namespace="container-ci-suite-test",
+            json_output=False,
+            ignore_error=True,
+        ).and_raise(subprocess.CalledProcessError(1, "oc status --suggest")).once()
+
+        self.oc_ops.print_get_status()
 
     def test_is_s2i_pod_running(self):
         # self.oc_api.is_s2i_pod_running()
