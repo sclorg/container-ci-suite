@@ -8,7 +8,7 @@ from __future__ import print_function, unicode_literals
 
 
 class ContainerCIException(Exception):
-    """ Generic exception when something goes wrong """
+    """Generic exception when something goes wrong"""
 
 
 class ContainerCITimeout(ContainerCIException):
@@ -16,4 +16,16 @@ class ContainerCITimeout(ContainerCIException):
 
 
 class ContainerCICountExceeded(ContainerCIException):
+    pass
+
+
+class ContainerCICommandFailed(ContainerCIException):
+    pass
+
+
+class OpenShiftCommandFailed(ContainerCIException):
+    pass
+
+
+class OpenShiftGetPodStatusFailed(ContainerCIException):
     pass
