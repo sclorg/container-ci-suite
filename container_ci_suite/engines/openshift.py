@@ -88,9 +88,9 @@ class OpenShiftOperations:
             password = get_file_content(filename=Path("/root/.kube/ocp-kube")).strip()
             cmd = f"login -u kubeadmin -p {password} --server={url}"
         output = ContainerTestLibUtils.run_oc_command(cmd, json_output=False)
-        print(output)
+        logger.info("Output from 'oc login': %s", output)
         output = ContainerTestLibUtils.run_oc_command("version", json_output=False)
-        print(output)
+        logger.info("Output from 'oc version': %s", output)
 
     def get_pod_status(self, cycle_count: int = 10) -> Dict:
         """
@@ -101,7 +101,7 @@ class OpenShiftOperations:
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
         for _ in range(cycle_count):
-            print(".", sep="", end="")
+            logger.info(".", sep="", end="")
             try:
                 output = ContainerTestLibUtils.run_oc_command(
                     "get pods", json_output=True, namespace=self.namespace
@@ -117,9 +117,9 @@ class OpenShiftOperations:
         """
         Print the get all and status.
         """
-        print("Print get all and status:")
+        logger.info("Print get all and status:")
         try:
-            print(
+            logger.info(
                 ContainerTestLibUtils.run_oc_command(
                     "get all",
                     namespace=self.namespace,
@@ -130,7 +130,7 @@ class OpenShiftOperations:
         except CalledProcessError:
             pass
         try:
-            print(
+            logger.info(
                 ContainerTestLibUtils.run_oc_command(
                     "status --suggest",
                     namespace=self.namespace,
@@ -146,14 +146,14 @@ class OpenShiftOperations:
         Print the pod logs.
         """
         self.pod_json_data = self.get_pod_status()
-        print("Print all pod logs")
+        logger.info("Print all pod logs")
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            print(f"Logs from pod name {pod_name}:")
+            logger.info(f"Logs from pod name {pod_name}:")
             oc_logs = ContainerTestLibUtils.run_oc_command(
                 f"logs pod/{pod_name}", json_output=False, ignore_error=True
             )
-            print(oc_logs)
+            logger.info("Output from 'oc logs': %s", oc_logs)
 
     def is_project_exists(self) -> bool:
         """
@@ -205,12 +205,11 @@ class OpenShiftOperations:
         Returns:
             True if the pod is running, False otherwise
         """
-        print(f"Check for POD is running {pod_name_prefix}")
-        for count in range(loops):
-            print(".", sep="", end="")
+        logger.info("Check for POD is running %s", pod_name_prefix)
+        for _ in range(loops):
             self.pod_json_data = self.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
-                print(
+                logger.info(
                     "\nApplication pod name is not specified."
                     'Call: is_pod_running(pod_name_prefix="something").'
                 )
@@ -228,17 +227,20 @@ class OpenShiftOperations:
                     continue
                 status = item["status"]["phase"]
                 if "deploy" in pod_name:
-                    print(".", sep="", end="")
                     continue
-                if item["status"]["phase"] == "Running":
-                    print(f"\nPod with name {pod_name} is running {status}.")
+                if status == "Running":
+                    logger.info("\nPod with name %s is running %s.", pod_name, status)
                     output = self.get_logs(pod_name=pod_name)
-                    print(output)
+                    logger.info("Output from 'oc logs': %s", output)
                     # Wait couple seconds for sure
                     time.sleep(3)
                     return True
+                logger.debug("Pod %s is not running. Status: %s", pod_name, status)
+                output = self.get_logs(pod_name=pod_name)
+                logger.debug("Output from 'oc logs': %s", output)
+                time.sleep(3)
             time.sleep(3)
-        print("is_pod_running failed. See logs for debugging.")
+        logger.info("is_pod_running failed. See logs for debugging.")
         self.print_get_status()
         self.print_pod_logs()
         return False
@@ -266,23 +268,22 @@ class OpenShiftOperations:
         if not self.pod_json_data:
             self.pod_json_data = self.get_pod_status()
         for item in self.pod_json_data["items"]:
-            print(".", sep="", end="")
             pod_name = item["metadata"]["name"]
             if self.pod_name_prefix not in pod_name:
-                print(".", sep="", end="")
                 continue
             status = item["status"]["phase"]
             if pod_suffix_name in pod_name and status == "Failed":
-                print(f"\nPod with {pod_suffix_name} finished with {status}. See logs.")
+                logger.info(
+                    "\nPod with %s finished with %s. See logs.", pod_suffix_name, status
+                )
                 self.build_failed = True
                 self.print_pod_logs()
                 self.print_get_status()
                 return False
             if pod_suffix_name in pod_name and status != "Succeeded":
-                print(".", sep="", end="")
                 continue
             if pod_suffix_name in pod_name and status == "Succeeded":
-                print(f"\nPod with suffix {pod_suffix_name} is finished")
+                logger.info("\nPod with suffix %s is finished", pod_suffix_name)
                 return True
         return False
 
@@ -293,9 +294,8 @@ class OpenShiftOperations:
         Returns:
             True if the build pod is finished, False otherwise
         """
-        print("Check if build pod is finished")
+        logger.info("Check if build pod is finished")
         for _ in range(cycle_count):
-            print(".", sep="", end="")
             try:
                 self.pod_json_data = self.get_pod_status()
             except OpenShiftGetPodStatusFailed:
@@ -305,16 +305,14 @@ class OpenShiftOperations:
                 time.sleep(1)
                 continue
             if not self.is_build_pod_present():
-                print(".", sep="", end="")
                 time.sleep(1)
                 continue
             if not self.is_pod_finished(pod_suffix_name="build"):
-                print(".", sep="", end="")
                 if self.build_failed:
                     return False
                 time.sleep(3)
                 continue
-            print("\nBuild pod is finished")
+            logger.info("\nBuild pod is finished")
             return True
         return False
 
@@ -331,9 +329,8 @@ class OpenShiftOperations:
         """
         self.pod_name_prefix = pod_name_prefix
         build_pod_finished = False
-        print("Check if S2I build pod is running")
-        for count in range(cycle_count):
-            print(".", sep="", end="")
+        logger.info("Check if S2I build pod is running")
+        for _ in range(cycle_count):
             self.pod_json_data = self.get_pod_status()
             if len(self.pod_json_data["items"]) == 0:
                 time.sleep(1)
@@ -345,20 +342,19 @@ class OpenShiftOperations:
                 time.sleep(3)
                 continue
             build_pod_finished = True
-            print(f"\nBuild pod with name {pod_name_prefix} is finished.")
+            logger.info("\nBuild pod with name %s is finished.", pod_name_prefix)
             break
         if not build_pod_finished:
-            print(f"\nBuild pod with name {pod_name_prefix} was not finished.")
+            logger.info("\nBuild pod with name %s was not finished.", pod_name_prefix)
             return False
-        print("Check if S2I pod is running.")
-        for count in range(cycle_count):
-            print(".", sep="", end="")
+        logger.info("Check if S2I pod is running.")
+        for _ in range(cycle_count):
             if not self.is_pod_running():
                 time.sleep(3)
                 continue
-            print("\nPod is running")
+            logger.info("\nPod is running")
             return True
-        print("is_s2i_pod_running failed. See logs for debugging.")
+        logger.info("is_s2i_pod_running failed. See logs for debugging.")
         self.print_get_status()
         self.print_pod_logs()
         return False
@@ -375,7 +371,7 @@ class OpenShiftOperations:
             f"get svc/{service_name}", json_output=True, namespace=self.namespace
         )
         json_output = json.loads(output)
-        print(json_output)
+        logger.info("Output from 'oc get services': %s", json_output)
         return json_output
 
     def get_service_ip(self, service_name) -> Any:
@@ -402,7 +398,7 @@ class OpenShiftOperations:
             True if the image stream exists, False otherwise
         """
         try:
-            for count in range(3):
+            for _ in range(3):
                 json_output = self.oc_get_is(name=name)
                 if (
                     json_output["kind"] == "ImageStream"
@@ -476,9 +472,8 @@ class OpenShiftOperations:
         """
         Function checks if pod with specific name is really ready
         """
-        print("Check if pod is ready.")
-        for count in range(cycle_count):
-            print(".", end="")
+        logger.info("Check if pod is ready.")
+        for _ in range(cycle_count):
             json_data = self.get_pod_status()
             if len(json_data["items"]) == 0:
                 time.sleep(1)
@@ -492,11 +487,11 @@ class OpenShiftOperations:
                 if "deploy" in pod_name:
                     continue
                 if item["status"]["phase"] == "Running":
-                    print(f"\nPod with name {pod_name} is running {status}.")
+                    logger.info("\nPod with name %s is running %s.", pod_name, status)
                     output = ContainerTestLibUtils.run_oc_command(
                         f"logs {pod_name}", namespace=self.namespace, json_output=False
                     )
-                    print(output)
+                    logger.info("Output from 'oc logs': %s", output)
                     # Wait couple seconds for sure
                     time.sleep(5)
                     return True

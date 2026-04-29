@@ -776,7 +776,7 @@ def is_shared_cluster(test_type: str = "ocp4"):
     if isinstance(value, str) and value in ["true", "True", "y", "Y", "1"]:
         logger.debug("Shared cluster allowed for %s", test_type)
         return True
-    logger.error(
+    logger.debug(
         "\nShared cluster is not allowed.\nTo allow it add 'true' to file /root/shared_cluster.json."
     )
     return False
