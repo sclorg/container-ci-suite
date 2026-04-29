@@ -148,7 +148,7 @@ class OpenShiftOperations:
         logger.info("Print all pod logs")
         for item in self.pod_json_data["items"]:
             pod_name = item["metadata"]["name"]
-            logger.info(f"Logs from pod name {pod_name}:")
+            logger.info("Logs from pod name %s:", pod_name)
             oc_logs = ContainerTestLibUtils.run_oc_command(
                 f"logs pod/{pod_name}", json_output=False, ignore_error=True
             )
