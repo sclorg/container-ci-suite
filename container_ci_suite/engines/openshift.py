@@ -223,22 +223,36 @@ class OpenShiftOperations:
             for item in self.pod_json_data["items"]:
                 pod_name = item["metadata"]["name"]
                 if self.pod_name_prefix not in pod_name:
+                    logger.debug(
+                        "We check only PODs that start with '%s'. Pod '%s' is not counted.",
+                        self.pod_name_prefix,
+                        pod_name,
+                    )
                     continue
                 status = item["status"]["phase"]
                 if "deploy" in pod_name:
                     continue
+                if pod_name.endswith("-build"):
+                    logger.debug(
+                        "Pod %s is a build pod. Let's go to the next POD.", pod_name
+                    )
+                    continue
                 if status == "Running":
-                    logger.info("\nPod with name %s is running %s.", pod_name, status)
-                    output = self.get_logs(pod_name=pod_name)
-                    logger.info("Output from 'oc logs': %s", output)
+                    logger.info("\nPod with name %s IS RUNNING %s.", pod_name, status)
                     # Wait couple seconds for sure
                     time.sleep(3)
                     return True
-                logger.debug("Pod %s is not running. Status: %s", pod_name, status)
-                output = self.get_logs(pod_name=pod_name)
-                logger.debug("Output from 'oc logs': %s", output)
+                logger.debug("Pod %s is NOT RUNNING. Status: %s", pod_name, status)
+                try:
+                    output = self.get_logs(pod_name=pod_name)
+                    logger.debug("Output from 'oc logs %s': %s", pod_name, output)
+                except CalledProcessError:
+                    logger.debug(
+                        "Failed to get logs for pod '%s'(status=%s). Let's wait.",
+                        pod_name,
+                        status,
+                    )
                 time.sleep(3)
-            time.sleep(3)
         logger.info("is_pod_running failed. See logs for debugging.")
         self.print_get_status()
         self.print_pod_logs()
