@@ -101,7 +101,6 @@ class OpenShiftOperations:
         # output = OpenShiftAPI.run_oc_command("get all", json_output=False)
         # print(f"oc get all: {output}")
         for _ in range(cycle_count):
-            logger.info(".", sep="", end="")
             try:
                 output = ContainerTestLibUtils.run_oc_command(
                     "get pods", json_output=True, namespace=self.namespace
