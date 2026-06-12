@@ -552,11 +552,20 @@ class OpenShiftAPI:
         logger.debug("Tag podman image %s", cmd)
         output = ContainerTestLibUtils.run_command(cmd=cmd, ignore_error=False)
         logger.debug("Upload_image tagged %s", output)
-        output = ContainerTestLibUtils.run_command(
-            cmd=f"podman push {output_name}", ignore_error=False
-        )
-        logger.debug("Upload_image push %s", output)
-        return True
+        is_pushed = False
+        for _ in range(1, 3):
+            try:
+                output = ContainerTestLibUtils.run_command(
+                    cmd=f"podman push {output_name}", ignore_error=False
+                )
+                logger.debug("Upload_image push %s", output)
+                is_pushed = True
+                break
+            except subprocess.CalledProcessError:
+                time.sleep(3)
+        if not is_pushed:
+            logger.error("Upload_image by podman push failed %s", output)
+        return is_pushed
 
     def create_new_app_with_template(
         self, name: str, template_json: str, template_args: Dict = None
@@ -624,7 +633,9 @@ class OpenShiftAPI:
             logger.error("\nBuild pod does not finished in proper time")
             self.openshift_ops.print_get_status()
             return False
-        if not self.openshift_ops.is_pod_running(pod_name_prefix=name_in_template):
+        if not self.openshift_ops.is_pod_running(
+            pod_name_prefix=name_in_template, loops=timeout
+        ):
             logger.error("Pod is not running after time.")
             self.openshift_ops.print_get_status()
             return False
