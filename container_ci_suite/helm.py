@@ -38,7 +38,6 @@ from container_ci_suite.utils import ContainerTestLibUtils
 from container_ci_suite.openshift import OpenShiftAPI
 from container_ci_suite.engines.openshift import OpenShiftOperations
 
-logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -75,6 +74,8 @@ class HelmChartsAPI:
         self.pod_name_prefix: str = ""
         self.namespace = self.set_namespace()
         self.cloned_dir = ""
+        self.oc_ops = OpenShiftOperations()
+
 
     @staticmethod
     def run_helm_command(
@@ -166,6 +167,7 @@ class HelmChartsAPI:
             The version from the Chart.yaml file
         """
         chart_dict = utils.get_yaml_data(self.full_package_dir / "Chart.yaml")
+        logger.debug("Chart.yaml data: %s", chart_dict)
         if "appVersion" in chart_dict:
             return chart_dict["appVersion"]
         return None
@@ -188,6 +190,7 @@ class HelmChartsAPI:
             True if the PVC is in the values.yaml file, False otherwise
         """
         chart_dict = utils.get_yaml_data(self.full_package_dir / "values.yaml")
+        logger.debug
         if "pvc" in chart_dict:
             return True
         return False
@@ -230,9 +233,8 @@ class HelmChartsAPI:
         Returns:
             True if the S2I pod is running, False otherwise
         """
-        oc_ops = OpenShiftOperations()
-        oc_ops.set_namespace(namespace=self.oc_api.namespace)
-        return oc_ops.is_s2i_pod_running(
+        self.oc_ops.set_namespace(namespace=self.oc_api.namespace)
+        return self.oc_ops.is_s2i_pod_running(
             pod_name_prefix=pod_name_prefix, cycle_count=timeout
         )
 
@@ -245,9 +247,8 @@ class HelmChartsAPI:
         Returns:
             True if the pod is running, False otherwise
         """
-        oc_ops = OpenShiftOperations()
-        oc_ops.set_namespace(namespace=self.oc_api.namespace)
-        return oc_ops.is_pod_running(pod_name_prefix=pod_name_prefix, loops=loops)
+        self.oc_ops.set_namespace(namespace=self.oc_api.namespace)
+        return self.oc_ops.is_pod_running(pod_name_prefix=pod_name_prefix, loops=loops)
 
     def helm_package(self) -> bool:
         """
@@ -282,6 +283,7 @@ class HelmChartsAPI:
         """
         try:
             output = HelmChartsAPI.run_helm_command(cmd=command)
+            logger.debug("get_helm_json_output: Helm command '%s' output: %s", command, output)
         except subprocess.CalledProcessError as cpe:
             logger.error("Helm command %s failed. See %s", command, cpe.output)
             return {}
@@ -289,6 +291,8 @@ class HelmChartsAPI:
         new_output = []
         for line in output.split("\n"):
             if line.startswith("W"):
+                continue
+            if line.startswith("I0612"):
                 continue
             new_output.append(line)
         # output = [x for x in output.split('\n') if not x.startswith("W")]
@@ -303,6 +307,7 @@ class HelmChartsAPI:
         """
         # Let's check that pod is really running
         json_output = self.get_helm_json_output(command="list")
+        logger.debug("check_helm_installation:Helm list JSON output 'list': %s", json_output)
         for out in json_output:
             if out["name"] != self.package_name:
                 continue
@@ -319,6 +324,7 @@ class HelmChartsAPI:
             True if the Helm package is installed, False otherwise
         """
         json_output = self.get_helm_json_output(command="list")
+        logger.debug("is_helm_package_installed:Helm list JSON output 'list': %s", json_output)
         for out in json_output:
             if out["name"] == self.package_name:
                 return True
@@ -372,6 +378,7 @@ class HelmChartsAPI:
             json_output = self.get_helm_json_output(
                 f"install {self.package_name} {self.get_full_tarball_path} {command_values}"
             )
+            logger.debug("helm_installation:Helm install JSON output 'install': %s", json_output)
             if json_output:
                 install_success = True
                 break

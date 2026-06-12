@@ -195,7 +195,7 @@ class OpenShiftOperations:
             f"logs {pod_name}", namespace=self.namespace, json_output=False
         )
 
-    def is_pod_running(self, pod_name_prefix: str = "", loops: int = 180) -> bool:
+    def is_pod_running(self, pod_name_prefix: str = "", loops: int = 30) -> bool:
         """
         Check if the pod is running.
         Args:
@@ -204,7 +204,7 @@ class OpenShiftOperations:
         Returns:
             True if the pod is running, False otherwise
         """
-        logger.info("Check for POD is running %s", pod_name_prefix)
+        logger.info("Check for POD is running with prefix '%s'", pod_name_prefix)
         for _ in range(loops):
             self.pod_json_data = self.get_pod_status()
             if pod_name_prefix == "" and self.pod_name_prefix == "":
