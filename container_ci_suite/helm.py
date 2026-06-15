@@ -292,7 +292,7 @@ class HelmChartsAPI:
         for line in output.split("\n"):
             if line.startswith("W"):
                 continue
-            if line.startswith("I0612"):
+            if line.startswith("I06"):
                 continue
             new_output.append(line)
         # output = [x for x in output.split('\n') if not x.startswith("W")]
